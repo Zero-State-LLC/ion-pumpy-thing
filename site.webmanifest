@@ -1,0 +1,22 @@
+{
+  "name": "Ion Pumpy Thing",
+  "short_name": "Ion Pumpy",
+  "description": "Six steps from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the 4orbs.com wormhole account, and how much of it anyone can actually do.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070c20",
+  "theme_color": "#070c20",
+  "icons": [
+    {
+      "src": "assets/favicon-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

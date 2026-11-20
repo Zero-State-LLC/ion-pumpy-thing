@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="How Ion Pumpy Thing stores progress on this device and how visits to ion-pumpy-thing.app are measured.">
+  <meta name="theme-color" content="#070c20">
+  <title>Privacy — Ion Pumpy Thing</title>
+  <link rel="canonical" href="https://ion-pumpy-thing.app/privacy.html">
+  <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="assets/favicon-64.png" type="image/png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=Saira+Condensed:wght@700&display=swap">
+  <style>
+:root { color-scheme: dark; --deep:#070c20; --ink:#ece6d6; --muted:#9aa6c9; --cold:#62d2e8; --warm:#ffae42; --line:#2a3768;
+  --display:"Saira Condensed","Arial Narrow","Helvetica Neue",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; }
+html,body { background:var(--deep); color:var(--ink); margin:0; font:15px/1.55 var(--body); }
+.wrap { max-width:46rem; margin:0 auto; padding:32px 20px 64px; }
+h1 { font-family:var(--display); font-weight:700; font-size:clamp(34px,6vw,54px); line-height:.92; letter-spacing:.01em; text-transform:uppercase; margin:0 0 16px; }
+h1 span { color:var(--cold); }
+h2 { font-size:1.15rem; margin:1.6em 0 .4em; }
+p,li { color:var(--muted); }
+a { color:var(--cold); }
+footer { margin-top:2.5em; font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Privacy</h1>
+    <p>Ion Pumpy Thing is a browser game published by <a href="https://zer0state.com/">Zero State LLC</a>. You do not create an account to play it.</p>
+    <h2>Progress on this device</h2>
+    <p>The game stores your run, settings, and timed best in this browser, on this device. Starting a new run replaces stored progress but keeps your timed best. If browser storage is blocked, the game stays playable and tells you it cannot save. Private browsing or clearing site data can remove that progress. Nothing here is sent to our servers.</p>
+    <h2>The practice board</h2>
+    <p>An optional shared practice board exists only when the game runs as a Claude artifact with access to a <code>scores-v2</code> database. On this website that board is unavailable, and your timed best stays on this device. Learning runs do not post scores.</p>
+    <h2>Measurement on this website</h2>
+    <p>On the production host <code>ion-pumpy-thing.app</code> only, this site loads Google Analytics 4 (measurement ID <code>G-TEC2RE9FGC</code>) so Zero State can see aggregate visits. The tag is not loaded on localhost, preview hosts, or <code>ion-pumpy-thing.pages.dev</code>. Google’s own processing is described in the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.</p>
+    <h2>Fonts</h2>
+    <p>The pages load IBM Plex and Saira Condensed from Google Fonts.</p>
+    <p><a href="/">Back to the game</a></p>
+    <footer>Questions: <a href="mailto:zer0state@zer0state.com">zer0state@zer0state.com</a></footer>
+  </main>
+</body>
+</html>

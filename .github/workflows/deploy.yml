@@ -50,9 +50,13 @@ jobs:
           deadline=$((SECONDS + 180))
           ok=0
           while (( SECONDS < deadline )); do
-            html="$(curl -fsS "https://ion-pumpy-thing.app/?cb=${cb}" || true)"
-            privacy_code="$(curl -sS -o /dev/null -w '%{http_code}' "https://ion-pumpy-thing.app/privacy?cb=${cb}" || true)"
-            if curl -fsS "https://ion-pumpy-thing.app/assets/og-image.png?cb=${cb}" -o /tmp/og-image.png; then
+            set +e
+            html="$(curl -fsS "https://ion-pumpy-thing.app/?cb=${cb}")"
+            privacy_code="$(curl -sS -o /dev/null -w '%{http_code}' "https://ion-pumpy-thing.app/privacy?cb=${cb}")"
+            curl -fsS "https://ion-pumpy-thing.app/assets/og-image.png?cb=${cb}" -o /tmp/og-image.png
+            png_rc=$?
+            set -e
+            if [[ "$png_rc" -eq 0 ]]; then
               png_ok="$(python3 -c "
 from pathlib import Path
 p = Path('/tmp/og-image.png')

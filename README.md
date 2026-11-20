@@ -17,6 +17,8 @@ The Casimir lesson includes an adjustable plate diagram and a separate throat vi
 
 ## Running it
 
+The game is at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). A short [privacy notice](privacy.html) describes local progress and measurement on that host.
+
 It is one self-contained file. Open `index.html` in a browser, or serve the folder:
 
     python3 -m http.server

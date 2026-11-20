@@ -66,6 +66,11 @@ Run `node --test tests/game.test.cjs tests/seo.test.cjs` with Node 20 or later. 
 
 These are model and integration checks, not screenshot or full-browser tests. Browser launch and local-file preview were unavailable in the review environment. Before release, perform an actual desktop and phone playthrough, keyboard and touch checks, audio checks, reduced-motion checks, and a visual inspection of both camera views and the plate diagram. Suggested phone baseline: 390 px width, no horizontal overflow, all controls reachable without a sticky scene covering them.
 
+
+## Deploy
+
+The production host is the Cloudflare Pages project `ion-pumpy-thing`, served at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). `scripts/build-dist.sh` copies the 11 public site files into `dist/`. After the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets are set, merges to `main` (and manual `workflow_dispatch` runs) deploy that folder through GitHub Actions and smoke-check the live host. The workflow does not run a production deploy from pull requests.
+
 ## Remaining work
 
 The specific Polywell/FRC visualizations, a more detailed reactor energy model, measured-track imports, full PDF equation verification and playtesting remain later phases. The aircraft transit is now a geometric teaching diagram, not a physical wormhole simulation. The current mission freezes earlier experiment settings rather than simulating a coupled reactor. No invented energy-conversion law has been introduced to connect fusion output to negative energy.

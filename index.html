@@ -1,4 +1,10 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.sound-settings summary { cursor: pointer; min-height: 32px; }
+.sound-controls { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding: 8px 0; }
+.sound-controls label { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.sound-controls input[type=range] { width: min(160px, 40vw); }
+.sound-controls input[type=checkbox] { width: 20px; height: 20px; }
+</style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>Ion Pumpy Thing</title>
 <meta name="description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the 4orbs.com wormhole account from the physics it cites, and explains that physics as you go.">
@@ -302,6 +308,15 @@ footer p { margin: 0; }
     <p id="save-status" class="statusline"></p>
     <p id="restore-status" class="statusline" role="status" hidden></p>
   </div>
+  <details class="sound-settings"><summary>Sound settings</summary>
+    <div class="sound-controls">
+      <label for="sound-volume">Volume <input id="sound-volume" type="range" min="0" max="100" value="55"></label>
+      <label for="sound-ambience">Background <input id="sound-ambience" type="range" min="0" max="100" value="35"></label>
+      <label class="pulse-option"><input id="sound-pulse" type="checkbox" checked> Gentle pulse</label>
+    </div>
+    <p class="note">Mechanical sounds follow the action. Electrical tones use a 7.83 Hz reference shifted into the audible range. Turn off Gentle pulse for steady electrical tones. Sound stays off until you enable it.</p>
+    <p id="sound-status" class="statusline" role="status"></p>
+  </details>
 
   <main class="deck" id="deck">
     <section class="view" aria-label="Simulation view">
@@ -318,6 +333,8 @@ footer p { margin: 0; }
   </footer>
 </div>
 
+<script src="audio-cues.js"></script>
+<script src="audio.js"></script>
 <script>
 (() => {
 const $ = (s, r = document) => r.querySelector(s);
@@ -358,51 +375,45 @@ function label(txt, x, y, color = COL.muted, align = 'left', size = 11) {
 function viewTitle(txt) { label(txt, 34, 24, COL.muted); }
 
 /* ───────── Sound: off until the player turns it on ───────── */
-const snd = {
-  on: false, ac: null, want: [0, 0],
-  enable() {
-    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
-    if (!this.ac) {
-      const ac = this.ac = new AC();
-      this.master = ac.createGain(); this.master.gain.value = 0.7; this.master.connect(ac.destination);
-      this.osc = ac.createOscillator(); this.osc.type = 'sawtooth'; this.osc.frequency.value = 60;
-      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
-      this.humGain = ac.createGain(); this.humGain.gain.value = 0;
-      this.osc.connect(lp); lp.connect(this.humGain); this.humGain.connect(this.master); this.osc.start();
-      const buf = this.buf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    this.ac.resume(); this.on = true; return true;
-  },
-  disable() { this.on = false; if (this.ac) this.humGain.gain.setTargetAtTime(0, this.ac.currentTime, 0.03); },
-  hum(f, g) { this.want = [f, g]; },
-  apply() {
-    if (!this.on) return;
-    const t = this.ac.currentTime;
-    this.osc.frequency.setTargetAtTime(this.want[0] || 60, t, 0.06);
-    this.humGain.gain.setTargetAtTime(this.want[1], t, 0.06);
-    this.want = [0, 0];
-  },
-  burst(dur, gain, freq, type = 'bandpass') {
-    if (!this.on) return;
-    const ac = this.ac, t = ac.currentTime, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-    src.buffer = this.buf; f.type = type; f.frequency.value = freq;
-    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(f); f.connect(g); g.connect(this.master); src.start(t, Math.random() * 0.8, dur + 0.02);
-  },
-  tone(freq, dur, gain, delay = 0) {
-    if (!this.on) return;
-    const ac = this.ac, t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
-    o.frequency.value = freq; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05);
-  },
-  chime() { this.tone(660, 0.2, 0.12); this.tone(990, 0.35, 0.12, 0.13); }
+const snd = window.IonSound ? new window.IonSound(window.ION_AUDIO_CUES) : {
+  on: false, enable: async () => false, disable() {}, play() {}, bed() {}, prime() {},
+  setMode() {}, stopAll() {}, beginFrame() {}, endFrame() {}, setVolume() {}, setAmbience() {}, setPulse() {}
 };
-// The label states the current setting; it changes, so the button carries no pressed state.
-$('#snd').onclick = e => {
-  const b = e.currentTarget, on = !snd.on && snd.enable();
-  if (!on) snd.disable();
-  b.textContent = on ? 'Sound: on' : 'Sound: off';
+const SOUND_PREFS = 'ion-pumpy-audio-v1';
+try {
+  const prefs = JSON.parse(localStorage.getItem(SOUND_PREFS) || 'null');
+  if (prefs && typeof prefs === 'object') {
+    if (typeof prefs.volume === 'number' && Number.isFinite(prefs.volume)) snd.setVolume(prefs.volume);
+    if (typeof prefs.ambience === 'number' && Number.isFinite(prefs.ambience)) snd.setAmbience(prefs.ambience);
+    if (typeof prefs.pulse === 'boolean') snd.setPulse(prefs.pulse);
+  }
+} catch (_) {}
+$('#sound-volume').value = Math.round((snd.volume ?? .55) * 100);
+$('#sound-ambience').value = Math.round((snd.ambience ?? .35) * 100);
+$('#sound-pulse').checked = snd.pulse !== false;
+function describeSoundSettings() {
+  $('#sound-volume').setAttribute('aria-valuetext', Math.round((snd.volume ?? .55) * 100) + ' percent');
+  $('#sound-ambience').setAttribute('aria-valuetext', Math.round((snd.ambience ?? .35) * 100) + ' percent');
+}
+describeSoundSettings();
+function saveSoundPrefs() {
+  describeSoundSettings();
+  try { localStorage.setItem(SOUND_PREFS, JSON.stringify({ volume: snd.volume, ambience: snd.ambience, pulse: snd.pulse })); } catch (_) {}
+}
+$('#sound-volume').oninput = e => { snd.setVolume(Number(e.target.value) / 100); saveSoundPrefs(); };
+$('#sound-ambience').oninput = e => { snd.setAmbience(Number(e.target.value) / 100); saveSoundPrefs(); };
+$('#sound-pulse').onchange = e => { snd.setPulse(e.target.checked); saveSoundPrefs(); };
+$('#snd').onclick = async e => {
+  const b = e.currentTarget;
+  if (snd.on) { snd.disable(); set('sound-status', 'Sound off.'); }
+  else {
+    b.disabled = true; syncAudioMode();
+    const enabled = await snd.enable(); b.disabled = false;
+    if (enabled) { primeStageAudio(); snd.play('ui-confirm'); }
+    else set('sound-status', 'Sound could not start. Try enabling it again.');
+  }
+  b.textContent = snd.on ? 'Sound: on' : 'Sound: off';
+  if (snd.on) set('sound-status', 'Sound on. Volume and background level are adjustable.');
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
@@ -517,7 +528,7 @@ const ignite = stage({
     const glow = ionised ? clamp(0.4 + (Te - 2) / 4, 0, 1) * (thin ? 0.12 : 1) : clamp(Te - 1, 0, 1) * 0.15;
     return { p, Te, Ti, state, ok, glow, frac: clamp((Te - 1) / 1.5, 0, 1) };
   },
-  stroke() { this.p = Math.max(0.05, this.p * 0.8); this.anim = 1; snd.burst(0.1, 0.3, 700); },
+  stroke() { S.paused = false; syncAudioMode(); this.p = Math.max(0.05, this.p * 0.8); this.anim = 1; snd.play('pump-stroke'); },
   init() {
     if (!this.ions.length) for (let i = 0; i < 28; i++) {
       const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 0.85, d = Math.random() * TAU, e = Math.random() * TAU;
@@ -527,7 +538,7 @@ const ignite = stage({
     const pw = $('#ig-power'); pw.value = this.power; pw.oninput = () => { this.power = +pw.value; };
     const gs = panel.querySelectorAll('[data-gas]');
     const paint = () => gs.forEach(b => b.setAttribute('aria-pressed', b.dataset.gas === this.gas));
-    gs.forEach(b => b.onclick = () => { this.gas = b.dataset.gas; paint(); });
+    gs.forEach(b => b.onclick = () => { if (this.gas !== b.dataset.gas) snd.play('ui-toggle', { kind: 'ui' }); this.gas = b.dataset.gas; paint(); });
     paint();
     const b = $('#ig-pump');
     b.onpointerdown = e => { this.pumping = true; this.strokeT = 0; this.stroke(); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
@@ -566,7 +577,7 @@ const ignite = stage({
     });
     this.hold = m.ok ? this.hold + dt : 0;
     if (this.hold >= 1.5) complete(this);
-    snd.hum(50 + this.power * 1.4, 0.02 + m.glow * 0.07);
+    snd.bed('plasma-bed', { level: 0.2 + m.glow * .6, brightness: 900 + this.power * 28 });
     out('ig-power', this.power + ' %');
     set('ig-p', (m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)) + ' torr<small>' + (m.p > 2.5 ? 'keep pumping' : m.p < 0.3 ? 'too thin: let it leak back' : 'in the band') + '</small>');
     set('ig-te', kelvin(m.Te * 11600) + '<small>' + fmt(m.Te, 1) + ' eV</small>');
@@ -662,8 +673,8 @@ const hold = stage({
       if (assistBtn) assistBtn.setAttribute('aria-pressed', learn && this.assist);
       if (showBtn) showBtn.hidden = !(learn && this.fails >= 3 && !this.done);
     };
-    if (assistBtn) assistBtn.onclick = () => { this.assist = !this.assist; this.paintAssist(); };
-    if (showBtn) showBtn.onclick = () => { this.autopilot = true; this.assist = true; this.paintAssist(); };
+    if (assistBtn) assistBtn.onclick = () => { this.assist = !this.assist; snd.play('ui-toggle', { kind: 'ui' }); this.paintAssist(); };
+    if (showBtn) showBtn.onclick = () => { this.autopilot = true; this.assist = true; snd.play('ui-confirm', { kind: 'ui' }); this.paintAssist(); };
     this.paintAssist();
   },
   push(t) { return 0.42 * Math.sin(t * 0.55 + 0.5) + 0.28 * Math.sin(t * 1.25 + 2); },
@@ -683,7 +694,7 @@ const hold = stage({
     const leak = beta > 1, before = this.lock;
     let missed = false;
     this.x += (this.push(t) + this.trim * 1.2 * clamp(this.B / 0.3, 0, 1)) * dt;
-    if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; missed = true; snd.burst(0.3, 0.3, 300, 'lowpass'); }
+    if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; missed = true; if (dt > 0) snd.play('wall-loss'); }
     this.hit = Math.max(0, this.hit - dt);
     const centred = Math.abs(this.x) < 0.45;
     this.lock = !leak && beta >= 0.75 && centred ? Math.min(6, this.lock + dt) : 0;
@@ -695,8 +706,8 @@ const hold = stage({
       complete(this);
       if (this.paintAssist) this.paintAssist();
     }
-    if (leak && Math.random() < dt * 14) snd.burst(0.03, 0.18, 2400);
-    snd.hum(55 + this.B * 110, 0.02 + this.B * 0.06);
+    if (dt > 0 && leak) snd.play('particle-leak', { level: .45 });
+    snd.bed('field-bed', { level: .3 + this.B * .5, brightness: 900 + this.B * 2800 });
     const target = leak ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
     this.size += (target - this.size) * Math.min(1, dt * 5);
     const out = leak ? clamp(beta - 1, 0.15, 3) * 1.6 : 0;
@@ -780,7 +791,7 @@ const fuel = stage({
     const t = $('#fu-t'); t.value = this.lt; t.oninput = () => { this.lt = +t.value; };
     const fs = panel.querySelectorAll('[data-fuel]');
     const paint = () => fs.forEach(b => b.setAttribute('aria-pressed', b.dataset.fuel === this.fuel));
-    fs.forEach(b => b.onclick = () => { this.fuel = b.dataset.fuel; paint(); });
+    fs.forEach(b => b.onclick = () => { if (this.fuel !== b.dataset.fuel) snd.play('ui-toggle', { kind: 'ui' }); this.fuel = b.dataset.fuel; paint(); });
     paint();
   },
   update(dt) {
@@ -789,6 +800,7 @@ const fuel = stage({
     this.acc += rate * 16 * dt;
     while (this.acc >= 1 && this.ev.length < 220) {
       this.acc -= 1;
+      if (dt > 0) snd.play('charged-product', { level: .35 });
       const a0 = Math.random() * TAU, r0 = Math.random() * 0.18, n = this.fuel === 'pb' ? 3 : 1, base = Math.random() * TAU;
       for (let i = 0; i < n; i++) { const a = base + i * TAU / n; this.ev.push({ x: Math.cos(a0) * r0, y: Math.sin(a0) * r0, a, k: 'a', s: 0.5 + Math.random() * 0.2 }); }
       if (this.fuel === 'dt') this.ev.push({ x: Math.cos(a0) * r0, y: Math.sin(a0) * r0, a: base + Math.PI, k: 'n', s: 1.5 });
@@ -798,7 +810,7 @@ const fuel = stage({
       if (q.k === 'a') q.a += dt * 5;       // charged: the field curls its path
       q.x += Math.cos(q.a) * q.s * dt; q.y += Math.sin(q.a) * q.s * dt;
       const d = Math.hypot(q.x, q.y);
-      if (q.k === 'n' && d >= 1) { this.spots.push({ a: Math.atan2(q.y, q.x), l: 1 }); snd.burst(0.012, 0.3, 3200, 'highpass'); return false; }
+      if (q.k === 'n' && d >= 1) { this.spots.push({ a: Math.atan2(q.y, q.x), l: 1 }); if (dt > 0) snd.play('neutron-impact', { level: .5 }); return false; }
       if (q.k === 'a' && (d >= 0.6 || (q.s -= dt * 0.12) <= 0.05)) return false;
       return true;
     });
@@ -806,7 +818,7 @@ const fuel = stage({
     this.dose = clamp(this.dose + (lit && this.fuel === 'dt' ? dt * 0.22 : 0), 0, 1);
     this.hold = lit && this.fuel === 'pb' ? this.hold + dt : 0;
     if (this.hold >= 3) complete(this);
-    snd.hum(70 + this.lt * 60, 0.015 + rate * 0.07);
+    snd.bed('fusion-bed', { level: .2 + rate * .6, brightness: 900 + this.lt * 800 });
     const K = keV * 11.6e6;
     out('fu-t', K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K');
     set('fu-rate', lit ? 'Burning<small>simplified temperature response</small>' : 'Low activity<small>simplified temperature response</small>');
@@ -895,7 +907,7 @@ const orbit = stage({
     const ok = this.r >= 60 && this.r <= 70 && paced && this.cam >= 123 && this.cam <= 141;
     this.hold = ok ? this.hold + dt : 0;
     if (this.hold >= 1.5) complete(this);
-    snd.hum(40 + v * 0.6, 0.05);
+    snd.bed('formation-bed', { level: .65, brightness: 1200 + Math.min(v, 400) * 5 });
     out('or-r', this.r + ' m'); out('or-t', this.T.toFixed(1) + ' s'); out('or-c', this.cam + '°');
     set('or-v', fmt(v * 3.6) + ' km/h<small>relative to the airliner</small>');
     set('or-g', fmt(g, 1) + ' g<small>a 75 kg person would weigh ' + fmt(75 * g / 1000, 1) + ' t</small>');
@@ -960,10 +972,10 @@ const open = stage({
     </dl>`,
   init() {
     for (const [id, k] of [['op-w', 'w'], ['op-d', 'ld'], ['op-a', 'la']]) { const el = $('#' + id); el.value = this[k]; el.oninput = () => { this[k] = +el.value; }; }
-    $('#op-assume').onclick = () => { this.assumed = !this.assumed; if (this.assumed) snd.tone(55, 1.2, 0.2); };
+    $('#op-assume').onclick = () => { this.assumed = !this.assumed; S.paused = false; syncAudioMode(); snd.play(this.assumed ? 'assumption' : 'plasma-fade'); };
     const paint = () => { $('#op-plates').setAttribute('aria-pressed', this.view === 'plates'); $('#op-throat').setAttribute('aria-pressed', this.view === 'throat'); };
-    $('#op-plates').onclick = () => { this.view = 'plates'; paint(); };
-    $('#op-throat').onclick = () => { this.view = 'throat'; paint(); };
+    $('#op-plates').onclick = () => { if (this.view !== 'plates') snd.play('ui-toggle', { kind: 'ui' }); this.view = 'plates'; paint(); };
+    $('#op-throat').onclick = () => { if (this.view !== 'throat') snd.play('ui-toggle', { kind: 'ui' }); this.view = 'throat'; paint(); };
     paint();
   },
   update(dt) {
@@ -981,7 +993,8 @@ const open = stage({
     set('op-short', this.assumed ? 'The orbs<small>holding the throat open</small>' : 'Off<small>draw from the orbs to hold the throat</small>');
     const fits = this.w >= 61;
     if (fits && this.assumed) complete(this);
-    if (this.assumed) snd.hum(46, 0.07);
+    if (this.assumed && this.view === 'throat') snd.bed('throat-bed', { level: .6 });
+    if (this.view === 'plates' && performance.now() - plateInputAt < 140) snd.bed('plate-adjust', { level: .7 });
     goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open. Negative energy from the orbs holds a throat wide enough for the wings, as Morris and Thorne require.' : !fits ? 'Goal: a throat wide enough for a 60.9 m wingspan, held open.' : 'Wide enough. Now draw negative energy from the orbs to hold it open.');
   },
   draw() {
@@ -1130,7 +1143,7 @@ const conv = stage({
   init() {
     const vs = panel.querySelectorAll('[data-view]');
     const paint = () => { vs.forEach(b => b.setAttribute('aria-pressed', b.dataset.view === this.view)); scaleBar.hidden = this.view !== 'thermal'; };
-    vs.forEach(b => b.onclick = () => { this.view = b.dataset.view; paint(); this.update(0); });
+    vs.forEach(b => b.onclick = () => { if (this.view !== b.dataset.view) snd.play('ui-toggle', { kind: 'ui' }); this.view = b.dataset.view; paint(); this.update(0); });
     paint();
     $('#cv-scrub').oninput = () => {
       if (!this.done) return;
@@ -1147,26 +1160,27 @@ const conv = stage({
         else { this.msg = this.k > 0.75 ? 'Too early: reset' : 'Too late: reset'; this.miss(); }
       } else if (this.phase === 'gone') { this.phase = 'flash'; this.q = 0; this.msg = 'Replaying the completed sequence'; }
       else if (this.phase === 'flash' && this.done) this.msg = 'Replaying the completed sequence';
-      this.update(0);
+      syncAudioMode(); this.update(0);
     };
   },
-  miss() { this.phase = 'orbit'; this.k = 1; if (!this.done) S.misses++; snd.tone(110, 0.25, 0.15); },
+  miss(audible = true) { this.phase = 'orbit'; this.k = 1; if (!this.done) S.misses++; snd.stopAll(); if (audible) snd.play('timing-miss'); },
   update(dt) {
     if (['orbit', 'closing'].includes(this.phase)) {
       this.ang += TAU / orbit.T * dt;
       this.tumble += TAU / 11 * dt;
     }
-    if (!missionReady() && ['closing', 'flash'].includes(this.phase)) { this.phase = 'orbit'; this.k = 1; this.q = 0; this.msg = 'System changed: retune before opening'; }
+    if (!missionReady() && ['closing', 'flash'].includes(this.phase)) { this.phase = 'orbit'; this.k = 1; this.q = 0; this.msg = 'System changed: retune before opening'; snd.stopAll(); syncAudioMode(); if (dt > 0) snd.play('caution'); }
     // Learning runs and reduced motion close at half speed, so the band stays open for 1.6 s instead of 0.8 s.
-    if (this.phase === 'closing') { this.k -= dt * (S.mode === 'learn' || reduced ? 0.05 : 0.1); if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(); } }
+    if (this.phase === 'closing') { this.k -= dt * (S.mode === 'learn' || reduced ? 0.05 : 0.1); if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(dt > 0); } }
     if (this.phase === 'flash') {
       this.q = Math.min(1, this.q + dt / FINALE_SECONDS);
       this.ang = this.startAng + TAU / orbit.T * this.q * FINALE_SECONDS;
       this.tumble = this.startTumble + TAU / 11 * this.q * FINALE_SECONDS;
       if (this.q >= 1) { this.phase = 'gone'; this.msg = 'Sequence complete: the airliner is gone'; complete(this); S.paused = true; }
     }
-    if (this.phase === 'orbit') snd.hum(80, 0.05);
-    if (this.phase === 'closing') snd.hum(80 + (1 - this.k) * 520, 0.08);   // the flash and what follows are silent
+    if (this.phase === 'orbit') snd.bed('formation-bed', { level: .5 });
+    if (this.phase === 'closing') snd.bed('convergence', { level: .8, once: true, offset: (1 - this.k) * 10, rate: S.mode === 'learn' || reduced ? .5 : 1, brightness: 1000 + (1 - this.k) * 5000 });
+    syncAudioMode(); // The flash, crossing and completed replay are silent.
     const b = $('#cv-go');
     if (b) { b.textContent = { orbit: 'Start closing in', closing: 'Open it now', flash: this.done && S.paused ? 'Play from here' : 'Opening…', gone: 'Replay the sequence' }[this.phase]; b.disabled = (this.phase === 'flash' && !(this.done && S.paused)) || !missionReady(); }
     const scrub = $('#cv-scrub'), replay = $('#cv-replay');
@@ -1368,7 +1382,7 @@ function complete(st) {
     // Capture a successful experiment so drift cannot undo it while reading.
     if (S.stage === i) S.paused = true;
     if (st === conv) S.completion = { elapsed: S.elapsed, misses: S.misses, width: open.w, mode: S.mode };
-    else snd.chime();
+    else if (audioStepActive) snd.play('lesson-complete');
     S.saveNote = true;
   }
 }
@@ -1396,6 +1410,7 @@ function describeScene() {
 }
 function show(i, opts = {}) {
   if (!Number.isInteger(i) || i < 0 || i > S.unlocked || i > N) return;
+  snd.stopAll();
   ignite.pumping = false; hold.drag = false;
   S.stage = i; const st = STAGES[i];
   // A fresh Hold waits for the player rather than opening with the plasma already lost.
@@ -1418,13 +1433,16 @@ function show(i, opts = {}) {
   }
   describeScene();
   tracker();
+  syncAudioMode(); seedAudioState(); primeStageAudio();
+  if (opts.user && opts.sound !== false) snd.play(i === N ? 'ledger' : 'stage-enter', { kind: 'ui' });
   saveProgress();
 }
 function restart(mode = S.mode) {
+  snd.stopAll(); doseCues.clear(); plateInputAt = -Infinity;
   STAGES.forEach(st => st.reset());
   S.unlocked = 0; S.misses = 0; S.result = null; S.completion = null; S.elapsed = 0; S.mode = mode === 'challenge' ? 'challenge' : 'learn'; S.paused = false;
   $('#restore-status').hidden = true;
-  show(0, { user: true });
+  show(0, { user: true, sound: false }); snd.play('reset', { kind: 'ui' });
 }
 // Restarting or switching mode clears progress, so it asks first whenever there is progress to lose.
 let pendingMode = null, confirmOpener = null;
@@ -1436,11 +1454,12 @@ function askRestart(mode = S.mode, opener = null) {
   set('confirm-text', `${ask} ${lost} Your timed best stays.`);
   $('#confirm-yes').textContent = switching ? (mode === 'challenge' ? 'Start timed run' : 'Start learning run') : 'Restart run';
   pendingMode = mode; confirmOpener = opener;
-  $('#confirm').hidden = false;
+  $('#confirm').hidden = false; snd.play('ui-toggle', { kind: 'ui' });
   $('#confirm-no').focus();
 }
 function closeConfirm(returnFocus) {
   $('#confirm').hidden = true; pendingMode = null;
+  if (returnFocus) snd.play('ui-toggle', { kind: 'ui' });
   if (returnFocus && confirmOpener) confirmOpener.focus();
 }
 
@@ -1503,13 +1522,72 @@ function saveProgress() {
     if (S.saveNote) { S.saveNote = false; set('save-status', 'Progress saved on this device.'); setTimeout(() => set('save-status', ''), 4000); }
   } catch (_) { set('save-status', 'This browser cannot save progress. Keep this page open to continue your run.'); }
 }
+let audioPrevious = null, plateInputAt = -Infinity, audioStepActive = false;
+const doseCues = new Set(), controlValues = new Map();
+const STAGE_AUDIO = [
+  ['pump-stroke', 'plasma-ignite', 'plasma-bed', 'plasma-fade', 'caution', 'stability-lock', 'lab-air'],
+  ['field-bed', 'stability-lock', 'particle-leak', 'wall-loss', 'caution', 'lab-air'],
+  ['fusion-bed', 'neutron-impact', 'charged-product', 'plasma-ignite', 'caution', 'lab-air'],
+  ['formation-bed', 'alignment', 'caution'],
+  ['plate-adjust', 'assumption', 'throat-bed', 'plasma-fade', 'system-ready'],
+  ['formation-bed', 'convergence', 'timing-window', 'timing-miss', 'system-ready', 'caution'],
+  ['ledger', 'reset']
+];
+function syncAudioMode() {
+  const mode = document.hidden ? 'hidden' : S.stage === 5 && ['flash', 'gone'].includes(conv.phase) ? 'finale'
+    : panel.querySelector('.source-card[open]') ? 'reading' : S.paused ? 'paused' : S.stage === N ? 'idle' : 'active';
+  snd.setMode(mode);
+}
+function primeStageAudio() { snd.prime([...(STAGE_AUDIO[S.stage] || []), 'stage-enter', 'ui-toggle', 'lesson-complete', 'reset']); }
+function captureAudioState() {
+  const m = ignite.model();
+  return { stage: S.stage, glow: m.Te >= 2, state: m.state, igHold: ignite.hold, lock: hold.lock,
+    hit: hold.hit, lit: !!fuel.lit, dose: fuel.dose, fit: orbit.hold, assumed: open.assumed,
+    fits: open.w >= 61, ready: missionReady(), phase: conv.phase, k: conv.k };
+}
+function seedAudioState() { audioPrevious = captureAudioState(); }
+function audioTransitions() {
+  const a = captureAudioState(), p = audioPrevious; audioPrevious = a;
+  if (!p || p.stage !== a.stage) return;
+  if (S.stage === 0) {
+    if (a.glow && !p.glow) snd.play('plasma-ignite');
+    if (!a.glow && p.glow) snd.play('plasma-fade');
+    if (a.igHold >= .25 && p.igHold < .25) snd.play('stability-lock');
+    if (a.state !== p.state && /warm|Arc|thin/.test(a.state)) snd.play('caution');
+  } else if (S.stage === 1) {
+    if (a.lock >= .25 && p.lock < .25) snd.play('stability-lock');
+    if (p.lock >= .25 && a.lock === 0 && !a.hit) snd.play('caution');
+  } else if (S.stage === 2) {
+    if (a.lit && !p.lit) snd.play('plasma-ignite');
+    for (const threshold of [.5, .85]) if (p.dose < threshold && a.dose >= threshold && !doseCues.has(threshold)) { doseCues.add(threshold); snd.play('caution'); }
+  } else if (S.stage === 3) {
+    if (a.fit >= .25 && p.fit < .25) snd.play('alignment');
+    if (p.fit >= .25 && !a.fit) snd.play('caution');
+  } else if (S.stage === 4) {
+    if (a.assumed && a.fits && !p.fits) snd.play('system-ready');
+  } else if (S.stage === 5) {
+    if (a.ready !== p.ready) snd.play(a.ready ? 'system-ready' : 'caution');
+    if (a.phase === 'closing' && p.k > .79 && a.k <= .79 && a.k >= .71) snd.play('timing-window');
+  }
+}
+panel.addEventListener('toggle', e => {
+  if (!e.target.matches || !e.target.matches('.source-card')) return;
+  syncAudioMode(); snd.play('ui-toggle', { kind: 'ui' });
+}, true);
+
 function isPaused() { return S.paused || document.hidden || !!panel.querySelector('.source-card[open]'); }
 function advance(dt, clockDt = dt) {
+  syncAudioMode(); snd.beginFrame();
   const st = STAGES[S.stage];
   if (!isPaused()) {
     if (!st.end && S.mode === 'challenge' && !S.completion) S.elapsed += clockDt;
-    st.update(dt);
-  } else { snd.want = [0, 0]; }
+    audioStepActive = dt > 0;
+    try { st.update(dt); } finally { audioStepActive = false; }
+  }
+  syncAudioMode();
+  if (dt > 0 && !isPaused()) audioTransitions();
+  if (!isPaused() && S.stage < 3) snd.bed('lab-air', { level: .2 });
+  snd.endFrame();
   if (S.notice && (S.notice.left -= clockDt) <= 0) S.notice = null;
   const n = $('#next'), ready = !!n && readyToAdvance(S.stage);
   if (n) { n.disabled = !ready; n.classList.toggle('ready', ready); }
@@ -1528,24 +1606,30 @@ function advance(dt, clockDt = dt) {
   if ((sceneClock += clockDt) >= 1) { sceneClock = 0; describeScene(); }
 }
 // Editing an experiment resumes it. Navigation and source reading do not.
-panel.addEventListener('input', e => { if (e.target.closest('.ctl') && !e.target.closest('#cv-scrub')) { S.paused = false; } });
+panel.addEventListener('input', e => {
+  if (e.target.closest('.ctl') && !e.target.closest('#cv-scrub')) {
+    S.paused = false; syncAudioMode();
+    if (controlValues.get(e.target.id) !== e.target.value) { controlValues.set(e.target.id, e.target.value); snd.play('control-tick', { kind: 'ui', level: .45 }); }
+    if (['op-d', 'op-a'].includes(e.target.id)) plateInputAt = performance.now();
+  }
+});
 panel.addEventListener('pointerdown', e => { if (e.target.closest('#ig-pump, #ho-pad')) S.paused = false; });
 panel.addEventListener('keydown', e => { if (e.target.closest('#ig-pump, #ho-pad') && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter'].includes(e.key)) S.paused = false; });
-panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume, #ho-assist, #ho-show')) { S.paused = false; } saveProgress(); });
-$('#pause').onclick = () => { S.paused = !S.paused; ignite.pumping = false; hold.drag = false; saveProgress(); };
+panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume, #ho-assist, #ho-show')) { S.paused = false; syncAudioMode(); } saveProgress(); });
+$('#pause').onclick = () => { S.paused = !S.paused; ignite.pumping = false; hold.drag = false; syncAudioMode(); snd.play('ui-toggle', { kind: 'ui' }); saveProgress(); };
 $('#restart').onclick = e => askRestart(S.mode, e && e.currentTarget);
 $('#mode-learn').onclick = e => { if (S.mode !== 'learn') askRestart('learn', e && e.currentTarget); };
 $('#mode-challenge').onclick = e => { if (S.mode !== 'challenge') askRestart('challenge', e && e.currentTarget); };
 $('#confirm-yes').onclick = () => { const mode = pendingMode || S.mode; closeConfirm(false); restart(mode); };
 $('#confirm-no').onclick = () => closeConfirm(true);
 $('#confirm').addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirm(true); });
-document.addEventListener('visibilitychange', () => { last = performance.now(); ignite.pumping = false; hold.drag = false; saveProgress(); });
-window.addEventListener('pagehide', saveProgress);
+document.addEventListener('visibilitychange', () => { last = performance.now(); ignite.pumping = false; hold.drag = false; syncAudioMode(); saveProgress(); });
+window.addEventListener('pagehide', () => { snd.setMode('hidden'); saveProgress(); });
 let last = performance.now(), saveElapsed = 0;
 function frame(now) {
   const elapsed = Math.max(0, (now - last) / 1000), dt = Math.min(.05, elapsed); last = now;
   advance(dt, elapsed);
-  snd.apply();
+  // advance() reconciles audio after all state changes, including automatic pause.
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   STAGES[S.stage].draw();
   saveElapsed += dt; if (saveElapsed >= 1) { saveProgress(); saveElapsed = 0; }
@@ -1567,9 +1651,10 @@ function start(d) {
 const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(snapshot);
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__lab = { S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, askRestart, notice, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
+window.__lab = { snd, syncAudioMode, audioTransitions, seedAudioState, S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, askRestart, notice, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
 })();
 </script>
 <script src="ga4.js" defer></script>
 </body></html>
+
 

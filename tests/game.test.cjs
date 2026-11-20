@@ -59,6 +59,7 @@ function boot(storage = new Map(), options = {}) {
   const document = { hidden: false, documentElement: root, querySelector: s => root.querySelector(s), getElementById: s => ids.get(s) || null, createElement: () => new Element(), addEventListener() {} };
   const window = { addEventListener() {}, devicePixelRatio: 1 };
   const sandbox = { document, window, getComputedStyle: () => ({ getPropertyValue: () => '#123456' }), matchMedia: () => ({ matches: !!options.reduced }), ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frames.push(f), performance: { now: () => 0 }, localStorage: { getItem: key => { if (options.noStorage) throw Error('blocked'); return storage.get(key) || null; }, setItem: (key, value) => { if (options.noStorage) throw Error('blocked'); storage.set(key, value); } }, setTimeout() { return 1; }, clearTimeout() {}, console };
+  if (!options.noAudioScript) for (const file of ['audio-cues.js', 'audio.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), sandbox, { filename: file });
   vm.runInNewContext(script, sandbox, { filename: 'index.html' });
   return { lab: window.__lab, ids, document, storage, drawing, frames };
 }
@@ -71,6 +72,60 @@ function prepare(lab) {
   Object.assign(op, { w: 66, assumed: true, done: true });
   lab.S.unlocked = 5;
 }
+
+test('sound settings restore without restoring autoplay or changing the experiment', () => {
+  const storage = new Map([['ion-pumpy-audio-v1', JSON.stringify({ volume: .2, ambience: .7, pulse: false, on: true })]]);
+  const { lab, ids } = boot(storage);
+  assert.equal(lab.snd.on, false); assert.equal(lab.snd.ac, null);
+  assert.equal(lab.snd.volume, .2); assert.equal(lab.snd.ambience, .7); assert.equal(lab.snd.pulse, false);
+  ids.get('sound-volume').oninput({ target: { value: '31' } });
+  assert.equal(JSON.parse(storage.get('ion-pumpy-audio-v1')).volume, .31);
+  assert.equal(lab.S.mode, 'learn'); assert.equal(lab.S.stage, 0);
+});
+
+test('a missing audio script leaves the full game playable', () => {
+  const { lab } = boot(new Map(), { noAudioScript: true });
+  lab.advance(.1); assert.equal(lab.snd.on, false); prepare(lab); assert.equal(lab.missionReady(), true);
+  lab.show(5); lab.advance(.1); assert.equal(lab.S.stage, 5);
+});
+
+test('timing cue fires on entry into the opening window, not each frame or a zero-dt redraw', () => {
+  const { lab } = boot(); prepare(lab); lab.show(5);
+  const cv = lab.STAGES[5], calls = []; lab.snd.play = id => calls.push(id);
+  cv.phase = 'closing'; cv.k = .8; lab.seedAudioState(); lab.advance(.4);
+  assert.equal(calls.filter(id => id === 'timing-window').length, 1);
+  lab.advance(.01); assert.equal(calls.filter(id => id === 'timing-window').length, 1);
+  cv.k = .8; lab.seedAudioState(); cv.k = .78; lab.advance(0);
+  assert.equal(calls.filter(id => id === 'timing-window').length, 1);
+});
+
+test('opening, completion and replay keep the finale audio gate silent immediately', () => {
+  const { lab, ids } = boot(); prepare(lab); lab.show(5);
+  const cv = lab.STAGES[5], calls = []; lab.snd.play = id => calls.push(id);
+  cv.phase = 'closing'; cv.k = .75; lab.syncAudioMode();
+  ids.get('cv-go').onclick(); assert.equal(cv.phase, 'flash'); assert.equal(lab.snd.mode, 'finale');
+  lab.advance(2); assert.equal(cv.phase, 'gone'); assert.equal(lab.snd.mode, 'finale');
+  assert.equal(calls.includes('lesson-complete'), false);
+  ids.get('cv-go').onclick(); assert.equal(lab.snd.mode, 'finale');
+  ids.get('cv-scrub').value = 25; ids.get('cv-scrub').oninput(); lab.advance(0);
+  assert.equal(lab.snd.mode, 'finale');
+});
+
+test('source toggles and explicit pause change the sound gate without waiting for a frame', () => {
+  const { lab, ids } = boot(); lab.syncAudioMode(); assert.equal(lab.snd.mode, 'active');
+  const panel = ids.get('panel'), card = panel.children.find(n => n.attributes.class === 'source-card');
+  card.matches = selector => selector === '.source-card'; card.open = true;
+  panel.listeners.toggle({ target: card }); assert.equal(lab.snd.mode, 'reading');
+  card.open = false; panel.listeners.toggle({ target: card }); assert.equal(lab.snd.mode, 'active');
+  ids.get('pause').onclick(); assert.equal(lab.snd.mode, 'paused');
+});
+
+test('stage restore is quiet and deliberate ledger navigation gets its own cue', () => {
+  const { lab } = boot(); const calls = []; lab.snd.play = id => calls.push(id);
+  lab.show(0); assert.deepEqual(calls, []);
+  lab.show(0, { user: true }); assert.deepEqual(calls, ['stage-enter']);
+  prepare(lab); lab.S.unlocked = 6; lab.show(6, { user: true }); assert.equal(calls.at(-1), 'ledger');
+});
 
 test('boots in untimed learning mode and source cards precede controls', () => {
   const { lab, ids } = boot();
@@ -391,10 +446,10 @@ test('locked steps stay focusable, show a lock and explain themselves', () => {
   lab.advance(5); assert.doesNotMatch(ids.get('run-status').innerHTML, /unlocks/);
 });
 
-test('Pause and Sound say what they do, without a pressed state', () => {
+test('Pause and Sound say what they do, without a pressed state', async () => {
   const { lab, ids } = boot(); lab.S.paused = true; lab.advance(0);
   assert.equal(ids.get('pause').textContent, 'Resume'); assert.equal(ids.get('pause').attributes['aria-pressed'], undefined);
-  const snd = ids.get('snd'); snd.onclick({ currentTarget: snd });
+  const snd = ids.get('snd'); await snd.onclick({ currentTarget: snd });
   assert.equal(snd.textContent, 'Sound: off'); assert.equal(snd.attributes['aria-pressed'], undefined);
 });
 
@@ -438,4 +493,17 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
   assert.match(html, /Boeing 777-200ER/);
   for (const tag of ['Lab physics', 'Theory', 'Measured', '4orbs account', 'Game rule']) assert.match(html, new RegExp(`class="tag [a-z]+">${tag}<`));
   for (const source of lab.SOURCES) for (const ref of source.refs) assert.ok(typeof ref === 'string');
+});
+
+
+test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
+  for (const [mode, reduced, rate] of [['learn', false, .5], ['challenge', false, 1], ['challenge', true, .5]]) {
+    const { lab, ids } = boot(new Map(), { reduced }); lab.restart(mode); prepare(lab); lab.show(5);
+    const beds = []; lab.snd.bed = (id, options) => beds.push({ id, options });
+    ids.get('cv-go').onclick(); lab.advance(1);
+    const bed = beds.filter(b => b.id === 'convergence').at(-1);
+    assert.equal(bed.options.rate, rate);
+    assert.ok(Math.abs(bed.options.offset - rate) < 1e-9);
+    assert.equal(bed.options.once, true);
+  }
 });

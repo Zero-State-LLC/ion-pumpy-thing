@@ -78,7 +78,7 @@ test('boots in untimed learning mode and source cards precede controls', () => {
   assert.equal(lab.S.mode, 'learn'); assert.equal(lab.S.elapsed, 0);
   assert.equal(lab.tally().score, null);
   assert.match(ids.get('panel').innerHTML, /<details class="source-card">/);
-  assert.match(ids.get('panel').innerHTML, /corrected/i);
+  assert.match(ids.get('panel').innerHTML, /Sources checked/);
 });
 
 test('timed practice stops both physics and timer while paused, reading, or hidden', () => {
@@ -280,7 +280,8 @@ test('replay cannot bypass the mission and scrub events keep completed playback 
 
 test('scrubbing retraces one formation and a mid-replay save restores a completed sequence', () => {
   const { lab, ids } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
-  ids.get('cv-go').onclick(); c.update(2.5); ids.get('cv-go').onclick(); c.update(1.6);
+  // Learning runs close at half speed: five seconds brings the triangle to 75 %.
+  ids.get('cv-go').onclick(); c.update(5); ids.get('cv-go').onclick(); c.update(1.6);
   const slider = ids.get('cv-scrub'); slider.value = 25; slider.oninput();
   const angle = c.ang, tumble = c.tumble;
   slider.value = 75; slider.oninput(); slider.value = 25; slider.oninput();
@@ -297,7 +298,7 @@ test('reduced-motion finale draws a static aperture without a pulsing radial fil
   const { lab, ids, drawing } = boot(new Map(), { reduced: true }); prepare(lab); lab.show(5); const c = lab.STAGES[5];
   ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); c.update(.96);
   c.view = 'visible'; drawing.length = 0; c.draw();
-  assert.ok(drawing.some(call => call.includes('assumed aperture')));
+  assert.ok(drawing.some(call => call.includes('wormhole aperture')));
   assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
 });
 
@@ -310,4 +311,131 @@ test('a prior source revision starts a fresh run with a visible explanation', ()
   assert.equal(next.ids.get('restore-status').hidden, false);
   assert.match(next.ids.get('restore-status').innerHTML, /Source assumptions have changed/);
   assert.equal(storage.get('ipt-best-v2'), '{"score":1234}');
+});
+
+test('restart and mode switches ask before clearing progress, and keep it on cancel', () => {
+  const { lab, ids } = boot(); prepare(lab); lab.show(3);
+  lab.askRestart('learn');
+  assert.equal(ids.get('confirm').hidden, false); assert.equal(lab.S.stage, 3);
+  assert.match(ids.get('confirm-text').innerHTML, /Restart this run\? Progress on steps 1–5 will be cleared\. Your timed best stays\./);
+  ids.get('confirm-no').onclick(); assert.equal(ids.get('confirm').hidden, true); assert.equal(lab.S.unlocked, 5);
+  ids.get('mode-challenge').onclick();
+  assert.match(ids.get('confirm-text').innerHTML, /Switch to timed practice\?/);
+  assert.equal(ids.get('confirm-yes').textContent, 'Start timed run');
+  ids.get('confirm-yes').onclick();
+  assert.equal(lab.S.mode, 'challenge'); assert.equal(lab.S.unlocked, 0); assert.equal(lab.S.stage, 0);
+  ids.get('mode-challenge').onclick(); assert.equal(ids.get('confirm').hidden, true, 'the current mode does nothing');
+});
+
+test('a run with nothing to lose restarts without asking', () => {
+  const { lab, ids } = boot(); ids.get('confirm').hidden = true;
+  ids.get('mode-challenge').onclick();
+  assert.equal(lab.S.mode, 'challenge'); assert.equal(ids.get('confirm').hidden, true);
+});
+
+test('sliders give assistive tech the displayed value with units spelled out', () => {
+  const { lab, ids } = boot(); prepare(lab);
+  lab.show(2); assert.match(ids.get('fu-t').attributes['aria-valuetext'], /^[\d.,]+ (billion|million) kelvin$/);
+  lab.show(4); assert.equal(ids.get('op-d').attributes['aria-valuetext'], '1.0 micrometres');
+  assert.equal(ids.get('op-w').attributes['aria-valuetext'], '66 metres');
+  lab.show(3); assert.equal(ids.get('or-c').attributes['aria-valuetext'], '134 degrees');
+  assert.equal(ids.get('or-t').attributes['aria-valuetext'], '2.6 seconds');
+  assert.equal(ids.get('fu-t-l'), undefined, 'labels belong to the current step only');
+  assert.equal(ids.get('or-c').attributes['aria-labelledby'], 'or-c-l');
+});
+
+test('a fresh hold waits for the player instead of opening already lost', () => {
+  const { lab } = boot(); lab.S.unlocked = 1; lab.show(1);
+  assert.equal(lab.S.paused, true);
+  lab.advance(5); assert.equal(lab.STAGES[1].t, 0);
+});
+
+test('the hold assist centres the ball in learning runs and the ledger notes it', () => {
+  const { lab, ids } = boot(); lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
+  assert.equal(ids.get('ho-assist-row').hidden, false);
+  ids.get('ho-assist').onclick(); assert.equal(ids.get('ho-assist').attributes['aria-pressed'], 'true');
+  for (let i = 0; i < 400 && !h.done; i++) { h.B = Math.sqrt(lab.plasmaPressure(h.t + .02) * 1000 * 2 * 4e-7 * Math.PI / .9); h.update(.02); }
+  assert.equal(h.done, true); assert.equal(h.assisted, true);
+  prepare(lab); h.assisted = true; lab.S.unlocked = 6; lab.STAGES[5].done = true; lab.show(6);
+  assert.match(ids.get('panel').innerHTML, /centring assist/);
+});
+
+test('the assist is learning-only and Show me appears after three misses', () => {
+  const timed = boot(); timed.lab.restart('challenge'); timed.lab.S.unlocked = 1; timed.lab.show(1);
+  assert.equal(timed.ids.get('ho-assist-row').hidden, true);
+  const { lab, ids } = boot(); lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
+  assert.equal(ids.get('ho-show').hidden, true);
+  for (let n = 0; n < 3; n++) { h.x = .99; h.trim = 1; h.B = 1; h.update(.1); }
+  assert.equal(h.fails >= 3, true); assert.equal(ids.get('ho-show').hidden, false);
+  ids.get('ho-show').onclick(); h.B = 0;
+  for (let i = 0; i < 1000 && !h.done; i++) h.update(.02);
+  assert.equal(h.done, true); assert.equal(h.assisted, true); assert.equal(h.autopilot, false);
+});
+
+test('older saves without assist fields still restore', () => {
+  const { lab } = boot(); prepare(lab); lab.show(2);
+  const saved = JSON.parse(JSON.stringify(lab.snapshot()));
+  delete saved.stages[1].values.assist; delete saved.stages[1].values.assisted;
+  const second = boot(); assert.equal(second.lab.restore(saved), true);
+  assert.equal(second.lab.STAGES[1].assist, false); assert.equal(second.lab.S.stage, 2);
+  saved.stages[1].values.assist = 'yes'; assert.equal(second.lab.validSnapshot(saved), false);
+});
+
+test('locked steps stay focusable, show a lock and explain themselves', () => {
+  const { lab, ids } = boot(); lab.advance(0);
+  const steps = ids.get('steps').innerHTML;
+  assert.match(steps, /id="step-2" class="locked" aria-disabled="true"/);
+  assert.doesNotMatch(steps, /\sdisabled[\s>]/);
+  ids.get('step-2').onclick();
+  assert.equal(lab.S.stage, 0); assert.match(ids.get('run-status').innerHTML, /Fuel unlocks after Hold\./);
+  lab.advance(5); assert.doesNotMatch(ids.get('run-status').innerHTML, /unlocks/);
+});
+
+test('Pause and Sound say what they do, without a pressed state', () => {
+  const { lab, ids } = boot(); lab.S.paused = true; lab.advance(0);
+  assert.equal(ids.get('pause').textContent, 'Resume'); assert.equal(ids.get('pause').attributes['aria-pressed'], undefined);
+  const snd = ids.get('snd'); snd.onclick({ currentTarget: snd });
+  assert.equal(snd.textContent, 'Sound: off'); assert.equal(snd.attributes['aria-pressed'], undefined);
+});
+
+test('Space and Enter pump on every keydown, and a held key keeps pumping', () => {
+  const { lab, ids } = boot(); const ig = lab.STAGES[0], pump = ids.get('ig-pump');
+  const p0 = ig.p; let prevented = 0; const key = k => ({ key: k, preventDefault() { prevented++; } });
+  pump.onkeydown(key(' ')); pump.onkeydown(key(' ')); pump.onkeydown(key('Enter'));
+  assert.ok(Math.abs(ig.p - p0 * .8 ** 3) < 1e-9); assert.equal(prevented, 3);
+  pump.onkeyup(key(' ')); assert.equal(prevented, 4);
+});
+
+test('retune buttons and the canvas say what they refer to', () => {
+  const { lab, ids } = boot(); prepare(lab);
+  lab.show(5); assert.match(ids.get('mission-checks').innerHTML, /aria-label="Retune plasma \(step 1\)"/);
+  assert.match(ids.get('mission-checks').innerHTML, /aria-label="Retune throat \(step 5\)"/);
+  assert.match(ids.get('cv').attributes['aria-label'], /three orbs around the airliner/);
+  lab.show(0); assert.match(ids.get('cv').attributes['aria-label'], /^Glass jar of hydrogen at [\d.,]+ torr: /);
+});
+
+test('learning runs and reduced motion close the triangle at half speed; timed runs do not', () => {
+  const learn = boot(); prepare(learn.lab); learn.lab.show(5); learn.ids.get('cv-go').onclick(); learn.lab.STAGES[5].update(1);
+  assert.ok(Math.abs(learn.lab.STAGES[5].k - .95) < 1e-9);
+  const timed = boot(); timed.lab.restart('challenge'); prepare(timed.lab); timed.lab.show(5); timed.ids.get('cv-go').onclick(); timed.lab.STAGES[5].update(1);
+  assert.ok(Math.abs(timed.lab.STAGES[5].k - .9) < 1e-9);
+  const calm = boot(new Map(), { reduced: true }); calm.lab.restart('challenge'); prepare(calm.lab); calm.lab.show(5); calm.ids.get('cv-go').onclick(); calm.lab.STAGES[5].update(1);
+  assert.ok(Math.abs(calm.lab.STAGES[5].k - .95) < 1e-9);
+});
+
+test('a met goal promotes the way forward', () => {
+  const { lab, ids } = boot(); prepare(lab); lab.show(4); lab.advance(0);
+  assert.equal(ids.get('next').disabled, false);
+  lab.STAGES[4].assumed = false; lab.advance(0); assert.equal(ids.get('next').disabled, true);
+});
+
+test('the game takes the 4orbs account as its premise and names no flight', () => {
+  const { lab, ids } = boot(); prepare(lab); lab.STAGES[5].done = true; lab.S.unlocked = 6; lab.show(6);
+  const all = html + ids.get('panel').innerHTML;
+  assert.doesNotMatch(all, /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i);
+  assert.doesNotMatch(all, /Nobody knows|nobody knows how|visual effects|could not be proven|short by|source nobody has|not a mechanism|on paper/i);
+  assert.match(html, /takes that account as its premise/);
+  assert.match(html, /Boeing 777-200ER/);
+  for (const tag of ['Lab physics', 'Theory', 'Measured', '4orbs account', 'Game rule']) assert.match(html, new RegExp(`class="tag [a-z]+">${tag}<`));
+  for (const source of lab.SOURCES) for (const ref of source.refs) assert.ok(typeof ref === 'string');
 });

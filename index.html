@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>Ion Pumpy Thing</title>
-<meta name="description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the 4orbs.com wormhole account, and how much of it anyone can actually do.">
+<meta name="description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the 4orbs.com wormhole account from the physics it cites, and explains that physics as you go.">
 <meta name="theme-color" content="#070c20">
 <meta name="color-scheme" content="dark">
 <link rel="canonical" href="https://ion-pumpy-thing.app/">
@@ -12,7 +12,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Ion Pumpy Thing">
 <meta property="og:title" content="Ion Pumpy Thing">
-<meta property="og:description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the 4orbs.com wormhole account, and how much of it anyone can actually do.">
+<meta property="og:description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the 4orbs.com wormhole account from the physics it cites, and explains that physics as you go.">
 <meta property="og:url" content="https://ion-pumpy-thing.app/">
 <meta property="og:image" content="https://ion-pumpy-thing.app/assets/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -21,164 +21,243 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@z3r0st4t3">
 <meta name="twitter:title" content="Ion Pumpy Thing">
-<meta name="twitter:description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the 4orbs.com wormhole account, and how much of it anyone can actually do.">
+<meta name="twitter:description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the 4orbs.com wormhole account from the physics it cites, and explains that physics as you go.">
 <meta name="twitter:image" content="https://ion-pumpy-thing.app/assets/og-image.png">
 <meta name="twitter:image:alt" content="Ion Pumpy Thing, a six-step physics game, open on the Ignite lesson">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Ion Pumpy Thing","url":"https://ion-pumpy-thing.app/","description":"A browser game in six steps, from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the wormhole account set out at 4orbs.com, and labels how much of it anyone can actually do. Lessons cover igniting a cold plasma, magnetic confinement, fusion fuel choice, a measured orb formation, wormhole energy requirements, and an inspectable aircraft finale, ending with a ledger that separates lab physics from what nobody knows how to do.","applicationCategory":"GameApplication","applicationSubCategory":"Browser game","operatingSystem":"Any","genre":"Educational","playMode":"SinglePlayer","gamePlatform":"Web browser","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"image":"https://ion-pumpy-thing.app/assets/og-image.png","author":{"@type":"Organization","name":"Zero State LLC","url":"https://zer0state.com/"},"publisher":{"@type":"Organization","name":"Zero State LLC","url":"https://zer0state.com/"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Ion Pumpy Thing","url":"https://ion-pumpy-thing.app/","description":"A browser game in six steps, from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the wormhole account set out at 4orbs.com from the physics it cites, and explains that physics as you go. Lessons cover igniting a cold plasma, high-beta magnetic confinement, aneutronic fusion fuel, the measured orb formation, holding a wormhole throat open with negative energy, and an inspectable aircraft finale, ending with a ledger that traces each link to its laboratory, theory, measurement or 4orbs source.","applicationCategory":"GameApplication","applicationSubCategory":"Browser game","operatingSystem":"Any","genre":"Educational","playMode":"SinglePlayer","gamePlatform":"Web browser","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"image":"https://ion-pumpy-thing.app/assets/og-image.png","author":{"@type":"Organization","name":"Zero State LLC","url":"https://zer0state.com/"},"publisher":{"@type":"Organization","name":"Zero State LLC","url":"https://zer0state.com/"}}</script>
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap">
 <style>
 /* Layout: a thermal-camera viewport on the left, an instrument panel on the right; one visual world, the night sky as a heat camera draws it. */
 :root {
   color-scheme: dark;
+  /* Colour */
   --sky: #0b1330;      /* open sky on the thermal scale */
   --deep: #070c20;     /* page ground, colder than sky */
   --panel: #121b3d;
   --line: #2a3768;
   --ink: #ece6d6;
   --muted: #9aa6c9;
-  --hot: #ff5533;      /* engines, and anything nobody knows how to do */
+  --locked: #6e7896;   /* locked steps: 4.5:1 on --deep */
+  --hot: #ff5533;      /* engines and heat */
   --warm: #ffae42;     /* airframe skin, measured values */
   --cold: #62d2e8;     /* lab physics */
-  --read: #b9a2ff;     /* a reading, not a measurement */
+  --read: #b9a2ff;     /* the 4orbs account */
+  --theory: #9fe28a;   /* a mathematical model */
+  --rule: #f49ac1;     /* a simplification made for play */
+  --flash: #ffffff;    /* the top of the thermal scale */
+  --dusk: #7a4a6a;     /* the middle of the thermal scale */
   --void: #01030a;     /* the bottom of the scale */
+  --tag-lab: var(--cold);
+  --tag-theory: var(--theory);
+  --tag-measured: var(--warm);
+  --tag-account: var(--read);
+  --tag-rule: var(--rule);
+  /* Type */
   --display: "Saira Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 22px;
+  --fs-2xl: 30px;
+  --fs-hero: clamp(34px, 6vw, 54px);
+  --track-label: .08em;
+  --track-display: .02em;
+  /* Space */
+  --sp-0: 2px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 28px;
+  --sp-7: 40px;
+  --radius: 2px;
 }
 html, body { background: var(--deep); }
-body { color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+body { color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.55; }
 * { box-sizing: border-box; }
 .wrap {
-  max-width: 1180px; margin: 0 auto; padding-block: 20px 40px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: 18px;
+  max-width: 1180px; margin: 0 auto; padding-block: var(--sp-5) var(--sp-7);
+  padding-left: max(var(--sp-4), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sp-4), env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: var(--sp-4);
 }
 a { color: var(--cold); }
 :focus-visible { outline: 2px solid var(--warm); outline-offset: 2px; }
+/* Headings take focus on step changes for screen readers; no box around them. */
+[tabindex="-1"]:focus { outline: none; }
+.vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 28px; }
-.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 6vw, 54px); line-height: .92; margin: 0; letter-spacing: .01em; text-transform: uppercase; }
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-3) var(--sp-6); }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: var(--fs-hero); line-height: .92; margin: 0; letter-spacing: var(--track-display); text-transform: uppercase; }
 .top h1 span { color: var(--cold); }
 .top p { margin: 0; max-width: 52ch; color: var(--muted); }
 
-.key { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 13px; color: var(--muted); }
-.key span:not(.tag) { white-space: nowrap; display: inline-flex; gap: 8px; align-items: center; }
-.tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border: 1px solid currentColor; border-radius: 2px; white-space: nowrap; }
-.tag.lab { color: var(--cold); } .tag.meas { color: var(--warm); } .tag.read, .tag.model { color: var(--read); } .tag.gap { color: var(--hot); }
+.key { font-size: var(--fs-sm); color: var(--muted); }
+.key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; }
+.key ul { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+.key li { display: inline-flex; gap: var(--sp-2); align-items: center; white-space: nowrap; }
+.tag { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: var(--track-label); text-transform: uppercase; padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
+.tag.lab { color: var(--tag-lab); }
+.tag.model { color: var(--tag-theory); }
+.tag.meas { color: var(--tag-measured); }
+.tag.read { color: var(--tag-account); }
+.tag.scen { color: var(--tag-rule); }
 
-.rail { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
-.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; counter-reset: s; }
+.rail { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-4); align-items: center; justify-content: space-between; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); counter-reset: s; }
 .steps button {
-  font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 2px; padding: 5px 12px 4px; cursor: pointer;
+  font-family: var(--display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: var(--track-display); text-transform: uppercase;
+  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3);
+  cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
+  position: relative;   /* keeps the hidden ", locked" text inside the button, even when the row scrolls */
 }
-.steps li:not(.end) button::before { counter-increment: s; content: counter(s) " "; font-family: var(--mono); font-size: 11px; font-weight: 400; margin-right: 4px; }
-.steps button:disabled { opacity: .4; cursor: not-allowed; }
+.steps li:not(.end) button::before { counter-increment: s; content: counter(s); font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400; margin-right: var(--sp-1); }
+.steps button.locked { color: var(--locked); border-style: dashed; cursor: not-allowed; }
+.steps button .lock { fill: currentColor; }
 .steps button.done { color: var(--ink); border-color: var(--muted); }
+.steps button.done::after { content: "\2713"; content: "\2713" / ""; color: var(--cold); font-family: var(--body); font-size: var(--fs-sm); }
 .steps button[aria-current="step"] { color: var(--deep); background: var(--ink); border-color: var(--ink); }
-.hud { display: flex; align-items: center; gap: 12px; font: 400 12px var(--mono); letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
-.hud b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.steps button[aria-current="step"]::after { color: var(--deep); }
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font: 400 var(--fs-sm) var(--mono); letter-spacing: var(--track-label); color: var(--muted); text-transform: uppercase; }
+.hud b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 5.5em; }
+.hud .seg button { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; padding: var(--sp-1) var(--sp-2); }
+#pause { min-width: 7em; }
 
-.deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
-.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
+.status { display: flex; flex-direction: column; gap: var(--sp-1); }
+.statusline { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+#run-status { min-height: 1.55em; }
+#save-status:empty { display: none; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warm); background: var(--panel); }
+.confirm p { margin: 0; flex: 1 1 28ch; }
+
+.deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
+.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
 .view canvas { display: block; width: 100%; height: 100%; }
 .view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
-.view::before { left: 8px; top: 8px; border-right: 0; border-bottom: 0; }
-.view::after { right: 8px; bottom: 8px; border-left: 0; border-top: 0; }
-.scale { position: absolute; right: 12px; top: 34px; bottom: 34px; width: 10px; border: 1px solid var(--muted);
-  background: linear-gradient(to bottom, #fff 0%, var(--hot) 14%, var(--warm) 34%, #7a4a6a 55%, var(--sky) 76%, var(--void) 100%); }
-.scale b { position: absolute; right: 16px; font: 400 10px var(--mono); color: var(--muted); letter-spacing: .08em; }
+.view::before { left: var(--sp-2); top: var(--sp-2); border-right: 0; border-bottom: 0; }
+.view::after { right: var(--sp-2); bottom: var(--sp-2); border-left: 0; border-top: 0; }
+.scale { position: absolute; right: var(--sp-3); top: 34px; bottom: 34px; width: 10px; border: 1px solid var(--muted);
+  background: linear-gradient(to bottom, var(--flash) 0%, var(--hot) 14%, var(--warm) 34%, var(--dusk) 55%, var(--sky) 76%, var(--void) 100%); }
+.scale b { position: absolute; right: var(--sp-4); font: 400 var(--fs-xs) var(--mono); color: var(--muted); letter-spacing: var(--track-label); }
 .scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
 
-.panel { background: var(--panel); border: 1px solid var(--line); padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.eyebrow { font: 400 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
-.panel h2 { font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1; text-transform: uppercase; letter-spacing: .02em; margin: 0; text-wrap: balance; }
-.panel h3 { font: 400 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.eyebrow { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; }
+.panel h3 { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin: 0; }
 .panel p { margin: 0; max-width: 62ch; }
-.lesson { display: flex; flex-direction: column; gap: 8px; }
-.lesson .tag { margin-right: 6px; }
-.note { color: var(--muted); font-size: 13.5px; }
-.source-card { border: 1px solid var(--line); padding: 10px 12px; }
+.lesson { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lesson .tag { margin-right: var(--sp-2); }
+.note { color: var(--muted); font-size: var(--fs-md); }
+.source-card { border: 1px solid var(--line); padding: var(--sp-2) var(--sp-3); }
 .source-card summary { cursor: pointer; color: var(--cold); min-height: 28px; }
-.source-card[open] summary { margin-bottom: 12px; }
-.source-card .source { margin-top: 12px; font-size: 12px; color: var(--muted); }
-.brief { color: var(--ink); border-left: 3px solid var(--cold); padding-left: 12px; }
-.mission { list-style: none; padding: 0; margin: 0; display: grid; gap: 5px; font-size: 13px; }
-.mission li { display: flex; justify-content: space-between; gap: 10px; }
+.source-card[open] summary { margin-bottom: var(--sp-3); }
+.source-card .source { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
+.source-card .refs { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); font-size: var(--fs-sm); color: var(--muted); }
+.brief { color: var(--ink); border-left: 3px solid var(--cold); padding-left: var(--sp-3); }
+.mission { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
+.mission li { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
 .mission .ready { color: var(--cold); }
 .mission .blocked { color: var(--warm); }
-.modebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.modebar p { flex-basis: 100%; margin: 0; }
-.statusline { min-height: 1.6em; font-size: 12px; color: var(--muted); margin: 0; }
 
-.ctl { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
-.ctl label { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13px; color: var(--muted); }
+.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.ctl label { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-0) var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
 .ctl label output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
-.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: 2px 0 0; height: 24px; }
-.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: var(--sp-0) 0 0; height: 24px; cursor: pointer; }
+.seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .seg button, .btn {
-  font: 500 13px var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: 2px; padding: 7px 12px; cursor: pointer;
+  font: 500 var(--fs-sm) var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); cursor: pointer;
 }
 .seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--ink); color: var(--deep); border-color: var(--ink); }
 .btn.primary { background: var(--warm); border-color: var(--warm); color: var(--deep); font-weight: 600; }
-.btn.gapbtn { border-color: var(--hot); color: var(--hot); }
-.btn.pump { font: 700 22px var(--display); letter-spacing: .08em; text-transform: uppercase; padding: 14px 12px 12px; background: var(--cold); border-color: var(--cold); color: var(--deep); touch-action: none; user-select: none; -webkit-user-select: none; }
+/* A step is done: its way forward becomes the biggest thing in the panel. */
+.btn.primary.ready { flex: 1 1 100%; font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3) var(--sp-3) var(--sp-2); }
+.btn.engage { border-color: var(--cold); color: var(--cold); }
+.btn.pump { font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3); background: var(--cold); border-color: var(--cold); color: var(--deep); touch-action: none; user-select: none; -webkit-user-select: none; }
 .btn.pump:active { transform: translateY(2px); }
-.btn.small { padding: 4px 9px; font: 400 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.panel.complete .btn.pump { background: transparent; color: var(--cold); }
+.btn.small { padding: var(--sp-1) var(--sp-2); font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
 
 .pad { position: relative; height: 150px; border: 1px solid var(--muted); background:
   linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)), var(--deep);
   touch-action: none; cursor: crosshair; }
 .pad i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
-.padlabels { display: flex; justify-content: space-between; font: 400 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; }
+.padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); letter-spacing: var(--track-label); }
+.assist { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 
-.reads { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px 14px; margin: 0; }
+.reads { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: var(--sp-3) var(--sp-4); margin: 0; }
+.reads.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reads .wide { grid-column: 1 / -1; }
 .reads div { min-width: 0; }
-.reads dt { font: 400 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.reads dd { margin: 0; font: 500 16px var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.reads dd small { font-size: 11.5px; font-weight: 400; color: var(--muted); display: block; }
+.reads dt { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); }
+.reads dd { margin: 0; font: 500 var(--fs-lg) var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.reads dd small { font: 400 var(--fs-sm)/1.4 var(--body); color: var(--muted); display: block; }
 
 .meter { position: relative; height: 16px; border: 1px solid var(--muted); background: var(--deep); }
 .meter .band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--cold) 35%, transparent); }
 .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cold); }
 .meter .fill.bad { background: var(--hot); }
-.meter .fill.assumed { background: repeating-linear-gradient(135deg, var(--hot) 0 6px, transparent 6px 12px); }
+.meter .fill.sourced { background: repeating-linear-gradient(135deg, var(--read) 0 6px, transparent 6px 12px); }
 .meter .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
-.meter .need { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--hot); }
-.mlabels { display: flex; justify-content: space-between; font: 400 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; }
+.meter .need { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warm); }
+.mlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); letter-spacing: var(--track-label); }
 
-.goal { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-.goal #goaltext { font-size: 13.5px; }
+.goal { display: flex; flex-direction: column; gap: var(--sp-2); }
+.goal #goaltext { font-size: var(--fs-md); }
+.goal.ok #goaltext::before { content: "\2713  "; content: "\2713  " / ""; color: var(--cold); }
 .goal .bar { height: 4px; background: var(--deep); }
 .goal .bar i { display: block; height: 100%; width: 0; background: var(--warm); }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.next-row { border-top: 1px solid var(--line); padding-top: var(--sp-3); }
 
-.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.ledger li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 14px; }
+.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ledger li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; font-size: var(--fs-md); }
 .ledger .tag { justify-self: start; }
-.tally { font-family: var(--display); font-size: 22px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; line-height: 1.15; }
-.tally b { color: var(--hot); font-weight: 700; }
-.sect { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: b; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
-.board li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; gap: 10px; align-items: baseline; padding: 3px 0; }
+.tally { font-family: var(--display); font-size: var(--fs-xl); font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-display); line-height: 1.15; }
+.tally b { color: var(--warm); font-weight: 700; }
+.sect { border-top: 1px solid var(--line); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); counter-reset: b; font-family: var(--mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.board li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: baseline; padding: var(--sp-1) 0; }
 .board li::before { counter-increment: b; content: counter(b); color: var(--muted); }
 .board li .nm { font-family: var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board li .tm { color: var(--muted); }
 .board li.me { color: var(--warm); }
 
-footer { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 6px; max-width: 86ch; }
+footer { color: var(--muted); font-size: var(--fs-md); display: flex; flex-direction: column; gap: var(--sp-2); max-width: 86ch; }
 footer p { margin: 0; }
 
+@media (hover: hover) {
+  .btn:not(:disabled):hover, .seg button:hover, .steps button:not(.locked):not([aria-current]):hover { border-color: var(--ink); color: var(--ink); }
+  .btn.primary:not(:disabled):hover, .btn.pump:hover, .seg button[aria-pressed="true"]:hover, .btn[aria-pressed="true"]:hover { filter: brightness(1.1); color: var(--deep); }
+  .panel.complete .btn.pump:hover { color: var(--cold); }
+  .btn.engage:not(:disabled):hover { border-color: var(--cold); color: var(--cold); background: color-mix(in srgb, var(--cold) 12%, transparent); }
+  .source-card summary:hover, .key summary:hover, a:hover { color: var(--ink); }
+  .pad:hover { border-color: var(--ink); }
+}
+@media (pointer: coarse) {
+  .steps button, .btn, .seg button, .source-card summary, .key summary { min-height: 44px; }
+  .ctl input[type=range] { height: 44px; }
+}
 @media (max-width: 860px) {
-  .deck { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .deck { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
   .view { position: relative; top: auto; }
-  .panel { padding: 16px; }
+  .panel { padding: var(--sp-4); }
   .hud { flex-wrap: wrap; }
+  /* One scrolling row of steps, so the experiment starts higher up the screen. */
+  .steps { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: var(--sp-1); }
+  .steps button { white-space: nowrap; }
   .steps button, .btn, .seg button { min-height: 44px; }
-  .ledger li { grid-template-columns: 1fr; gap: 4px; }
+  .ledger li { grid-template-columns: 1fr; gap: var(--sp-1); }
+}
+/* On a tall phone the experiment stays in view while its controls scroll beneath it. */
+@media (max-width: 860px) and (min-height: 600px) {
+  .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; aspect-ratio: auto; height: min(75vw, 38vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
 }
 </style>
 </head>
@@ -186,31 +265,45 @@ footer p { margin: 0; }
 <div class="wrap">
   <header class="top">
     <h1>Ion Pumpy <span>Thing</span></h1>
-    <p>Six steps from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the wormhole account set out at 4orbs.com, and says how much of it anyone can actually do.</p>
+    <p>Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the wormhole account set out at 4orbs.com from the physics it cites, and explains that physics as you go.</p>
   </header>
 
-  <div class="key" aria-label="What the labels mean">
-    <span><span class="tag lab">Lab physics</span> done in a laboratory</span>
-    <span><span class="tag model">Theory</span> a mathematical model</span>
-    <span><span class="tag meas">Measured</span> taken from the videos by 4orbs</span>
-    <span><span class="tag read">Reading</span> an interpretation</span>
-    <span><span class="tag gap">Nobody knows</span> no demonstrated mechanism</span>
-  </div>
+  <details class="key" id="key">
+    <summary>What the labels mean</summary>
+    <ul>
+      <li><span class="tag lab">Lab physics</span> done in a laboratory</li>
+      <li><span class="tag model">Theory</span> a mathematical model</li>
+      <li><span class="tag meas">Measured</span> taken from the videos by 4orbs</li>
+      <li><span class="tag read">4orbs account</span> how 4orbs connects the pieces</li>
+      <li><span class="tag scen">Game rule</span> simplified to make it playable</li>
+    </ul>
+  </details>
 
-  <div class="modebar" role="group" aria-label="Run mode">
-    <button type="button" class="btn" id="mode-learn">New learning run</button>
-    <button type="button" class="btn" id="mode-challenge">New timed run</button>
-    <p class="note">Learning has no clock penalty. Either button starts a new run; your best stays.</p>
-  </div>
   <div class="rail">
-    <ol class="steps" id="steps"></ol>
-    <div class="hud"><span id="hud-mode">Learning</span><b id="hud-time">Untimed</b><button type="button" class="btn small" id="pause" aria-pressed="false">Pause</button><button type="button" class="btn small" id="snd" aria-pressed="false">Sound off</button></div>
+    <ol class="steps" id="steps" aria-label="Steps"></ol>
+    <div class="hud">
+      <div class="seg" role="group" aria-label="Mode">
+        <button type="button" id="mode-learn" aria-pressed="true">Learning</button>
+        <button type="button" id="mode-challenge" aria-pressed="false">Timed</button>
+      </div>
+      <b id="hud-time">Untimed</b>
+      <button type="button" class="btn small" id="pause">Pause</button>
+      <button type="button" class="btn small" id="snd">Sound: off</button>
+      <button type="button" class="btn small" id="restart">Restart run</button>
+    </div>
   </div>
-  <p id="run-status" class="statusline" role="status" aria-live="polite"></p>
-  <p id="save-status" class="statusline"></p>
-  <p id="restore-status" class="statusline" role="status" hidden></p>
+  <div class="confirm" id="confirm" role="group" aria-labelledby="confirm-text" hidden>
+    <p id="confirm-text"></p>
+    <button type="button" class="btn primary" id="confirm-yes">Restart run</button>
+    <button type="button" class="btn" id="confirm-no">Keep playing</button>
+  </div>
+  <div class="status">
+    <p id="run-status" class="statusline" role="status" aria-live="polite"></p>
+    <p id="save-status" class="statusline"></p>
+    <p id="restore-status" class="statusline" role="status" hidden></p>
+  </div>
 
-  <main class="deck">
+  <main class="deck" id="deck">
     <section class="view" aria-label="Simulation view">
       <canvas id="cv" role="img" aria-label="Animated physics simulation for the current step"></canvas>
       <div class="scale" id="scale" hidden><b>HOT</b><b>COLD</b></div>
@@ -219,9 +312,9 @@ footer p { margin: 0; }
   </main>
 
   <footer>
-    <p><strong>Where this comes from.</strong> This edition follows <a href="https://4orbs.com/the-vanishing/part-3-the-science/">Part Three, corrected November 2026 edition (25:24)</a> and <a href="https://4orbs.com/research/satellite-videos/measurements/">the current measurements</a>. Each lesson links its source. Numerical teaching models and scenario rules are labelled separately from the source claims.</p>
-    <p><strong>What this is about.</strong> The two videos are claimed to show Malaysia Airlines Flight 370, which disappeared on 8 March 2014 with 239 people on board. The satellite data points to the southern Indian Ocean, three pieces of debris trace to the aircraft, and the usual reading of the videos is that they are visual effects. 4orbs argues they are more likely real than not. This game doesn't settle that. It shows what would have to be true.</p>
-      <p><a href="/privacy">Privacy</a></p>
+    <p><strong>Where this comes from.</strong> This edition follows <a href="https://4orbs.com/the-vanishing/part-3-the-science/">Part Three, corrected November 2026 edition (25:24)</a> and <a href="https://4orbs.com/research/satellite-videos/measurements/">the current measurements</a>. Each lesson links its source and the papers behind it. Simplifications made for play are labelled Game rule.</p>
+    <p><strong>What this is about.</strong> 4orbs.com analyses two videos of a Boeing 777-200ER and three orbs, and sets out how the physics it cites lets the orbs open a wormhole around the aircraft. This game takes that account as its premise. Each step turns one piece of it into an experiment and explains the physics underneath.</p>
+    <p><a href="/privacy">Privacy</a></p>
   </footer>
 </div>
 
@@ -256,6 +349,7 @@ function sci(x) {
   return (x / 10 ** e).toFixed(1) + ' × 10' + sup(e);
 }
 const fmt = (x, d = 0) => x.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+const kelvin = k => fmt(Math.round(k / 100) * 100) + ' K';   // plain kelvin, to the nearest hundred
 const clock = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 function set(id, html) { const el = document.getElementById(id); if (el && el.innerHTML !== html) el.innerHTML = html; }
 function label(txt, x, y, color = COL.muted, align = 'left', size = 11) {
@@ -304,38 +398,61 @@ const snd = {
   },
   chime() { this.tone(660, 0.2, 0.12); this.tone(990, 0.35, 0.12, 0.13); }
 };
+// The label states the current setting; it changes, so the button carries no pressed state.
 $('#snd').onclick = e => {
   const b = e.currentTarget, on = !snd.on && snd.enable();
   if (!on) snd.disable();
-  b.setAttribute('aria-pressed', on); b.textContent = on ? 'Sound on' : 'Sound off';
+  b.textContent = on ? 'Sound: on' : 'Sound: off';
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
 const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-25m24s-transit1';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
+// Papers the 4orbs pages cite, linked where the lesson uses them.
+const PAPERS = {
+  park: { label: 'Park et al., High Energy Electron Confinement in a Magnetic Cusp Configuration (Physical Review X, 2015)', url: 'https://arxiv.org/abs/1406.0133' },
+  miley: { label: 'Miley, Inertial Electrostatic Confinement Fusion (DIA report, March 2010)', url: 'https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D125_AAWSA-DIRD-Inertial-Electrostatic-Confinement-Fusion-March-10-2010.pdf' },
+  morris: { label: 'Morris and Thorne, Wormholes in spacetime and their use for interstellar travel: A tool for teaching general relativity (American Journal of Physics, 1988)', url: 'https://doi.org/10.1119/1.15620' },
+  lamoreaux: { label: 'Lamoreaux, Demonstration of the Casimir Force in the 0.6 to 6 μm Range (Physical Review Letters, 1997)', url: 'https://doi.org/10.1103/PhysRevLett.78.5' },
+  gjw: { label: 'Gao, Jafferis and Wall, Traversable Wormholes via a Double Trace Deformation (JHEP, 2017)', url: 'https://arxiv.org/abs/1608.05687' },
+  qubits: { label: 'Jafferis et al., Traversable wormhole dynamics on a quantum processor (Nature, 2022)', url: 'https://www.nature.com/articles/s41586-022-05424-3' },
+  davis: { label: 'Davis, Traversable Wormholes, Stargates, and Negative Energy (DIA report, April 2010)', url: 'https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D139_AAWSAP-DIRD-Traversable-Wormholes-Stargates-and-Negative-Energy-April-6-2010.pdf' }
+};
 const SOURCES = [
-  { url: SCIENCE_URL, section: '6:07, What are they made of?', note: 'Pressure, temperature response and glow thresholds are illustrative teaching rules.' },
-  { url: SCIENCE_URL, section: '7:40 and 10:15, confinement and the Polywell', note: 'Beta is plasma pressure divided by magnetic pressure. Drift and the six-second target are game rules. This generic coil view is not a Polywell or FRC simulation.' },
-  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei; side reactions can make neutrons. Curves, exposure rate and ignition thresholds here are illustrative, not measured reaction rates.' },
-  { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Synthetic reconstruction using the reported ranges, not imported tracking data. The 24° tilt and tumble period are illustrative. The site describes scale and depth ambiguities.' },
-  { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Ideal parallel-plate energy magnitude is a teaching model. The throat comparison scales the episode’s approximate 70 Jupiter masses per 100 m; it is not a verified design calculation. The cited Davis table has not been independently checked in this edition.' },
-  { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence triggering a throat is the scenario assumption. False colour and flash appearance are illustrative. The transit diagram uses a 63.7 m aircraft, a 60.9 m assumed span and the site’s assumed 250 m/s cruise speed. Length divided by speed only gives passage past a fixed entrance, not a wormhole travel time or evidence of arrival.' }
+  { url: SCIENCE_URL, section: '6:07, What are they made of?', note: 'Pressure, temperature response and glow thresholds are simplified for play.', refs: [] },
+  { url: SCIENCE_URL, section: '7:40 and 10:15, confinement and the Polywell', note: 'Beta is plasma pressure divided by magnetic pressure. The coils are a simplified cusp after Bussard’s Polywell. The drift and the six-second target are game rules.', refs: ['park'] },
+  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play.', refs: ['miley'] },
+  { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Built from the reported ranges. The 24° tilt and the tumble period are simplified for play.', refs: [] },
+  { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
+  { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence opens the throat, as in the 4orbs account. Thermal false colour and the flash are drawn for viewing. The transit uses a 63.7 m aircraft, its 60.9 m span and the measurement page’s 250 m/s cruise speed.', refs: ['davis'] }
 ];
 const BRIEFS = [
   'Hold the pump and raise the drive power. Keep the glow while the ions stay cool.',
   'Balance the field and centre the ball for six uninterrupted seconds.',
   'Compare the fuels. Tune hydrogen-boron until the charged reaction products appear.',
   'Match the formation in both views. Radius, lap time and camera angle each matter.',
-  'Move the plates and compare the scale. Then size the throat and enable the scenario assumption.',
+  'Try the plates, then size the throat for the wings and draw negative energy from the orbs to hold it open.',
   'Use your prepared system. Close the formation, then open the gate in the marked band.'
 ];
-function lessonContent(st, i) {
+function lessonContent(st, i, after = '') {
   const source = SOURCES[i];
   if (!source) return st.html;
+  const refs = source.refs.length ? `<ul class="refs">${source.refs.map(k => `<li><a href="${PAPERS[k].url}" target="_blank" rel="noopener">${PAPERS[k].label}</a></li>`).join('')}</ul>` : '';
   return st.html.replace(/<div class="lesson">([\s\S]*?)<\/div>/, (_, content) =>
-    `<p class="brief">${BRIEFS[i]}</p><details class="source-card"><summary>Why it works · source and model</summary>
-    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Corrected-source review: 20 November 2026 PT.<br>${source.note}<br>The experiment and timer pause while this card is open.</p></details>`);
+    `<p class="brief">${BRIEFS[i]}</p>${after}<details class="source-card"><summary>Why it works · source and model</summary>
+    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Sources checked 20 Nov 2026.<br>${source.note}<br>The experiment and timer pause while this card is open.</p>${refs}</details>`);
+}
+// Read a displayed value aloud with its unit spelled out, for sliders.
+function spoken(text) {
+  return String(text).replace(/ km²/g, ' square kilometres').replace(/ m²/g, ' square metres').replace(/ µm\b/g, ' micrometres').replace(/ nm\b/g, ' nanometres')
+    .replace(/ K\b/g, ' kelvin').replace(/ %/g, ' percent').replace(/°/g, ' degrees').replace(/ s\b/g, ' seconds').replace(/ m\b/g, ' metres');
+}
+// Show a slider's value beside it, and give the same value to assistive tech.
+function out(id, text) {
+  set(id + '-o', text);
+  const input = document.getElementById(id), said = spoken(text);
+  if (input && input._said !== said) { input.setAttribute('aria-valuetext', said); input._said = said; }
 }
 function stage(def, s0) {
   def.reset = () => Object.assign(def, JSON.parse(JSON.stringify(s0)), { done: false, time: 0 });
@@ -367,7 +484,7 @@ const ignite = stage({
   html: `
     <div class="lesson">
       <p><span class="tag lab">Lab physics</span>Heat a gas far enough and electrons break away from their atoms. What's left is plasma, the fourth state of matter. It glows because collisions lift electrons to higher energy and they give it back as light, in a colour set by the gas.</p>
-      <p><span class="tag read">Reading</span>Ashton Forbes reads the three objects in the videos as "cold plasma". That is a real term: the electrons are hot while the heavy ions stay cool. A neon sign works this way.</p>
+      <p><span class="tag read">4orbs account</span>Ashton Forbes reads the three objects in the videos as "cold plasma". That is a real term: the electrons are hot while the heavy ions stay cool. A neon sign works this way. Hydrogen glows pink and argon violet.</p>
       <p class="note">At full pressure, electrons hit atoms so often that everything heats together and you get an arc. Pump most of the gas out and the electrons run hot on their own. The seal leaks, so the pressure creeps back up. Pump too far and there's too little gas left to glow.</p>
     </div>
     <div class="ctl">
@@ -375,8 +492,9 @@ const ignite = stage({
         <button type="button" id="gas-h" data-gas="h">Hydrogen</button>
         <button type="button" id="gas-ar" data-gas="ar">Argon</button>
       </div>
-      <label for="ig-power">Drive power <output id="ig-power-o"></output><input id="ig-power" type="range" min="0" max="100" step="1"></label>
-      <button type="button" class="btn pump" id="ig-pump">Pump (hold)</button>
+      <label for="ig-power"><span id="ig-power-l">Drive power</span> <output id="ig-power-o"></output><input id="ig-power" aria-labelledby="ig-power-l" type="range" min="0" max="100" step="1"></label>
+      <button type="button" class="btn pump" id="ig-pump" aria-describedby="ig-pump-hint">Pump (hold)</button>
+      <p class="note" id="ig-pump-hint">Hold to pump. Keyboard: hold Space or Enter.</p>
       <div>
         <div class="meter" aria-hidden="true"><div class="band" id="ig-band"></div><div class="mark" id="ig-mark"></div></div>
         <div class="mlabels"><span>0.05 torr</span><span>pressure, each tick ×10</span><span>760 torr</span></div>
@@ -386,7 +504,7 @@ const ignite = stage({
       <div><dt>Pressure</dt><dd id="ig-p"></dd></div>
       <div><dt>Electrons</dt><dd id="ig-te"></dd></div>
       <div><dt>Ions</dt><dd id="ig-ti"></dd></div>
-      <div><dt>State</dt><dd id="ig-state"></dd></div>
+      <div class="wide"><dt>State</dt><dd id="ig-state"></dd></div>
     </dl>`,
   model() {
     const p = this.p, Te = this.power / 100 * 8 / (1 + p / 400), c = p / (p + 30);
@@ -414,7 +532,13 @@ const ignite = stage({
     const b = $('#ig-pump');
     b.onpointerdown = e => { this.pumping = true; this.strokeT = 0; this.stroke(); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
     b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => { this.pumping = false; };
-    b.onclick = e => { if (e.detail === 0) this.stroke(); };
+    // Keyboard: every keydown pumps, so holding Space or Enter keeps pumping through key repeat.
+    // Cancelling the key's default stops the browser adding a click of its own.
+    let keyed = -1e9;
+    b.onkeydown = e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); keyed = performance.now(); this.stroke(); } };
+    b.onkeyup = e => { if (e.key === ' ') e.preventDefault(); };
+    // Other activations, such as a screen reader's, still pump once.
+    b.onclick = e => { if (e.detail === 0 && performance.now() - keyed > 150) this.stroke(); };
     b.oncontextmenu = e => e.preventDefault();
     const band = $('#ig-band'); band.style.left = this.pos(0.3) + '%'; band.style.width = this.pos(2.5) - this.pos(0.3) + '%';
   },
@@ -443,10 +567,10 @@ const ignite = stage({
     this.hold = m.ok ? this.hold + dt : 0;
     if (this.hold >= 1.5) complete(this);
     snd.hum(50 + this.power * 1.4, 0.02 + m.glow * 0.07);
-    set('ig-power-o', this.power + ' %');
+    out('ig-power', this.power + ' %');
     set('ig-p', (m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)) + ' torr<small>' + (m.p > 2.5 ? 'keep pumping' : m.p < 0.3 ? 'too thin: let it leak back' : 'in the band') + '</small>');
-    set('ig-te', fmt(m.Te * 11600 / 1000, 1) + ' kK<small>' + fmt(m.Te, 1) + ' eV</small>');
-    set('ig-ti', (m.Ti < 1000 ? fmt(m.Ti - 273) + ' °C' : fmt(m.Ti / 1000, 1) + ' kK') + '<small>' + (m.Ti <= 320 ? 'cool ions in this model' : 'would burn') + '</small>');
+    set('ig-te', kelvin(m.Te * 11600) + '<small>' + fmt(m.Te, 1) + ' eV</small>');
+    set('ig-ti', (m.Ti < 1000 ? fmt(m.Ti - 273) + ' °C' : kelvin(m.Ti)) + '<small>' + (m.Ti <= 320 ? 'cool ions' : 'would burn') + '</small>');
     set('ig-state', m.state);
     const mk = $('#ig-mark'); if (mk) mk.style.left = clamp(this.pos(m.p), 0, 100) + '%';
     goal(this.done && m.ok ? 1 : this.hold / 1.5, this.done && m.ok ? 'Cold plasma: electrons at tens of thousands of kelvin, ions at room temperature.' : 'Goal: a glowing plasma whose ions stay below 47 °C.');
@@ -481,6 +605,10 @@ const ignite = stage({
     viewTitle('GLASS JAR · ' + GASES[this.gas][0].toUpperCase());
     ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(38, H - 34, 4, 0, TAU); ctx.fill(); label('ion', 48, H - 30);
     ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 18, 1.8, 0, TAU); ctx.fill(); label('electron', 48, H - 14);
+  },
+  describe() {
+    const m = this.m || this.model();
+    return `Glass jar of ${GASES[this.gas][0].toLowerCase()} at ${m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)} torr: ${m.state.toLowerCase()}${m.glow > 0.2 ? ', glowing' : ''}.`;
   }
 }, { gas: 'h', power: 15, p: 760, hold: 0, t: 0, anim: 0, pumping: false, strokeT: 0, ions: [], els: [] });
 
@@ -491,13 +619,19 @@ const hold = stage({
   html: `
     <div class="lesson">
       <p><span class="tag lab">Lab physics</span>Left in open air, a hot plasma cools and spreads in a fraction of a second. Laboratory plasmoids last a few hundred milliseconds. A magnetised plasma can't hold itself together with its own field. Something outside has to: coils, a wall, or for a star, gravity.</p>
-      <p><span class="tag lab">Lab physics</span>The balance point is called beta one: the plasma's pressure equals the field's. Robert Bussard reported reaching it in his Polywell in 2006. In this simplified coil model, values above one trigger a loss. That is a game rule, not a universal confinement limit. Even a plasma that builds part of its own cage still needs outside coils to hold it in place, or it drifts into the wall and dies.</p>
-      <p class="note">One pad, two jobs. Up and down sets the field strength, to keep beta in the band. Left and right trims the coils, to push the ball back to the centre. Arrow keys work too.</p>
+      <p><span class="tag model">Theory</span>Beta is the plasma's pressure divided by the field's: β = nkT / (B²/2μ₀). Fusion power grows as β²B⁴, so a machine at beta one makes far more power from the same magnets than a tokamak, which runs at a few per cent.</p>
+      <p><span class="tag lab">Lab physics</span>Robert Bussard's Polywell sets six coils on the faces of a cube. Their fields pinch together in cusps and trap electrons in a "wiffle ball" at the centre. Bussard reported reaching beta one in his sixth machine in 2006. In 2015 Park and colleagues tested Harold Grad's prediction that near beta one the plasma pushes the field into a sharp-edged boundary and the cusp leaks close. They found confinement is enhanced when beta is near one.</p>
+      <p class="note">One pad, two jobs. Up and down sets the field strength, to keep beta in the band. Left and right trims the coils, to push the ball back to the centre. Arrow keys work too. Past beta one the plasma overpowers the field and leaks out.</p>
     </div>
     <div class="ctl">
       <div>
         <div class="pad" id="ho-pad" tabindex="0" role="application" aria-label="Coil control pad. Up and down arrows set field strength, left and right arrows trim the coils."><i id="ho-knob"></i></div>
         <div class="padlabels"><span>← push left</span><span>↑ stronger field</span><span>push right →</span></div>
+      </div>
+      <div class="assist" id="ho-assist-row">
+        <button type="button" class="btn" id="ho-assist" aria-pressed="false" aria-describedby="ho-assist-note">Assist: keep the ball centred</button>
+        <button type="button" class="btn engage" id="ho-show" aria-describedby="ho-assist-note" hidden>Show me</button>
+        <p class="note" id="ho-assist-note">Learning runs only. The assist trims the coils for you; Show me runs the whole hold. The ledger notes an assisted hold.</p>
       </div>
       <div>
         <div class="meter" aria-hidden="true"><div class="band" style="left:37.5%;width:12.5%"></div><div class="mark" id="ho-mark"></div></div>
@@ -520,19 +654,47 @@ const hold = stage({
       const k = { ArrowLeft: [-0.06, 0], ArrowRight: [0.06, 0], ArrowUp: [0, 0.01], ArrowDown: [0, -0.01] }[e.key];
       if (k) { e.preventDefault(); this.trim = clamp(this.trim + k[0], -1, 1); this.B = clamp(this.B + k[1], 0, 1); }
     };
+    // Learning-mode help: the assist trims the coils; Show me, offered after three misses, flies the whole hold.
+    const row = $('#ho-assist-row'), assistBtn = $('#ho-assist'), showBtn = $('#ho-show');
+    this.paintAssist = () => {
+      const learn = S.mode === 'learn';
+      if (row) row.hidden = !learn;
+      if (assistBtn) assistBtn.setAttribute('aria-pressed', learn && this.assist);
+      if (showBtn) showBtn.hidden = !(learn && this.fails >= 3 && !this.done);
+    };
+    if (assistBtn) assistBtn.onclick = () => { this.assist = !this.assist; this.paintAssist(); };
+    if (showBtn) showBtn.onclick = () => { this.autopilot = true; this.assist = true; this.paintAssist(); };
+    this.paintAssist();
   },
   push(t) { return 0.42 * Math.sin(t * 0.55 + 0.5) + 0.28 * Math.sin(t * 1.25 + 2); },
   update(dt) {
     this.t += dt;
-    const t = this.t, p = this.p = plasmaPressure(t);
+    const t = this.t, p = this.p = plasmaPressure(t), learn = S.mode === 'learn';
+    if (learn && (this.assist || this.autopilot)) {
+      // Counter the drift and steer back to the centre, as far as the field's grip allows.
+      const grip = Math.max(0.05, clamp(this.B / 0.3, 0, 1));
+      this.trim = clamp((-this.push(t) - 1.5 * this.x) / (1.2 * grip), -1, 1);
+    }
+    if (learn && this.autopilot) {
+      const Bt = Math.sqrt(p * 1000 * 2 * MU0 / 0.88);   // the field that puts beta at 0.88
+      this.B = clamp(this.B + (Bt - this.B) * Math.min(1, dt * 3), 0, 1);
+    }
     const pm = this.pm = this.B * this.B / (2 * MU0) / 1000, beta = this.beta = pm > 0 ? p / pm : Infinity;
-    const leak = beta > 1;
+    const leak = beta > 1, before = this.lock;
+    let missed = false;
     this.x += (this.push(t) + this.trim * 1.2 * clamp(this.B / 0.3, 0, 1)) * dt;
-    if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; snd.burst(0.3, 0.3, 300, 'lowpass'); }
+    if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; missed = true; snd.burst(0.3, 0.3, 300, 'lowpass'); }
     this.hit = Math.max(0, this.hit - dt);
     const centred = Math.abs(this.x) < 0.45;
     this.lock = !leak && beta >= 0.75 && centred ? Math.min(6, this.lock + dt) : 0;
-    if (this.lock >= 6) complete(this);
+    if (before >= 1 && this.lock === 0) missed = true;
+    if (missed && !this.done) { this.fails++; if (this.fails === 3 && this.paintAssist) this.paintAssist(); }
+    if (this.lock >= 6) {
+      if (!this.done) this.assisted = learn && (this.assist || this.autopilot);
+      this.autopilot = false;
+      complete(this);
+      if (this.paintAssist) this.paintAssist();
+    }
     if (leak && Math.random() < dt * 14) snd.burst(0.03, 0.18, 2400);
     snd.hum(55 + this.B * 110, 0.02 + this.B * 0.06);
     const target = leak ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
@@ -548,7 +710,7 @@ const hold = stage({
     set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (leak ? 'leaking' : beta < 0.75 ? 'held, over-built' : 'balanced') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
     set('ho-x', this.hit > 0 ? 'hit the wall<small>cooled and lost</small>' : centred ? 'centred' : this.x < 0 ? 'drifting left<small>push right</small>' : 'drifting right<small>push left</small>');
     const mk = $('#ho-mark'); if (mk) mk.style.left = clamp((isFinite(beta) ? beta : 2) / 2, 0, 1) * 100 + '%';
-    goal(this.lock / 6, this.lock >= 6 ? 'Held at beta one, and held in place. Both took coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
+    goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
   },
   draw() {
     const cx = W / 2, cy = H / 2 + 4, R0 = Math.min(W * 0.11, H * 0.17), rr = R0 * this.size, f = clamp(this.B / 0.6, 0, 1);
@@ -576,9 +738,13 @@ const hold = stage({
     this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = clamp(1.2 - q.r / 3, 0.1, 1); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
     ctx.globalAlpha = 1;
     viewTitle('PLASMA BALL BETWEEN COILS');
-    if (this.B === 0) label('coils off: the plasma spreads and is gone', cx, H - 18, COL.hot, 'center');
+    if (this.B === 0) label(this.t === 0 ? 'touch the pad or press an arrow key to switch the coils on' : 'coils off: the plasma spreads and is gone', cx, H - 18, this.t === 0 ? COL.ink : COL.hot, 'center', W < 420 ? 9.5 : 11);
+  },
+  describe() {
+    const pos = this.hit > 0 ? 'has hit the wall' : Math.abs(this.x) < 0.45 ? 'is centred' : this.x < 0 ? 'is drifting left' : 'is drifting right';
+    return this.B === 0 ? 'Plasma ball between coils, coils off.' : `Plasma ball between coils at ${this.B.toFixed(2)} tesla, beta ${isFinite(this.beta) ? this.beta.toFixed(2) : 'infinite'}. The ball ${pos}.`;
   }
-}, { B: 0, trim: 0, x: 0, lock: 0, t: 0, size: 1, hit: 0, drag: false, parts: [] });
+}, { B: 0, trim: 0, x: 0, lock: 0, t: 0, size: 1, hit: 0, drag: false, assist: false, assisted: false, autopilot: false, fails: 0, parts: [] });
 
 /* ───────── Step 3: Fuel ───────── */
 const FUELS = {
@@ -589,7 +755,8 @@ const fuel = stage({
   name: 'Fuel', title: 'Choose what it burns',
   html: `
     <div class="lesson">
-      <p><span class="tag read">Reading</span>Forbes's picture of an orb is "a coherent ball of plasma with potentially a device inside of it". A device that flies needs power on board, and his account leans on fusion.</p>
+      <p><span class="tag read">4orbs account</span>Forbes's picture of an orb is "a coherent ball of plasma with potentially a device inside of it". A device that flies needs power on board, and his account runs it on fusion.</p>
+      <p><span class="tag lab">Lab physics</span>The Polywell is a fusion machine as well as a trap. Its trapped electrons form a virtual cathode, a well about 10 kV deep on Bussard's sixth machine. Positive ions fall into the well, speed up toward the centre, collide and fuse. George Miley's 2010 report for the Defense Intelligence Agency surveys this family, inertial electrostatic confinement.</p>
       <p><span class="tag lab">Lab physics</span>Most fusion work burns two heavy forms of hydrogen. That reaction lights at the lowest temperature, but it throws out neutrons. No magnetic field can steer a neutron, so it goes straight into the wall and makes it radioactive.</p>
       <p><span class="tag lab">Lab physics</span>Hydrogen and boron-11 make three helium nuclei and almost no neutrons. The energy comes out on charged particles, so it could in principle be turned straight into electricity. The catch: it needs far higher temperatures to burn. Boron fuel is being tested in experiments now.</p>
     </div>
@@ -598,10 +765,10 @@ const fuel = stage({
         <button type="button" id="fu-dt" data-fuel="dt">Deuterium + tritium</button>
         <button type="button" id="fu-pb" data-fuel="pb">Hydrogen + boron-11</button>
       </div>
-      <label for="fu-t">Plasma temperature <output id="fu-t-o"></output><input id="fu-t" type="range" min="0" max="3" step="0.01"></label>
+      <label for="fu-t"><span id="fu-t-l">Plasma temperature</span> <output id="fu-t-o"></output><input id="fu-t" aria-labelledby="fu-t-l" type="range" min="0" max="3" step="0.05"></label>
       <div>
         <div class="meter" aria-hidden="true"><div class="fill bad" id="fu-dose"></div></div>
-        <div class="mlabels"><span>0</span><span>cumulative neutron exposure</span><span>full scale</span></div><p class="note">Exposure is illustrative and stays recorded for this run. Impact flashes fade; exposure does not.</p>
+        <div class="mlabels"><span>0</span><span>cumulative neutron exposure</span><span>full scale</span></div><p class="note">Exposure is simplified for play and stays recorded for this run. Impact flashes fade; exposure does not.</p>
       </div>
     </div>
     <dl class="reads">
@@ -641,10 +808,10 @@ const fuel = stage({
     if (this.hold >= 3) complete(this);
     snd.hum(70 + this.lt * 60, 0.015 + rate * 0.07);
     const K = keV * 11.6e6;
-    set('fu-t-o', K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K');
-    set('fu-rate', lit ? 'Active<small>illustrative response, not measured yield</small>' : 'Low activity<small>illustrative temperature response</small>');
+    out('fu-t', K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K');
+    set('fu-rate', lit ? 'Burning<small>simplified temperature response</small>' : 'Low activity<small>simplified temperature response</small>');
     set('fu-out', F.out);
-    set('fu-n', this.fuel === 'dt' ? 'Most<small>neutrons carry much of the energy</small>' : 'Main reaction: none<small>side reactions can make neutrons; not simulated</small>');
+    set('fu-n', this.fuel === 'dt' ? 'Most<small>neutrons carry much of the energy</small>' : 'Almost none<small>the main reaction makes none; side reactions make a few</small>');
     const d = $('#fu-dose'); if (d) d.style.width = this.dose * 100 + '%';
     goal(this.hold / 3, this.hold >= 3 ? 'Burning boron: the energy stays on charged particles the field can catch. It took billions of kelvin.' : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: sustain the hydrogen-boron demonstration for three seconds.');
   },
@@ -667,6 +834,9 @@ const fuel = stage({
     ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 34, 2.8, 0, TAU); ctx.fill(); label('helium (charged)', 48, H - 30);
     ctx.fillStyle = COL.hot; ctx.beginPath(); ctx.arc(38, H - 18, 2.2, 0, TAU); ctx.fill(); label('neutron', 48, H - 14);
     viewTitle('REACTOR CORE · ' + (this.fuel === 'dt' ? 'D-T' : 'P-B11'));
+  },
+  describe() {
+    return `Reactor core burning ${FUELS[this.fuel].name.toLowerCase()}: ${this.lit ? 'burning, ' + (this.fuel === 'pb' ? 'charged helium nuclei curling in the field' : 'neutrons striking the wall') : 'low activity'}. Wall exposure ${fmt(this.dose * 100)} percent.`;
   }
 }, { fuel: 'dt', lt: 0.3, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
 
@@ -697,17 +867,17 @@ const orbit = stage({
   name: 'Orbit', title: 'Fly the formation',
   html: `
     <div class="lesson">
-      <p><span class="tag meas">Measured</span>Where both videos track them cleanly, the three objects circle the airliner once in about two and a half seconds, 60 to 70 metres out if the aircraft is a Boeing 777. For about sixteen seconds they hold one equal-sided triangle centred on the aircraft. The triangle spins, and as it spins it tumbles.</p>
+      <p><span class="tag meas">Measured</span>Where both videos track them cleanly, the three objects circle the airliner once in about two and a half seconds, 60 to 70 metres out, taking the aircraft as a Boeing 777-200ER. For about sixteen seconds they hold one equal-sided triangle centred on the aircraft. The triangle spins, and as it spins it tumbles.</p>
       <p><span class="tag lab">Lab physics</span>Anything moving in a circle is being pulled toward the centre. Speed is the circumference over the time for one lap. The pull is the speed squared over the radius. Tighter and faster both cost you.</p>
       <p><span class="tag meas">Measured</span>Two cameras pin down one scene. 4orbs fitted the two lines of sight at 123 to 141 degrees apart, which is why the objects circle in opposite senses in the two videos.</p>
       <p class="note">The hollow rings are the tracked objects. Put your orbs on them in both views.</p>
     </div>
     <div class="ctl">
-      <label for="or-r">Distance from the aircraft <output id="or-r-o"></output><input id="or-r" type="range" min="30" max="100" step="1"></label>
-      <label for="or-t">Time for one lap <output id="or-t-o"></output><input id="or-t" type="range" min="1" max="8" step="0.1"></label>
-      <label for="or-c">Angle between the two cameras <output id="or-c-o"></output><input id="or-c" type="range" min="0" max="180" step="1"></label>
+      <label for="or-r"><span id="or-r-l">Distance from the aircraft</span> <output id="or-r-o"></output><input id="or-r" aria-labelledby="or-r-l" type="range" min="30" max="100" step="1"></label>
+      <label for="or-t"><span id="or-t-l">Time for one lap</span> <output id="or-t-o"></output><input id="or-t" aria-labelledby="or-t-l" type="range" min="1" max="8" step="0.1"></label>
+      <label for="or-c"><span id="or-c-l">Angle between the two cameras</span> <output id="or-c-o"></output><input id="or-c" aria-labelledby="or-c-l" type="range" min="0" max="180" step="1"></label>
     </div>
-    <dl class="reads">
+    <dl class="reads two">
       <div><dt>Speed</dt><dd id="or-v"></dd></div>
       <div><dt>Turn</dt><dd id="or-g"></dd></div>
       <div><dt>Airliner needs</dt><dd id="or-air"></dd></div>
@@ -726,19 +896,19 @@ const orbit = stage({
     this.hold = ok ? this.hold + dt : 0;
     if (this.hold >= 1.5) complete(this);
     snd.hum(40 + v * 0.6, 0.05);
-    set('or-r-o', this.r + ' m'); set('or-t-o', this.T.toFixed(1) + ' s'); set('or-c-o', this.cam + '°');
+    out('or-r', this.r + ' m'); out('or-t', this.T.toFixed(1) + ' s'); out('or-c', this.cam + '°');
     set('or-v', fmt(v * 3.6) + ' km/h<small>relative to the airliner</small>');
     set('or-g', fmt(g, 1) + ' g<small>a 75 kg person would weigh ' + fmt(75 * g / 1000, 1) + ' t</small>');
     set('or-air', fmt(2 * v * v / (9.81 * Math.sqrt(2.5 * 2.5 - 1))) + ' m<small>circle width at its 2.5 g limit</small>');
     set('or-ftr', fmt(2 * v * v / (9.81 * Math.sqrt(80))) + ' m<small>circle width at 9 g</small>');
-    goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g. No known aircraft of 2014 could do it.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
+    goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
   },
   draw() {
     const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6;
     ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
-    const views = [[hw / 2, p => [p[0], p[1]], 1, 'CAMERA 1 · FROM ABOVE'], [hw * 1.5, p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), 'CAMERA 2']];
+    const views = [[hw / 2, p => [p[0], p[1]], 1, 'CAMERA 1 · FROM ABOVE'], [hw * 1.5, p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAMERA 2 · ${this.cam}° ROUND`]];
     views.forEach(([cx, proj, sy, title], vi) => {
       const tp = vi ? p => camB(p, TRUE_CAM) : proj;
       ctx.save(); ctx.translate(cx, cy); plane(sc, '#cfd6e6', '#8791ad', Math.abs(sy) < 0.04 ? 0.04 : sy); ctx.restore();
@@ -750,6 +920,10 @@ const orbit = stage({
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });
     scaleBarDraw(sc);
+  },
+  describe() {
+    const match = this.r >= 60 && this.r <= 70 && this.T >= 2.3 && this.T <= 2.7 && this.cam >= 123 && this.cam <= 141;
+    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${match ? 'The orbs sit on the tracked rings in both views.' : 'The orbs are off the tracked rings.'}`;
   }
 }, { r: 95, T: 6, cam: 40, ang: 0, ghost: 0, tumble: 0, hold: 0 });
 
@@ -762,25 +936,27 @@ const open = stage({
   html: `
     <div class="lesson">
       <p><span class="tag model">Theory</span>Einstein and Nathan Rosen described a wormhole in 1935: a tunnel joining two places in space. Nothing can cross that kind. It pinches shut. In 1988 Michael Morris and Kip Thorne worked out what a crossable one needs: negative energy, energy below that of empty space, to hold the throat open.</p>
-      <p><span class="tag lab">Lab physics</span>Negative energy is real, in traces. Experiments have measured the force it is tied to between two metal plates set very close together, though not the energy itself.</p>
-      <p><span class="tag gap">Nobody knows</span>A 2010 Defense Intelligence Agency survey puts a 100 metre wormhole at about 70 Jupiter masses of negative energy, and says nobody knows how to build one.</p>
-      <p class="note">The throat estimate is an illustrative scaling of the episode’s approximate figure. Extra width costs points only in timed runs.</p>
+      <p><span class="tag lab">Lab physics</span>Negative energy is real. Between two metal plates set very close together, the empty space holds less energy than the space outside, and the plates are pushed together. This is the Casimir effect, predicted in 1948. Steve Lamoreaux made the first precision measurement of its force in 1997. Halve the gap and the energy grows eightfold: it goes as one over the gap cubed.</p>
+      <p><span class="tag model">Theory</span>In 2017 Ping Gao, Daniel Jafferis and Aron Wall showed that a pulse of negative energy makes an Einstein-Rosen bridge crossable. In 2022 a team ran a model of this on nine qubits of Google's quantum processor.</p>
+      <p><span class="tag model">Theory</span>The 2010 report for the Defense Intelligence Agency, <cite>Traversable Wormholes, Stargates, and Negative Energy</cite>, sizes the job. By its table, a 100 m wide wormhole needs negative energy equal to about seventy times the mass of Jupiter.</p>
+      <p><span class="tag scen">Game rule</span>Here the orbs supply that energy, because in Forbes's account their convergence is what opens the wormhole.</p>
+      <p class="note">The throat's need scales the report's figure in a straight line with width. Extra width costs points only in timed runs.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Experiment view"><button type="button" id="op-plates">Inspect plates</button><button type="button" id="op-throat">Inspect throat</button></div>
-      <label for="op-w">Throat width <output id="op-w-o"></output><input id="op-w" type="range" min="1" max="200" step="1"></label>
-      <label for="op-d">Gap between the plates <output id="op-d-o"></output><input id="op-d" type="range" min="1" max="4" step="0.01"></label>
-      <label for="op-a">Plate area <output id="op-a-o"></output><input id="op-a" type="range" min="0" max="6" step="0.05"></label>
+      <label for="op-w"><span id="op-w-l">Throat width</span> <output id="op-w-o"></output><input id="op-w" aria-labelledby="op-w-l" type="range" min="1" max="200" step="1"></label>
+      <label for="op-d"><span id="op-d-l">Gap between the plates</span> <output id="op-d-o"></output><input id="op-d" aria-labelledby="op-d-l" type="range" min="1" max="4" step="0.01"></label>
+      <label for="op-a"><span id="op-a-l">Plate area</span> <output id="op-a-o"></output><input id="op-a" aria-labelledby="op-a-l" type="range" min="0" max="6" step="0.05"></label>
       <div>
         <div class="meter" aria-hidden="true"><div class="fill" id="op-fill"></div><div class="need" id="op-need"></div></div>
         <div class="mlabels"><span>10⁻¹² J</span><span>negative energy, each tick ×10</span><span>10⁴⁸ J</span></div>
       </div>
-      <div class="actions"><button type="button" class="btn gapbtn" id="op-assume">Assume a source nobody has</button></div>
+      <div class="actions"><button type="button" class="btn engage" id="op-assume">Draw negative energy from the orbs</button></div>
     </div>
     <dl class="reads">
-      <div><dt>Scenario estimate</dt><dd id="op-needv"></dd></div>
-      <div><dt>Plate energy magnitude</dt><dd id="op-have"></dd></div>
-      <div><dt>Short by</dt><dd id="op-short"></dd></div>
+      <div><dt>Throat needs</dt><dd id="op-needv"></dd></div>
+      <div><dt>Casimir plates</dt><dd id="op-have"></dd></div>
+      <div><dt>Source</dt><dd id="op-short"></dd></div>
     </dl>`,
   init() {
     for (const [id, k] of [['op-w', 'w'], ['op-d', 'ld'], ['op-a', 'la']]) { const el = $('#' + id); el.value = this[k]; el.oninput = () => { this[k] = +el.value; }; }
@@ -796,17 +972,17 @@ const open = stage({
     const have = Math.PI ** 2 * HBARC / (720 * d ** 3) * A;
     const pos = x => clamp((Math.log10(x) + 12) / 60, 0, 1) * 100;
     const fill = $('#op-fill'), nd = $('#op-need'), btn = $('#op-assume');
-    if (fill) { fill.style.width = (this.assumed ? pos(need) : pos(have)) + '%'; fill.classList.toggle('assumed', this.assumed); nd.style.left = pos(need) + '%'; btn.textContent = this.assumed ? 'Take the assumption back' : 'Assume a source nobody has'; }
+    if (fill) { fill.style.width = (this.assumed ? pos(need) : pos(have)) + '%'; fill.classList.toggle('sourced', this.assumed); nd.style.left = pos(need) + '%'; btn.textContent = this.assumed ? 'Release the throat' : 'Draw negative energy from the orbs'; }
     const dn = d * 1e9;
-    set('op-w-o', this.w + ' m'); set('op-d-o', dn >= 1000 ? fmt(dn / 1000, 1) + ' µm' : fmt(dn) + ' nm');
-    set('op-a-o', A >= 1e6 ? fmt(A / 1e6, 1) + ' km²' : fmt(A) + ' m²');
-    set('op-needv', '≈ ' + fmt(this.w * JUPITERS_PER_M, 1) + ' Jupiters<small>illustrative scaling: ' + sci(need) + ' J</small>');
-    set('op-have', sci(have) + ' J');
-    set('op-short', this.assumed ? 'assumed<small>the gap is still there</small>' : fmt(Math.log10(need / have)) + ' zeros<small>a factor of 10' + sup(Math.round(Math.log10(need / have))) + '</small>');
+    out('op-w', this.w + ' m'); out('op-d', dn >= 1000 ? fmt(dn / 1000, 1) + ' µm' : fmt(dn) + ' nm');
+    out('op-a', A >= 1e6 ? fmt(A / 1e6, 1) + ' km²' : fmt(A) + ' m²');
+    set('op-needv', '≈ ' + fmt(this.w * JUPITERS_PER_M, 1) + ' Jupiter masses<small>' + sci(need) + ' J, scaled from the DIA report’s table</small>');
+    set('op-have', sci(have) + ' J<small>negative energy at this gap and area</small>');
+    set('op-short', this.assumed ? 'The orbs<small>holding the throat open</small>' : 'Off<small>draw from the orbs to hold the throat</small>');
     const fits = this.w >= 61;
     if (fits && this.assumed) complete(this);
     if (this.assumed) snd.hum(46, 0.07);
-    goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open, on paper. The throat clears the wings only because you assumed the energy.' : !fits ? 'Goal: a throat wide enough for a 60.9 m wingspan, held open.' : 'Wide enough. Now find the negative energy. Try the plates first.');
+    goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open. Negative energy from the orbs holds a throat wide enough for the wings, as Morris and Thorne require.' : !fits ? 'Goal: a throat wide enough for a 60.9 m wingspan, held open.' : 'Wide enough. Now draw negative energy from the orbs to hold it open.');
   },
   draw() {
     if (this.view === 'plates') return drawPlates(this);
@@ -828,8 +1004,12 @@ const open = stage({
     if (!fits) for (const sx of [-1, 1]) ring(cx + sx * 30.45 * sc, cy + 10.7 * sc, 7, COL.hot);
     label(fits ? 'throat clears the 60.9 m wingspan' : 'wingtips outside the throat', cx, H - 18, fits ? COL.cold : COL.hot, 'center');
     if (!this.assumed) label(openness < 0.06 ? 'pinched shut' : 'no negative energy: it will not stay open', cx, 44, COL.muted, 'center');
-    else label('held open by an assumed source', cx, 44, COL.hot, 'center');
+    else label('held open by the orbs’ negative energy', cx, 44, COL.read, 'center');
     viewTitle('LOOKING DOWN THE THROAT');
+  },
+  describe() {
+    if (this.view === 'plates') return `Casimir plates ${fmt(10 ** this.ld)} nanometres apart, ${sci(10 ** this.la)} square metres in area, pushed together by negative energy.`;
+    return `Looking down a ${this.w} metre wormhole throat at the airliner. ${this.assumed ? 'Held open by the orbs’ negative energy.' : 'No negative energy: it will not stay open.'} ${this.w >= 61 ? 'The wings clear the throat.' : 'The wingtips are outside the throat.'}`;
   }
 }, { w: 10, ld: 3, la: 0, assumed: false, t: 0, view: 'plates' });
 
@@ -871,7 +1051,7 @@ function missionReadiness() {
     { name: 'Confinement', stage: 1, ok: hold.done && hold.lock >= 6 && beta >= .75 && beta <= 1 && Math.abs(hold.x) < .45, detail: 'six-second hold captured' },
     { name: 'Fuel', stage: 2, ok: fuel.done && fuel.fuel === 'pb' && fuelActivity(fuel) >= .15, detail: 'hydrogen-boron active' },
     { name: 'Formation', stage: 3, ok: orbit.done && orbit.r >= 60 && orbit.r <= 70 && orbit.T >= 2.3 && orbit.T <= 2.7 && orbit.cam >= 123 && orbit.cam <= 141, detail: `${orbit.r} m / ${orbit.T.toFixed(1)} s / ${orbit.cam}°` },
-    { name: 'Throat', stage: 4, ok: open.done && open.w >= 61 && open.assumed, detail: `${open.w} m / assumed source` }
+    { name: 'Throat', stage: 4, ok: open.done && open.w >= 61 && open.assumed, detail: `${open.w} m / held by the orbs` }
   ];
 }
 function missionReady() { return missionReadiness().every(r => r.ok); }
@@ -909,42 +1089,43 @@ function drawTransit(st) {
   }
   label(`${open.w} m entrance`, cx, cy - 15, m.fits ? COL.cold : COL.hot, 'center');
   label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 48, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
-  label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at assumed 250 m/s`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
-  viewTitle('TRANSIT DIAGRAM · SCENARIO ASSUMPTION');
+  label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at 250 m/s cruise`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
+  viewTitle('TRANSIT DIAGRAM');
 }
 const conv = stage({
   name: 'Converge', title: 'Close in, and open it',
   html: `
     <div class="lesson">
       <p><span class="tag meas">Measured</span>In the last four thermal frames before the flash, two of the objects move in on screen. With all three in view the triangle is about a quarter smaller, its centre unmoved. A faint dark mark, colder than the sky, leads each object along its path.</p>
-      <p><span class="tag read">Reading</span>Forbes: "you can produce a wormhole by having three of these orbs converge." Nothing in plasma physics makes an airliner vanish. This step is his account, not a mechanism.</p>
-      <p><span class="tag meas">Measured</span>From above, the flash is bright. On the heat camera it reads black: colder than the sky. The 2010 survey reports a calculation that negative energy should cool the matter it meets. Its authors said it was too early to draw conclusions about heat.</p>
-      <p class="note">This mission uses your current settings. Timing penalties apply only in timed runs. The transfer mechanism is a scenario assumption.</p>
+      <p><span class="tag read">4orbs account</span>Forbes: "you can produce a wormhole by having three of these orbs converge." 4orbs reads the cold flash below as that wormhole opening, and Forbes calls the event endothermic. In this step, closing the triangle to the measured quarter-smaller size opens the throat you sized in step 5.</p>
+      <p><span class="tag meas">Measured</span>From above, the flash is bright. On the heat camera it reads black: colder than the sky. Afterwards the airliner is gone, leaving open sky with no fireball or debris.</p>
+      <p><span class="tag model">Theory</span>The 2010 DIA report says a small wormhole would look like an unusually bright spot in the sky. It also reports a calculation that negative energy should cool the matter it meets.</p>
+      <p class="note">This mission uses your current settings. Timing penalties apply only in timed runs.</p>
     </div>
     <div class="ctl">
-      <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
-      <p class="note">Earlier experiments are held at their saved settings. Revisit a step to retune it. These are mission rules, not a physical conversion from fusion power to negative energy.</p>
-      <div class="seg" role="group" aria-label="Final sequence view">
-        <button type="button" id="cv-thermal" data-view="thermal">Thermal, from the side</button>
-        <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
-        <button type="button" id="cv-transit" data-view="transit">Transit diagram</button>
-      </div>
-      <p class="note" id="cv-view-note">Camera views are illustrative. The transit diagram shows an assumed entrance, not a recorded crossing.</p>
       <div>
         <div class="meter" aria-hidden="true"><div class="band" style="left:42%;width:16%"></div><div class="mark" id="cv-mark"></div></div>
         <div class="mlabels"><span>50 %</span><span>triangle size</span><span>100 %</span></div>
       </div>
       <div class="actions"><button type="button" class="btn primary" id="cv-go"></button></div>
       <div id="cv-replay" hidden>
-        <label for="cv-scrub">Inspect the completed sequence <output id="cv-scrub-o"></output><input id="cv-scrub" type="range" min="0" max="100" step="1" value="100" disabled aria-describedby="cv-replay-note"></label>
+        <label for="cv-scrub"><span id="cv-scrub-l">Inspect the completed sequence</span> <output id="cv-scrub-o"></output><input id="cv-scrub" aria-labelledby="cv-scrub-l" type="range" min="0" max="100" step="1" value="100" disabled aria-describedby="cv-replay-note"></label>
         <p class="note" id="cv-replay-note">Drag or use the arrow keys to inspect a moment. Scrubbing pauses playback. Views use current settings; your saved result stays fixed.</p>
       </div>
+      <div class="seg" role="group" aria-label="Final sequence view">
+        <button type="button" id="cv-thermal" data-view="thermal">Thermal, from the side</button>
+        <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
+        <button type="button" id="cv-transit" data-view="transit">Transit diagram</button>
+      </div>
+      <p class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</p>
+      <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
+      <p class="note">Earlier experiments are held at their saved settings. Revisit a step to retune it.</p>
     </div>
     <dl class="reads">
       <div><dt>Triangle</dt><dd id="cv-k"></dd></div>
       <div><dt>Past a fixed entrance</dt><dd id="cv-x"></dd></div>
       <div><dt>Wing clearance</dt><dd id="cv-clear"></dd></div>
-      <div><dt>Status</dt><dd id="cv-msg" role="status" aria-live="polite"></dd></div>
+      <div class="wide"><dt>Status</dt><dd id="cv-msg" role="status" aria-live="polite"></dd></div>
     </dl>`,
   init() {
     const vs = panel.querySelectorAll('[data-view]');
@@ -976,12 +1157,13 @@ const conv = stage({
       this.tumble += TAU / 11 * dt;
     }
     if (!missionReady() && ['closing', 'flash'].includes(this.phase)) { this.phase = 'orbit'; this.k = 1; this.q = 0; this.msg = 'System changed: retune before opening'; }
-    if (this.phase === 'closing') { this.k -= dt * 0.5 / 5; if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(); } }
+    // Learning runs and reduced motion close at half speed, so the band stays open for 1.6 s instead of 0.8 s.
+    if (this.phase === 'closing') { this.k -= dt * (S.mode === 'learn' || reduced ? 0.05 : 0.1); if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(); } }
     if (this.phase === 'flash') {
       this.q = Math.min(1, this.q + dt / FINALE_SECONDS);
       this.ang = this.startAng + TAU / orbit.T * this.q * FINALE_SECONDS;
       this.tumble = this.startTumble + TAU / 11 * this.q * FINALE_SECONDS;
-      if (this.q >= 1) { this.phase = 'gone'; this.msg = 'Sequence complete; destination unspecified'; complete(this); S.paused = true; }
+      if (this.q >= 1) { this.phase = 'gone'; this.msg = 'Sequence complete: the airliner is gone'; complete(this); S.paused = true; }
     }
     if (this.phase === 'orbit') snd.hum(80, 0.05);
     if (this.phase === 'closing') snd.hum(80 + (1 - this.k) * 520, 0.08);   // the flash and what follows are silent
@@ -990,19 +1172,19 @@ const conv = stage({
     const scrub = $('#cv-scrub'), replay = $('#cv-replay');
     if (replay) replay.hidden = !this.done;
     if (scrub) { scrub.disabled = !this.done; scrub.value = Math.round(this.q * 100); }
-    set('cv-scrub-o', fmt(this.q * 100) + ' %');
+    out('cv-scrub', fmt(this.q * 100) + ' %');
     const crossing = transitModel(this.q, open.w);
-    set('cv-x', fmt(crossing.duration, 3) + ' s<small>63.7 m ÷ assumed 250 m/s; not travel time</small>');
+    set('cv-x', fmt(crossing.duration, 3) + ' s<small>63.7 m ÷ 250 m/s cruise speed</small>');
     set('cv-clear', fmt(crossing.clearance, 2) + ' m<small>each wing; centred 60.9 m span</small>');
-    set('cv-view-note', this.view === 'transit' ? 'Schematic only: a centred aircraft passes a fixed entrance. No destination or wormhole travel time is predicted. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: static aperture instead of a bright pulse. Camera colours are illustrative.' : 'Camera views are illustrative. The transit diagram shows an assumed entrance, not a recorded crossing.');
+    set('cv-view-note', this.view === 'transit' ? 'Schematic: a centred aircraft passes into a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
     const checks = $('#mission-checks');
     if (checks) {
-      const checkHTML = missionReadiness().map(r => `<li class="${r.ok ? 'ready' : 'blocked'}"><span>${r.ok ? '✓' : '○'} ${r.name}: ${r.ok ? r.detail : 'retune required'}</span><button type="button" class="btn small" data-retune="${r.stage}">Retune</button></li>`).join('');
-      if (checks.innerHTML !== checkHTML) { checks.innerHTML = checkHTML; checks.querySelectorAll('[data-retune]').forEach(b => { b.onclick = () => show(Number(b.dataset.retune)); }); }
+      const checkHTML = missionReadiness().map(r => `<li class="${r.ok ? 'ready' : 'blocked'}"><span>${r.ok ? '✓' : '○'} ${r.name}: ${r.ok ? r.detail : 'retune required'}</span><button type="button" class="btn small" data-retune="${r.stage}" aria-label="Retune ${r.name.toLowerCase()} (step ${r.stage + 1})">Retune</button></li>`).join('');
+      if (checks.innerHTML !== checkHTML) { checks.innerHTML = checkHTML; checks.querySelectorAll('[data-retune]').forEach(b => { b.onclick = () => show(Number(b.dataset.retune), { user: true }); }); }
     }
     const mk = $('#cv-mark'); if (mk) mk.style.left = clamp((this.k - 0.5) / 0.5, 0, 1) * 100 + '%';
     set('cv-k', fmt(this.k * 100) + ' %'); set('cv-msg', this.msg || 'Orbiting');
-    goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Sequence complete. Switch views or scrub the replay to inspect the assumptions.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
+    goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Sequence complete. Switch views or scrub the replay to inspect each moment.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
   },
   draw() {
     if (this.view === 'transit') return drawTransit(this);
@@ -1037,7 +1219,7 @@ const conv = stage({
       const s = Math.sin(Math.PI * this.q), R = (open.w / 2) * (0.4 + s) * sc;
       if (reduced) {
         ring(cx, cy, open.w / 2 * sc, COL.cold);
-        label('assumed aperture', cx, cy, COL.cold, 'center');
+        label('wormhole aperture', cx, cy, COL.cold, 'center');
       } else if (th) {
         ctx.fillStyle = COL.void; ctx.beginPath();
         for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU, rr = R * (1 + 0.12 * Math.sin(a * 5 + this.q * 6) + 0.07 * Math.sin(a * 9)); i ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
@@ -1047,11 +1229,18 @@ const conv = stage({
         g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, `rgba(255,255,255,${reduced ? 0.6 : 0.9})`); g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, TAU); ctx.fill();
       }
-      label('Slowed scenario · not a camera prediction', cx, H - 40, th ? COL.muted : COL.ink, 'center', W < 400 ? 9 : 11);
+      label('Slowed for viewing', cx, H - 40, th ? COL.muted : COL.ink, 'center', W < 400 ? 9 : 11);
     }
     if (gone) label('nothing warm is left where it was', cx, cy + 4, COL.muted, 'center');
     viewTitle(th ? 'THERMAL · SYNTHETIC FALSE COLOUR' : 'VISIBLE LIGHT · FROM ABOVE');
     scaleBarDraw(sc);
+  },
+  describe() {
+    if (this.view === 'transit') return `Transit diagram: the airliner passing into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing.`;
+    const view = this.view === 'thermal' ? 'Thermal view from the side' : 'Visible view from above';
+    if (this.phase === 'gone') return `${view}: the airliner is gone, leaving open sky.`;
+    if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner.`;
+    return `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size.`;
   }
 }, { phase: 'orbit', k: 1, q: 0, ang: 0, tumble: 0, startAng: 0, startTumble: 0, view: 'thermal', msg: '' });
 
@@ -1118,33 +1307,32 @@ async function submit(res) {
 
 /* ───────── Ledger ───────── */
 const ledger = stage({
-  name: 'Ledger', title: 'What you actually used', end: true,
+  name: 'Ledger', title: 'The chain you built', end: true,
   get html() {
     if (!S.result) { S.result = tally(); S.result.best = localBest(S.result); submit(S.result); }
-    const res = S.result, jup = fmt(res.width * JUPITERS_PER_M), rows = [
+    const res = S.result, jup = fmt(res.width * JUPITERS_PER_M), passage = transitModel(1, res.width), rows = [
       ['lab', 'Lab physics', 'A plasma that glows while its ions stay cool. Neon signs do it.'],
-      ['lab', 'Lab physics', 'Beta one: plasma pressure balanced by a magnetic field, and held in place. Both needed coils outside the plasma. Open-air plasmoids last a few hundred milliseconds.'],
-      ['lab', 'Lab physics', 'The main hydrogen-boron reaction makes three helium nuclei. Side reactions can make neutrons and are not simulated here. The response curve is illustrative.'],
+      ['lab', 'Lab physics', `Beta one: plasma pressure balanced by the field in a cusp trap like Bussard's Polywell, where confinement is enhanced near beta one (Park et al., 2015).${hold.assisted ? ' You held it with the centring assist.' : ''}`],
+      ['lab', 'Lab physics', 'Hydrogen-boron fusion: three helium nuclei, with the energy on charged particles a field can catch.'],
       ['meas', 'Measured', 'Three objects in a rigid, tumbling triangle, 60 to 70 m out, one lap in about 2.5 s: roughly 600 km/h and forty g. Two cameras 123 to 141° apart agree on it.'],
-      ['model', 'Theory', 'The Morris-Thorne traversable-wormhole model requires negative energy. The Casimir force has been measured; this does not demonstrate a traversable wormhole.'],
-      ['gap', 'Nobody knows', `An assumed source, illustratively scaled to about ${jup} Jupiter masses of negative energy for your completed ${res.width} m throat. The plates fall short by dozens of zeros.`],
-      ['model', 'Scenario', `A centred 60.9 m wingspan has ${fmt(transitModel(1, res.width).clearance, 2)} m clearance per wing in that entrance. At an assumed 250 m/s, the 63.7 m aircraft passes a fixed entrance in ${fmt(transitModel(1, res.width).duration, 3)} s. This does not predict wormhole travel time or a destination.`],
-      ['read', 'Reading', 'That the objects are plasma, and that three of them converging make a wormhole. This is Forbes\'s account.'],
-      ['gap', 'Nobody knows', 'What holds a flying ball of plasma, and how to build a wormhole at all. The 2010 survey says so itself.'],
-      ['gap', 'Nobody knows', 'What a heat camera would show. 4orbs found no calculation of it.']
+      ['model', 'Theory', 'A crossable wormhole held open by negative energy (Morris and Thorne, 1988). Negative energy itself is measured between Casimir plates.'],
+      ['model', 'Theory', `Your ${res.width} m throat, scaled from the DIA report's table: about ${jup} Jupiter masses of negative energy.`],
+      ['read', '4orbs account', 'Fusion-powered plasma orbs that open the wormhole by converging, and supply the energy that holds it.'],
+      ['meas', 'Measured', 'In the last frames the triangle shrinks by about a quarter. The flash reads bright from above and colder than the sky on the heat camera.'],
+      ['scen', 'Game rule', `A centred 60.9 m wingspan has ${fmt(passage.clearance, 2)} m clearance per wing. At 250 m/s, the 63.7 m aircraft passes the entrance in ${fmt(passage.duration, 3)} s.`]
     ];
     return `
       <dl class="reads">
         <div><dt>${res.mode === 'learn' ? 'Learning run' : 'Score'}</dt><dd>${res.mode === 'learn' ? '6 experiments complete' : fmt(res.score)}<small>${res.mode === 'learn' ? 'No time penalty' : res.rank}</small></dd></div>
         <div><dt>Active time</dt><dd>${res.mode === 'learn' ? 'Untimed' : clock(res.secs)}<small>${res.mode === 'learn' ? 'Explore at your pace' : '25 points per active second'}</small></dd></div>
         <div><dt>Mistimed</dt><dd>${res.misses}<small>${res.mode === 'challenge' ? '300 points each' : 'Practice attempts'}</small></dd></div>
-        <div><dt>Extra scenario margin</dt><dd>${fmt(res.extra, 1)}<small>${res.mode === 'challenge' ? '40 points per illustrative Jupiter' : 'Illustrative Jupiter masses; no penalty'}</small></dd></div>
+        <div><dt>Spare negative energy</dt><dd>${fmt(res.extra, 1)} Jupiter masses<small>${res.mode === 'challenge' ? '40 points per Jupiter mass' : 'Throat wider than the wings need'}</small></dd></div>
         <div><dt>Your best here</dt><dd>${res.best ? fmt(res.best.score) : '–'}<small>${res.best ? clock(res.best.secs) + ', this device' : ''}</small></dd></div>
       </dl>
       <div class="sect">
-        <p class="tally">Three steps ran on lab physics. One matched a measurement. The teleport itself ran on <b>three things nobody knows how to do</b>.</p>
+        <p class="tally">Three links ran on lab physics, two on measurement and two on wormhole theory. <b>The 4orbs account joins them into one chain.</b></p>
         <ul class="ledger">${rows.map(r => `<li><span class="tag ${r[0]}">${r[1]}</span><span>${r[2]}</span></li>`).join('')}</ul>
-        <p class="note">4orbs reads the pieces this way: the orbs are "beyond anything published", and not, it thinks, beyond physics. It also lists what it can't show: what holds the objects, how anyone makes a wormhole, and whether anyone has built one. The US Navy's own test of the related "Pais Effect" concluded it "could not be proven".</p>
+        <p class="note">4orbs reads the pieces this way: the orbs are "beyond anything published", and not beyond physics.</p>
       </div>
       <div class="sect">
         <h3>Timed practice board</h3><p class="note">Separate from learning runs and earlier game versions. Scores are client-reported practice results.</p>
@@ -1161,7 +1349,8 @@ const ledger = stage({
     ctx.setLineDash([2, 6]); triangle(cx, cy, 65 * 0.75, this.ang, sc, COL.muted); ctx.setLineDash([]);
     label('open sky', cx, H - 40, COL.muted, 'center');
     viewTitle('WHERE THE AIRCRAFT WAS'); scaleBarDraw(sc);
-  }
+  },
+  describe() { return 'Open sky where the airliner was, with the empty triangle of the formation turning slowly.'; }
 }, { ang: 0 });
 
 const STAGES = [ignite, hold, fuel, orbit, open, conv, ledger];
@@ -1169,6 +1358,7 @@ const N = STAGES.length - 1;
 
 function goal(frac, text) {
   const b = $('#goalbar'); if (b) b.style.width = clamp(frac, 0, 1) * 100 + '%';
+  const g = $('#goal'); if (g) g.classList.toggle('ok', frac >= 1);
   set('goaltext', text);
 }
 function complete(st) {
@@ -1179,28 +1369,54 @@ function complete(st) {
     if (S.stage === i) S.paused = true;
     if (st === conv) S.completion = { elapsed: S.elapsed, misses: S.misses, width: open.w, mode: S.mode };
     else snd.chime();
+    S.saveNote = true;
   }
 }
+const LOCK = '<svg class="lock" aria-hidden="true" viewBox="0 0 10 12" width="9" height="11"><path d="M2 5V3.5a3 3 0 0 1 6 0V5h1v7H1V5h1zm1.4 0h3.2V3.5a1.6 1.6 0 0 0-3.2 0V5z"/></svg>';
 function tracker() {
-  $('#steps').innerHTML = STAGES.map((st, i) => `<li class="${st.end ? 'end' : ''}"><button type="button" id="step-${i}" class="${st.done ? 'done' : ''}" ${i > S.unlocked ? 'disabled' : ''} ${i === S.stage ? 'aria-current="step"' : ''}>${st.name}</button></li>`).join('');
-  STAGES.forEach((_, i) => { $('#step-' + i).onclick = () => show(i); });
+  // Locked steps stay focusable (aria-disabled), so everyone can find them and hear why they are locked.
+  $('#steps').innerHTML = STAGES.map((st, i) => {
+    const locked = i > S.unlocked, cls = [st.done ? 'done' : '', locked ? 'locked' : ''].join(' ').trim();
+    const extra = locked ? `${LOCK}<span class="vh">, locked</span>` : st.done ? '<span class="vh">, complete</span>' : '';
+    return `<li class="${st.end ? 'end' : ''}"><button type="button" id="step-${i}" class="${cls}" ${locked ? 'aria-disabled="true"' : ''} ${i === S.stage ? 'aria-current="step"' : ''}>${st.name}${extra}</button></li>`;
+  }).join('');
+  STAGES.forEach((st, i) => { $('#step-' + i).onclick = () => {
+    if (i > S.unlocked) return notice(`${st.name} unlocks after ${STAGES[i - 1].name}.`);
+    show(i, { user: true });
+  }; });
+  // Where the row scrolls sideways (phones), keep the current step in view.
+  const list = $('#steps'), cur = $('#step-' + S.stage);
+  if (list && cur && list.scrollWidth > list.clientWidth) list.scrollLeft = Math.max(0, cur.offsetLeft - list.offsetLeft - 16);
 }
-function show(i) {
+function notice(text) { S.notice = { text, left: 4 }; advance(0); }
+let lastScene = '', sceneClock = 0;
+function describeScene() {
+  const st = STAGES[S.stage], text = st.describe ? st.describe() : st.title;
+  if (text !== lastScene) { cv.setAttribute('aria-label', text); lastScene = text; }
+}
+function show(i, opts = {}) {
   if (!Number.isInteger(i) || i < 0 || i > S.unlocked || i > N) return;
   ignite.pumping = false; hold.drag = false;
   S.stage = i; const st = STAGES[i];
-  S.paused = st.done;
+  // A fresh Hold waits for the player rather than opening with the plasma already lost.
+  S.paused = st.done || (st === hold && hold.t === 0 && hold.B === 0);
   scaleBar.hidden = true;
+  const goalHTML = '<div class="goal" id="goal"><span id="goaltext"></span><div class="bar"><i id="goalbar"></i></div></div>';
   panel.innerHTML = st.end
-    ? `<p class="eyebrow">After the flash</p><h2>${st.title}</h2>${st.html}`
-    : `<p class="eyebrow">Step ${i + 1} of ${N}</p><h2 tabindex="-1" id="stage-title">${st.title}</h2>${lessonContent(st, i)}
-       <div class="goal"><span id="goaltext"></span><div class="bar"><i id="goalbar"></i></div></div>
-       <div class="actions"><button type="button" class="btn primary" id="next" disabled>${STAGES[i + 1].end ? 'See the ledger' : 'Next: ' + STAGES[i + 1].name.toLowerCase()}</button></div>`;
+    ? `<p class="eyebrow">After the flash</p><h2 tabindex="-1" id="stage-title">${st.title}</h2>${st.html}`
+    : `<p class="eyebrow">Step ${i + 1} of ${N}</p><h2 tabindex="-1" id="stage-title">${st.title}</h2>${lessonContent(st, i, goalHTML)}
+       <div class="actions next-row"><button type="button" class="btn primary" id="next" aria-describedby="goaltext" disabled>${STAGES[i + 1].end ? 'See the ledger' : 'Next: ' + STAGES[i + 1].name.toLowerCase()}</button></div>`;
   st.init();
   st.update(0);
-  const n = $('#next'); if (n) { n.disabled = !readyToAdvance(i); n.onclick = () => { if (readyToAdvance(i)) show(i + 1); }; }
-  const title = $('#stage-title'); if (title) title.focus({ preventScroll: true });
-  cv.setAttribute('aria-label', st.title + '. ' + (BRIEFS[i] || 'Experiment summary'));
+  const n = $('#next'); if (n) { n.disabled = !readyToAdvance(i); n.onclick = () => { if (readyToAdvance(i)) show(i + 1, { user: true }); }; }
+  if (opts.user) {
+    S.notice = null;
+    // Bring the new step into view, then give its title focus for screen readers.
+    const deck = $('#deck'), r = deck && deck.getBoundingClientRect ? deck.getBoundingClientRect() : null;
+    if (r && deck.scrollIntoView && (r.top < 0 || r.top > (window.innerHeight || 0) * 0.5)) deck.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    const title = $('#stage-title'); if (title) title.focus({ preventScroll: true });
+  }
+  describeScene();
   tracker();
   saveProgress();
 }
@@ -1208,14 +1424,31 @@ function restart(mode = S.mode) {
   STAGES.forEach(st => st.reset());
   S.unlocked = 0; S.misses = 0; S.result = null; S.completion = null; S.elapsed = 0; S.mode = mode === 'challenge' ? 'challenge' : 'learn'; S.paused = false;
   $('#restore-status').hidden = true;
-  show(0);
+  show(0, { user: true });
+}
+// Restarting or switching mode clears progress, so it asks first whenever there is progress to lose.
+let pendingMode = null, confirmOpener = null;
+function askRestart(mode = S.mode, opener = null) {
+  if (!(S.unlocked > 0 || S.stage > 0 || S.elapsed > 0 || S.misses > 0)) return restart(mode);
+  const done = S.unlocked, switching = mode !== S.mode;
+  const lost = done === 0 ? 'Your current settings will be cleared.' : done === 1 ? 'Progress on step 1 will be cleared.' : `Progress on steps 1–${Math.min(done, N)} will be cleared.`;
+  const ask = switching ? (mode === 'challenge' ? 'Switch to timed practice? This starts a new run.' : 'Switch to a learning run? This starts a new run.') : 'Restart this run?';
+  set('confirm-text', `${ask} ${lost} Your timed best stays.`);
+  $('#confirm-yes').textContent = switching ? (mode === 'challenge' ? 'Start timed run' : 'Start learning run') : 'Restart run';
+  pendingMode = mode; confirmOpener = opener;
+  $('#confirm').hidden = false;
+  $('#confirm-no').focus();
+}
+function closeConfirm(returnFocus) {
+  $('#confirm').hidden = true; pendingMode = null;
+  if (returnFocus && confirmOpener) confirmOpener.focus();
 }
 
 // Persist only bounded, validated experiment state, never DOM, audio or particle objects.
 const RUN_KEY = 'ipt-run-v2';
 const RUN_FIELDS = [
   { gas: ['h', 'ar'], power: [0, 100], p: [.05, 760], hold: [0, 86400], t: [0, 1e9] },
-  { B: [0, 1], trim: [-1, 1], x: [-1, 1], lock: [0, 6], t: [0, 1e9] },
+  { B: [0, 1], trim: [-1, 1], x: [-1, 1], lock: [0, 6], t: [0, 1e9], assist: 'boolean?', assisted: 'boolean?' },
   { fuel: ['dt', 'pb'], lt: [0, 3], hold: [0, 86400], dose: [0, 1] },
   { r: [30, 100], T: [1, 8], cam: [0, 180], ang: [-1e9, 1e9], ghost: [-1e9, 1e9], tumble: [-1e9, 1e9], hold: [0, 86400] },
   { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: ['plates', 'throat'] },
@@ -1234,7 +1467,8 @@ function validSnapshot(d) {
     if (st.done) { if (unlocked !== i) return false; unlocked++; }
     for (const [key, range] of Object.entries(RUN_FIELDS[i])) {
       const value = st.values[key];
-      if (range === 'boolean') { if (typeof value !== 'boolean') return false; }
+      if (range === 'boolean?') { if (value !== undefined && typeof value !== 'boolean') return false; }   // added later; older saves lack it
+      else if (range === 'boolean') { if (typeof value !== 'boolean') return false; }
       else if (typeof range[0] === 'string') { if (!range.includes(value)) return false; }
       else if (!Number.isFinite(value) || value < range[0] || value > range[1]) return false;
     }
@@ -1251,7 +1485,7 @@ function restore(d) {
   d.stages.forEach((saved, i) => {
     STAGES[i].reset();
     // Ignore unknown keys so storage cannot replace methods or lesson HTML.
-    const values = Object.fromEntries(Object.keys(RUN_FIELDS[i]).map(k => [k, saved.values[k]]));
+    const values = Object.fromEntries(Object.keys(RUN_FIELDS[i]).filter(k => saved.values[k] !== undefined).map(k => [k, saved.values[k]]));
     Object.assign(STAGES[i], values, { done: saved.done });
     if (saved.done) S.unlocked = i + 1;
   });
@@ -1263,8 +1497,11 @@ function restore(d) {
   show(d.stage); S.paused = true; return true;
 }
 function saveProgress() {
-  try { localStorage.setItem(RUN_KEY, JSON.stringify(snapshot())); set('save-status', 'Progress saved on this device.'); }
-  catch (_) { set('save-status', 'This browser cannot save progress. Keep this page open to continue your run.'); }
+  try {
+    localStorage.setItem(RUN_KEY, JSON.stringify(snapshot()));
+    // Say so briefly when a step is won, rather than in a line that never changes.
+    if (S.saveNote) { S.saveNote = false; set('save-status', 'Progress saved on this device.'); setTimeout(() => set('save-status', ''), 4000); }
+  } catch (_) { set('save-status', 'This browser cannot save progress. Keep this page open to continue your run.'); }
 }
 function isPaused() { return S.paused || document.hidden || !!panel.querySelector('.source-card[open]'); }
 function advance(dt, clockDt = dt) {
@@ -1273,20 +1510,35 @@ function advance(dt, clockDt = dt) {
     if (!st.end && S.mode === 'challenge' && !S.completion) S.elapsed += clockDt;
     st.update(dt);
   } else { snd.want = [0, 0]; }
-  const n = $('#next'); if (n) n.disabled = !readyToAdvance(S.stage);
+  if (S.notice && (S.notice.left -= clockDt) <= 0) S.notice = null;
+  const n = $('#next'), ready = !!n && readyToAdvance(S.stage);
+  if (n) { n.disabled = !ready; n.classList.toggle('ready', ready); }
+  panel.classList.toggle('complete', ready);
   set('hud-time', S.mode === 'learn' ? 'Untimed' : clock(S.result ? S.result.secs : S.elapsed));
-  set('hud-mode', S.mode === 'learn' ? 'Learning' : 'Timed practice');
-  const pause = $('#pause'); pause.disabled = st.end; pause.textContent = S.paused ? 'Resume experiment' : 'Pause'; pause.setAttribute('aria-pressed', S.paused);
+  // Pause is an action button: its label says what pressing it does next.
+  const pause = $('#pause'), pauseLabel = S.paused ? 'Resume' : 'Pause';
+  pause.disabled = !!st.end; if (pause.textContent !== pauseLabel) pause.textContent = pauseLabel;
   $('#mode-learn').setAttribute('aria-pressed', S.mode === 'learn'); $('#mode-challenge').setAttribute('aria-pressed', S.mode === 'challenge');
-  set('run-status', S.completion ? 'Completed run saved. Retuning does not change its result; start a new run to score again.' : panel.querySelector('.source-card[open]') ? 'Reading source: experiment and timer paused.' : S.paused ? 'Experiment paused. Continue to the next step or resume to retune.' : S.mode === 'learn' ? 'Explore freely. There is no time penalty.' : 'Timed practice: pause or open a source card to stop the clock.');
+  const reading = !!panel.querySelector('.source-card[open]');
+  set('run-status', S.notice ? S.notice.text
+    : S.completion ? 'Completed run saved. Retuning does not change its result; restart to score again.'
+    : reading ? 'Reading source: experiment and timer paused.'
+    : S.paused ? (st.done ? 'Step complete. Go on to the next step, or press Resume to retune.' : 'Paused. Use the controls or press Resume to continue.')
+    : S.mode === 'challenge' ? 'Timed practice: pause or open a source card to stop the clock.' : '');
+  if ((sceneClock += clockDt) >= 1) { sceneClock = 0; describeScene(); }
 }
 // Editing an experiment resumes it. Navigation and source reading do not.
 panel.addEventListener('input', e => { if (e.target.closest('.ctl') && !e.target.closest('#cv-scrub')) { S.paused = false; } });
 panel.addEventListener('pointerdown', e => { if (e.target.closest('#ig-pump, #ho-pad')) S.paused = false; });
 panel.addEventListener('keydown', e => { if (e.target.closest('#ig-pump, #ho-pad') && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter'].includes(e.key)) S.paused = false; });
-panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume')) { S.paused = false; } saveProgress(); });
+panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume, #ho-assist, #ho-show')) { S.paused = false; } saveProgress(); });
 $('#pause').onclick = () => { S.paused = !S.paused; ignite.pumping = false; hold.drag = false; saveProgress(); };
-$('#mode-learn').onclick = () => restart('learn'); $('#mode-challenge').onclick = () => restart('challenge');
+$('#restart').onclick = e => askRestart(S.mode, e && e.currentTarget);
+$('#mode-learn').onclick = e => { if (S.mode !== 'learn') askRestart('learn', e && e.currentTarget); };
+$('#mode-challenge').onclick = e => { if (S.mode !== 'challenge') askRestart('challenge', e && e.currentTarget); };
+$('#confirm-yes').onclick = () => { const mode = pendingMode || S.mode; closeConfirm(false); restart(mode); };
+$('#confirm-no').onclick = () => closeConfirm(true);
+$('#confirm').addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirm(true); });
 document.addEventListener('visibilitychange', () => { last = performance.now(); ignite.pumping = false; hold.drag = false; saveProgress(); });
 window.addEventListener('pagehide', saveProgress);
 let last = performance.now(), saveElapsed = 0;
@@ -1302,6 +1554,8 @@ function frame(now) {
 function start(d) {
   let saved = d;
   if (!validSnapshot(saved)) { try { saved = JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); } catch (_) {} }
+  // The label key is open on wide screens and folded on phones, where it would push the experiment down.
+  const key = $('#key'); if (key) key.open = matchMedia('(min-width: 861px)').matches;
   fit(); if (!restore(saved)) show(0);
   if (saved && saved.sourceRevision !== SOURCE_REVISION) {
     set('restore-status', 'Source assumptions have changed in this edition. The previous in-progress run could not resume, so a new learning run has started. Your timed best is kept.');
@@ -1313,7 +1567,7 @@ function start(d) {
 const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(snapshot);
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__lab = { S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
+window.__lab = { S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, askRestart, notice, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
 })();
 </script>
 <script src="ga4.js" defer></script>

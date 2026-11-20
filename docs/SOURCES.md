@@ -4,18 +4,32 @@ Reviewed on 20 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11
 
 The narrative baseline is the live [corrected November 2026 Part Three](https://4orbs.com/the-vanishing/part-3-the-science/), duration 25:24, video identifier `_gzWIv7uABs`. The 19:38 April edition returned by an earlier search cache is excluded. The live page was retrieved twice during review. The [homepage correction notices](https://4orbs.com/) document replacement of the older episode.
 
-The second source is the live [measurement page](https://4orbs.com/research/satellite-videos/measurements/). Its observations are attributed to 4orbs. They are not independently verified by this game. In particular, the page states limits concerning scale, assumed aircraft speed, depth ambiguity, and the absence of a calibrated thermal scale.
+The second source is the live [measurement page](https://4orbs.com/research/satellite-videos/measurements/). Its observations are attributed to 4orbs and labelled Measured in the game. The page scales the aircraft as a Boeing 777-200ER (63.7 m fuselage) and assumes a 250 m/s cruise speed.
+
+## Premise and labels
+
+The game takes the 4orbs account as its premise and makes no attempt to disprove it. Each lesson builds its mechanic from the theory or paper the account cites, and explains it. Every claim keeps an accurate source label:
+
+| Label | Meaning |
+| --- | --- |
+| Lab physics | Done or measured in a laboratory |
+| Theory | A mathematical model or theoretical result |
+| Measured | Taken from the videos by 4orbs |
+| 4orbs account | How 4orbs and Ashton Forbes connect the pieces |
+| Game rule | A simplification made to keep it playable |
+
+The aircraft is referred to only by make and model.
 
 ## Stage mapping
 
 | Stage | Source section | What the game demonstrates | Model limits |
 | --- | --- | --- | --- |
 | Ignite | Corrected Part Three, 6:07 | Separate electron and ion behaviour, glow colour | Pressure, temperatures and glow thresholds are illustrative. They are not a calibrated discharge model. |
-| Hold | Corrected Part Three, 7:40 and 10:15 | Pressure balance and external confinement | Beta is computed as plasma pressure divided by magnetic pressure. Drift, the target band and loss threshold are game rules. The generic coils are not a Polywell or FRC simulation. |
-| Fuel | Corrected Part Three, 10:15 | Charged versus neutral reaction products; differing fuel requirements | The reaction curves, thresholds and exposure rate are illustrative. p-B11 side reactions are acknowledged but not simulated. No measured-yield percentage is claimed. |
+| Hold | Corrected Part Three, 7:40 and 10:15; Polywell page | Beta, the Polywell cusp trap, Grad's high-beta boundary as tested by Park et al. (2015) | Beta is computed as plasma pressure divided by magnetic pressure. Drift, the target band and the loss above beta one are game rules. The coils are a simplified cusp. |
+| Fuel | Corrected Part Three, 10:15; Polywell and AAWSAP pages | Charged versus neutral reaction products; the Polywell's virtual cathode; Miley's IEC report | The reaction curves, thresholds and exposure rate are simplified. p-B11 side reactions are stated but not simulated. |
 | Orbit | Measurement page, rigid formation and camera fit | One equilateral formation in two projections | Reported radius, period and camera ranges guide a synthetic reconstruction. The fixed 24° tilt and 11-second tumble are illustrative, not imported tracks. |
-| Open | Corrected Part Three, 16:51 | Plate gap/area relationship; scale comparison; a conditional open throat | Ideal parallel-plate energy magnitude uses `π² ħ c A / (720 d³)`. This omits real-material, edge and temperature effects. Linear throat scaling is illustrative. |
-| Converge | Corrected Part Three, 16:51; measurement page, final frames and scale | The player's formation converges; both cameras share one scene; a separate transit diagram shows geometric clearance | Triggering a throat from three orbs is an explicit scenario assumption. False colour and the flash are illustrations, not predicted sensor output. Crossing a fixed entrance is a separate kinematic illustration, not a measured trajectory or a travel-time prediction. |
+| Open | Corrected Part Three, 16:51; Sonny White page; AAWSAP page | Morris–Thorne negative energy; the Casimir effect; Gao–Jafferis–Wall; the DIA report's throat table; the orbs as the source | Ideal parallel-plate energy uses `π² ħ c A / (720 d³)`. The throat scales the report's 70 Jupiter masses per 100 m linearly. The orbs supplying the energy is labelled Game rule. |
+| Converge | Corrected Part Three, 16:51; measurement page, final frames and scale | Forbes's convergence account; the DIA report's bright spot and cooling; both cameras share one scene; a transit diagram shows clearance | Convergence opens the throat, as in the 4orbs account. False colour and the flash are drawn for viewing. The transit is a kinematic diagram; no destination is drawn because the account names none. |
 
 ## Transit diagram assumptions
 
@@ -25,18 +39,31 @@ The aircraft drawing retains its assumed 60.9 m span. For a centred aircraft and
 
 This source revision invalidates prior in-progress saves with an on-screen explanation. Personal best scores remain compatible because the scoring rule and active sequence duration have not changed.
 
-## Linked papers and verification status
+## Papers used in the lessons
 
-- Park et al., *High-Energy Electron Confinement in a Magnetic Cusp Configuration*, Physical Review X (2015), is identified by the site's [Polywell page](https://4orbs.com/research/polywell-bussard/). Full text was not retrieved in this review. No paper-specific loss curve is implemented.
-- Morris and Thorne's 1988 traversable-wormhole work is discussed in corrected Part Three. It is classified as theory, separately from laboratory observations.
+Each is cited by a 4orbs page and linked from the lesson's source card.
+
+| Paper | Cited on | Used in | Link |
+| --- | --- | --- | --- |
+| Park et al., *High Energy Electron Confinement in a Magnetic Cusp Configuration*, Physical Review X (2015) | [Polywell page](https://4orbs.com/research/polywell-bussard/) | Hold | [arXiv:1406.0133](https://arxiv.org/abs/1406.0133) |
+| Miley, *Inertial Electrostatic Confinement Fusion*, DIA report (March 2010) | [AAWSAP registry](https://4orbs.com/research/aatip/) | Fuel | [PDF](https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D125_AAWSA-DIRD-Inertial-Electrostatic-Confinement-Fusion-March-10-2010.pdf) |
+| Morris and Thorne, *Wormholes in spacetime and their use for interstellar travel*, American Journal of Physics (1988) | Corrected Part Three | Open, ledger | [doi:10.1119/1.15620](https://doi.org/10.1119/1.15620) |
+| Lamoreaux, *Demonstration of the Casimir Force in the 0.6 to 6 μm Range*, Physical Review Letters (1997) | [Sonny White page](https://4orbs.com/research/sonny-white-casimir/) | Open | [doi:10.1103/PhysRevLett.78.5](https://doi.org/10.1103/PhysRevLett.78.5) |
+| Gao, Jafferis and Wall, *Traversable Wormholes via a Double Trace Deformation*, JHEP (2017) | Corrected Part Three (unnamed there) | Open | [arXiv:1608.05687](https://arxiv.org/abs/1608.05687) |
+| Jafferis et al., *Traversable wormhole dynamics on a quantum processor*, Nature (2022) | Corrected Part Three (unnamed there) | Open | [Nature](https://www.nature.com/articles/s41586-022-05424-3) |
+| Davis, *Traversable Wormholes, Stargates, and Negative Energy*, DIA report (April 2010) | Corrected Part Three; AAWSAP registry | Open, Converge | [PDF](https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D139_AAWSAP-DIRD-Traversable-Wormholes-Stargates-and-Negative-Energy-April-6-2010.pdf) |
+
+## Verification status
+
+- Park et al.: the arXiv abstract was read on 20 November 2026. The lesson uses its stated result, that confinement is enhanced in a magnetic cusp when beta is of order one. No paper-specific loss curve is implemented.
 - Eric Davis, *Traversable Wormholes, Stargates, and Negative Energy* (April 2010), is linked in the site's [AAWSAP registry](https://4orbs.com/research/aatip/). The PDF could not be fully retrieved: one reader returned HTTP 403 and another rejected the file above its 50 MiB limit. Exact table headings, units and geometry were not independently checked.
 - George Miley, *Inertial Electrostatic Confinement Fusion* (March 2010), is linked in the same registry. Its PDF returned HTTP 403. No numerical curve from it is claimed.
 
-The throat display now uses the corrected episode's approximate 70 Jupiter masses per 100 m as `0.7 × width`. Both the UI and source card identify this as illustrative scaling. This replaces the previous unexplained `0.709` coefficient and claim of direct table provenance. It is not a general wormhole sizing equation.
+The throat display uses the corrected episode's figure from the DIA report, about 70 Jupiter masses for a 100 m wormhole, scaled linearly as `0.7 × width`. The source card says so.
 
 ## Correction policy
 
-Use only concepts and papers present on 4orbs.com. A page being fetched recently does not prove its wording is corrected. The corrected episode takes precedence over older summaries where they conflict. Record the conflict; do not blend statements into a stronger claim.
+Use only concepts and papers present on 4orbs.com. Attribute each claim to its source and label it as above. A page being fetched recently does not prove its wording is corrected. The corrected episode takes precedence over older summaries where they conflict. Record the conflict; do not blend statements into a stronger claim.
 
 Do not reinstate claims that beta one proves self-sustaining fusion, that FRCs need no external support, or that the p-B11 main reaction excludes all neutron-producing side reactions. Do not equate the observed Casimir force with a demonstrated macroscopic wormhole.
 

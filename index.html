@@ -1,0 +1,1015 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Ion Pumpy Thing</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: a thermal-camera viewport on the left, an instrument panel on the right; one visual world, the night sky as a heat camera draws it. */
+:root {
+  color-scheme: dark;
+  --sky: #0b1330;      /* open sky on the thermal scale */
+  --deep: #070c20;     /* page ground, colder than sky */
+  --panel: #121b3d;
+  --line: #2a3768;
+  --ink: #ece6d6;
+  --muted: #9aa6c9;
+  --hot: #ff5533;      /* engines, and anything nobody knows how to do */
+  --warm: #ffae42;     /* airframe skin, measured values */
+  --cold: #62d2e8;     /* lab physics */
+  --read: #b9a2ff;     /* a reading, not a measurement */
+  --void: #01030a;     /* the bottom of the scale */
+  --display: "Saira Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+html, body { background: var(--deep); }
+body { color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+* { box-sizing: border-box; }
+.wrap {
+  max-width: 1180px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+a { color: var(--cold); }
+:focus-visible { outline: 2px solid var(--warm); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 28px; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 6vw, 54px); line-height: .92; margin: 0; letter-spacing: .01em; text-transform: uppercase; }
+.top h1 span { color: var(--cold); }
+.top p { margin: 0; max-width: 52ch; color: var(--muted); }
+
+.key { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 13px; color: var(--muted); }
+.key span:not(.tag) { white-space: nowrap; display: inline-flex; gap: 8px; align-items: center; }
+.tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border: 1px solid currentColor; border-radius: 2px; white-space: nowrap; }
+.tag.lab { color: var(--cold); } .tag.meas { color: var(--warm); } .tag.read { color: var(--read); } .tag.gap { color: var(--hot); }
+
+.rail { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; counter-reset: s; }
+.steps button {
+  font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 2px; padding: 5px 12px 4px; cursor: pointer;
+}
+.steps li:not(.end) button::before { counter-increment: s; content: counter(s) " "; font-family: var(--mono); font-size: 11px; font-weight: 400; margin-right: 4px; }
+.steps button:disabled { opacity: .4; cursor: not-allowed; }
+.steps button.done { color: var(--ink); border-color: var(--muted); }
+.steps button[aria-current="step"] { color: var(--deep); background: var(--ink); border-color: var(--ink); }
+.hud { display: flex; align-items: center; gap: 12px; font: 400 12px var(--mono); letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.hud b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
+.view canvas { display: block; width: 100%; height: 100%; }
+.view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
+.view::before { left: 8px; top: 8px; border-right: 0; border-bottom: 0; }
+.view::after { right: 8px; bottom: 8px; border-left: 0; border-top: 0; }
+.scale { position: absolute; right: 12px; top: 34px; bottom: 34px; width: 10px; border: 1px solid var(--muted);
+  background: linear-gradient(to bottom, #fff 0%, var(--hot) 14%, var(--warm) 34%, #7a4a6a 55%, var(--sky) 76%, var(--void) 100%); }
+.scale b { position: absolute; right: 16px; font: 400 10px var(--mono); color: var(--muted); letter-spacing: .08em; }
+.scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.eyebrow { font: 400 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel h2 { font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1; text-transform: uppercase; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+.panel h3 { font: 400 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel p { margin: 0; max-width: 62ch; }
+.lesson { display: flex; flex-direction: column; gap: 8px; }
+.lesson .tag { margin-right: 6px; }
+.note { color: var(--muted); font-size: 13.5px; }
+
+.ctl { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+.ctl label { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13px; color: var(--muted); }
+.ctl label output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: 2px 0 0; height: 24px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button, .btn {
+  font: 500 13px var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: 2px; padding: 7px 12px; cursor: pointer;
+}
+.seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--ink); color: var(--deep); border-color: var(--ink); }
+.btn.primary { background: var(--warm); border-color: var(--warm); color: var(--deep); font-weight: 600; }
+.btn.gapbtn { border-color: var(--hot); color: var(--hot); }
+.btn.pump { font: 700 22px var(--display); letter-spacing: .08em; text-transform: uppercase; padding: 14px 12px 12px; background: var(--cold); border-color: var(--cold); color: var(--deep); touch-action: none; user-select: none; -webkit-user-select: none; }
+.btn.pump:active { transform: translateY(2px); }
+.btn.small { padding: 4px 9px; font: 400 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.pad { position: relative; height: 150px; border: 1px solid var(--muted); background:
+  linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)), var(--deep);
+  touch-action: none; cursor: crosshair; }
+.pad i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
+.padlabels { display: flex; justify-content: space-between; font: 400 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; }
+
+.reads { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px 14px; margin: 0; }
+.reads div { min-width: 0; }
+.reads dt { font: 400 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.reads dd { margin: 0; font: 500 16px var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.reads dd small { font-size: 11.5px; font-weight: 400; color: var(--muted); display: block; }
+
+.meter { position: relative; height: 16px; border: 1px solid var(--muted); background: var(--deep); }
+.meter .band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--cold) 35%, transparent); }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cold); }
+.meter .fill.bad { background: var(--hot); }
+.meter .fill.assumed { background: repeating-linear-gradient(135deg, var(--hot) 0 6px, transparent 6px 12px); }
+.meter .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+.meter .need { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--hot); }
+.mlabels { display: flex; justify-content: space-between; font: 400 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; }
+
+.goal { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.goal #goaltext { font-size: 13.5px; }
+.goal .bar { height: 4px; background: var(--deep); }
+.goal .bar i { display: block; height: 100%; width: 0; background: var(--warm); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ledger li { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 14px; }
+.ledger .tag { justify-self: start; }
+.tally { font-family: var(--display); font-size: 22px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; line-height: 1.15; }
+.tally b { color: var(--hot); font-weight: 700; }
+.sect { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: b; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.board li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; gap: 10px; align-items: baseline; padding: 3px 0; }
+.board li::before { counter-increment: b; content: counter(b); color: var(--muted); }
+.board li .nm { font-family: var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board li .tm { color: var(--muted); }
+.board li.me { color: var(--warm); }
+
+footer { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 6px; max-width: 86ch; }
+footer p { margin: 0; }
+
+@media (max-width: 860px) {
+  .deck { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .view { z-index: 5; top: env(safe-area-inset-top, 0px); }
+  .panel { padding: 16px; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Ion Pumpy <span>Thing</span></h1>
+    <p>Six steps from a jar of glowing gas to an airliner that isn't there. Each step teaches one piece of the physics behind the wormhole account set out at 4orbs.com, and says how much of it anyone can actually do.</p>
+  </header>
+
+  <div class="key" aria-label="What the labels mean">
+    <span><span class="tag lab">Lab physics</span> done in a laboratory</span>
+    <span><span class="tag meas">Measured</span> taken from the videos by 4orbs</span>
+    <span><span class="tag read">Reading</span> an interpretation</span>
+    <span><span class="tag gap">Nobody knows</span> no one can build it</span>
+  </div>
+
+  <div class="rail">
+    <ol class="steps" id="steps"></ol>
+    <div class="hud"><span>Run <b id="hud-time">0:00</b></span><button type="button" class="btn small" id="snd" aria-pressed="false">Sound off</button></div>
+  </div>
+
+  <main class="deck">
+    <section class="view" aria-label="Simulation view">
+      <canvas id="cv" role="img" aria-label="Animated physics simulation for the current step"></canvas>
+      <div class="scale" id="scale" hidden><b>HOT</b><b>COLD</b></div>
+    </section>
+    <section class="panel" id="panel"></section>
+  </main>
+
+  <footer>
+    <p><strong>Where this comes from.</strong> The physics, numbers and quotations are drawn from <a href="https://4orbs.com/the-vanishing/part-3-the-science/">The Vanishing, Part Three: The Science</a> (corrected edition, November 2026), <a href="https://4orbs.com/research/satellite-videos/measurements/">The MH370 Videos, Measured</a> and <a href="https://4orbs.com/science/fusion/">Fusion Energy</a> on 4orbs.com. Lines marked "our sum" are this game's own arithmetic. The simulations are simplified teaching models, not engineering.</p>
+    <p><strong>What this is about.</strong> The two videos are claimed to show Malaysia Airlines Flight 370, which disappeared on 8 March 2014 with 239 people on board. The satellite data points to the southern Indian Ocean, three pieces of debris trace to the aircraft, and the usual reading of the videos is that they are visual effects. 4orbs argues they are more likely real than not. This game doesn't settle that. It shows what would have to be true.</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const css = getComputedStyle(document.documentElement);
+const T = n => css.getPropertyValue(n).trim();
+const COL = { sky: T('--sky'), deep: T('--deep'), ink: T('--ink'), muted: T('--muted'), hot: T('--hot'), warm: T('--warm'), cold: T('--cold'), read: T('--read'), void: T('--void'), line: T('--line') };
+const MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+const TAU = Math.PI * 2;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const cv = $('#cv'), ctx = cv.getContext('2d'), panel = $('#panel'), scaleBar = $('#scale');
+let W = 400, H = 300, DPR = 1;
+function fit() {
+  const r = cv.getBoundingClientRect();
+  if (!r.width) return;
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+}
+new ResizeObserver(fit).observe(cv);
+
+const sup = n => String(n).replace(/[-0-9]/g, ch => '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'['-0123456789'.indexOf(ch)]);
+function sci(x) {
+  if (!isFinite(x)) return '∞';
+  if (x === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  if (e >= -2 && e < 5) return String(+x.toPrecision(3));
+  return (x / 10 ** e).toFixed(1) + ' × 10' + sup(e);
+}
+const fmt = (x, d = 0) => x.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+const clock = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+function set(id, html) { const el = document.getElementById(id); if (el && el.innerHTML !== html) el.innerHTML = html; }
+function label(txt, x, y, color = COL.muted, align = 'left', size = 11) {
+  ctx.font = `${size}px ${MONO}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillText(txt, x, y);
+}
+function viewTitle(txt) { label(txt, 34, 24, COL.muted); }
+
+/* ───────── Sound: off until the player turns it on ───────── */
+const snd = {
+  on: false, ac: null, want: [0, 0],
+  enable() {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    if (!this.ac) {
+      const ac = this.ac = new AC();
+      this.master = ac.createGain(); this.master.gain.value = 0.7; this.master.connect(ac.destination);
+      this.osc = ac.createOscillator(); this.osc.type = 'sawtooth'; this.osc.frequency.value = 60;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
+      this.humGain = ac.createGain(); this.humGain.gain.value = 0;
+      this.osc.connect(lp); lp.connect(this.humGain); this.humGain.connect(this.master); this.osc.start();
+      const buf = this.buf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    this.ac.resume(); this.on = true; return true;
+  },
+  disable() { this.on = false; if (this.ac) this.humGain.gain.setTargetAtTime(0, this.ac.currentTime, 0.03); },
+  hum(f, g) { this.want = [f, g]; },
+  apply() {
+    if (!this.on) return;
+    const t = this.ac.currentTime;
+    this.osc.frequency.setTargetAtTime(this.want[0] || 60, t, 0.06);
+    this.humGain.gain.setTargetAtTime(this.want[1], t, 0.06);
+    this.want = [0, 0];
+  },
+  burst(dur, gain, freq, type = 'bandpass') {
+    if (!this.on) return;
+    const ac = this.ac, t = ac.currentTime, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = this.buf; f.type = type; f.frequency.value = freq;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this.master); src.start(t, Math.random() * 0.8, dur + 0.02);
+  },
+  tone(freq, dur, gain, delay = 0) {
+    if (!this.on) return;
+    const ac = this.ac, t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = freq; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05);
+  },
+  chime() { this.tone(660, 0.2, 0.12); this.tone(990, 0.35, 0.12, 0.13); }
+};
+$('#snd').onclick = e => {
+  const b = e.currentTarget, on = !snd.on && snd.enable();
+  if (!on) snd.disable();
+  b.setAttribute('aria-pressed', on); b.textContent = on ? 'Sound on' : 'Sound off';
+};
+
+const S = { stage: 0, unlocked: 0, misses: 0, result: null };
+function stage(def, s0) {
+  def.reset = () => Object.assign(def, JSON.parse(JSON.stringify(s0)), { done: false, time: 0 });
+  def.reset(); return def;
+}
+
+/* A 777-200ER seen from above, drawn in metres: 63.7 long, 60.9 across the wings. Nose points up. */
+function plane(scale, body, engine, sy = 1) {
+  ctx.save(); ctx.scale(scale, scale * sy); ctx.fillStyle = body;
+  ctx.beginPath(); ctx.moveTo(3, -6); ctx.lineTo(30.45, 9); ctx.lineTo(30.45, 12.5); ctx.lineTo(3, 6); ctx.lineTo(-3, 6); ctx.lineTo(-30.45, 12.5); ctx.lineTo(-30.45, 9); ctx.lineTo(-3, -6); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(1.5, 23); ctx.lineTo(10.7, 29); ctx.lineTo(10.7, 31.5); ctx.lineTo(1.5, 29.5); ctx.lineTo(-1.5, 29.5); ctx.lineTo(-10.7, 31.5); ctx.lineTo(-10.7, 29); ctx.lineTo(-1.5, 23); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 0, 3.1, 31.85, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = engine;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * 9.6, -4, 1.7, 3.8, 0, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function orb(x, y, r, core, halo) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+  g.addColorStop(0, halo); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 3, 0, TAU); ctx.fill();
+  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+function ring(x, y, r, color) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); }
+
+/* ───────── Step 1: Ignite ───────── */
+const GASES = { h: ['Hydrogen', [255, 120, 175]], ar: ['Argon', [168, 118, 255]] };
+const ignite = stage({
+  name: 'Ignite', title: 'Pump it down, light it up',
+  html: `
+    <div class="lesson">
+      <p><span class="tag lab">Lab physics</span>Heat a gas far enough and electrons break away from their atoms. What's left is plasma, the fourth state of matter. It glows because collisions lift electrons to higher energy and they give it back as light, in a colour set by the gas.</p>
+      <p><span class="tag read">Reading</span>Ashton Forbes reads the three objects in the videos as "cold plasma". That is a real term: the electrons are hot while the heavy ions stay cool. A neon sign works this way.</p>
+      <p class="note">At full pressure, electrons hit atoms so often that everything heats together and you get an arc. Pump most of the gas out and the electrons run hot on their own. The seal leaks, so the pressure creeps back up. Pump too far and there's too little gas left to glow.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Gas">
+        <button type="button" id="gas-h" data-gas="h">Hydrogen</button>
+        <button type="button" id="gas-ar" data-gas="ar">Argon</button>
+      </div>
+      <label for="ig-power">Drive power <output id="ig-power-o"></output><input id="ig-power" type="range" min="0" max="100" step="1"></label>
+      <button type="button" class="btn pump" id="ig-pump">Pump (hold)</button>
+      <div>
+        <div class="meter" aria-hidden="true"><div class="band" id="ig-band"></div><div class="mark" id="ig-mark"></div></div>
+        <div class="mlabels"><span>0.05 torr</span><span>pressure, each tick ×10</span><span>760 torr</span></div>
+      </div>
+    </div>
+    <dl class="reads">
+      <div><dt>Pressure</dt><dd id="ig-p"></dd></div>
+      <div><dt>Electrons</dt><dd id="ig-te"></dd></div>
+      <div><dt>Ions</dt><dd id="ig-ti"></dd></div>
+      <div><dt>State</dt><dd id="ig-state"></dd></div>
+    </dl>`,
+  model() {
+    const p = this.p, Te = this.power / 100 * 8 / (1 + p / 400), c = p / (p + 30);
+    const Ti = 300 + c ** 3 * Te * 11600 * 0.9;
+    const thin = p < 0.3, ionised = Te >= 2;
+    let state = 'Neutral gas', ok = false;
+    if (ionised && thin) state = 'Too thin to glow';
+    else if (ionised && Ti > 320) state = Ti > 3000 ? 'Arc: hot plasma' : 'Plasma, too warm';
+    else if (ionised) { state = 'Cold plasma'; ok = true; }
+    const glow = ionised ? clamp(0.4 + (Te - 2) / 4, 0, 1) * (thin ? 0.12 : 1) : clamp(Te - 1, 0, 1) * 0.15;
+    return { p, Te, Ti, state, ok, glow, frac: clamp((Te - 1) / 1.5, 0, 1) };
+  },
+  stroke() { this.p = Math.max(0.05, this.p * 0.8); this.anim = 1; snd.burst(0.1, 0.3, 700); },
+  init() {
+    if (!this.ions.length) for (let i = 0; i < 28; i++) {
+      const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 0.85, d = Math.random() * TAU, e = Math.random() * TAU;
+      this.ions.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, dx: Math.cos(d), dy: Math.sin(d) });
+      this.els.push({ x: 0, y: 0, dx: Math.cos(e), dy: Math.sin(e), free: false });
+    }
+    const pw = $('#ig-power'); pw.value = this.power; pw.oninput = () => { this.power = +pw.value; };
+    const gs = panel.querySelectorAll('[data-gas]');
+    const paint = () => gs.forEach(b => b.setAttribute('aria-pressed', b.dataset.gas === this.gas));
+    gs.forEach(b => b.onclick = () => { this.gas = b.dataset.gas; paint(); });
+    paint();
+    const b = $('#ig-pump');
+    b.onpointerdown = e => { this.pumping = true; this.strokeT = 0; this.stroke(); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
+    b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => { this.pumping = false; };
+    b.onclick = e => { if (e.detail === 0) this.stroke(); };
+    b.oncontextmenu = e => e.preventDefault();
+    const band = $('#ig-band'); band.style.left = this.pos(0.3) + '%'; band.style.width = this.pos(2.5) - this.pos(0.3) + '%';
+  },
+  pos(x) { return (Math.log10(x) - Math.log10(0.05)) / (Math.log10(760) - Math.log10(0.05)) * 100; },
+  move(q, sp, dt) {
+    const j = (Math.random() - 0.5) * 0.6, cs = Math.cos(j), sn = Math.sin(j), dx = q.dx * cs - q.dy * sn;
+    q.dy = q.dx * sn + q.dy * cs; q.dx = dx;
+    q.x += q.dx * sp * dt; q.y += q.dy * sp * dt;
+    const d = Math.hypot(q.x, q.y);
+    if (d > 0.92) { const nx = q.x / d, ny = q.y / d, dot = q.dx * nx + q.dy * ny; if (dot > 0) { q.dx -= 2 * dot * nx; q.dy -= 2 * dot * ny; } q.x = nx * 0.92; q.y = ny * 0.92; }
+  },
+  update(dt) {
+    this.t += dt; this.anim = Math.max(0, this.anim - dt * 5);
+    if (this.pumping) { this.strokeT += dt; if (this.strokeT >= 0.2) { this.strokeT = 0; this.stroke(); } }
+    this.p = Math.min(760, this.p + 0.3 * dt);
+    const m = this.m = this.model();
+    const isp = 0.03 + clamp((m.Ti - 300) / 20000, 0, 1) * 0.9, esp = 0.3 + Math.sqrt(m.Te) * 0.75;
+    const nfree = Math.round(m.frac * this.els.length);
+    this.ions.forEach((q, i) => {
+      this.move(q, isp, dt);
+      const e = this.els[i], free = i < nfree;
+      if (free) { if (!e.free) { e.x = q.x; e.y = q.y; } this.move(e, esp, dt); }
+      else { const a = this.t * 7 + i; e.x = q.x + Math.cos(a) * 0.045; e.y = q.y + Math.sin(a) * 0.045; }
+      e.free = free;
+    });
+    this.hold = m.ok ? this.hold + dt : 0;
+    if (this.hold >= 1.5) complete(this);
+    snd.hum(50 + this.power * 1.4, 0.02 + m.glow * 0.07);
+    set('ig-power-o', this.power + ' %');
+    set('ig-p', (m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)) + ' torr<small>' + (m.p > 2.5 ? 'keep pumping' : m.p < 0.3 ? 'too thin: let it leak back' : 'in the band') + '</small>');
+    set('ig-te', fmt(m.Te * 11600 / 1000, 1) + ' kK<small>' + fmt(m.Te, 1) + ' eV</small>');
+    set('ig-ti', (m.Ti < 1000 ? fmt(m.Ti - 273) + ' °C' : fmt(m.Ti / 1000, 1) + ' kK') + '<small>' + (m.Ti <= 320 ? 'cool enough to touch' : 'would burn') + '</small>');
+    set('ig-state', m.state);
+    const mk = $('#ig-mark'); if (mk) mk.style.left = clamp(this.pos(m.p), 0, 100) + '%';
+    goal(this.done ? 1 : this.hold / 1.5, this.done ? 'Cold plasma: electrons at tens of thousands of kelvin, ions at room temperature.' : 'Goal: a glowing plasma whose ions stay below 47 °C.');
+  },
+  draw() {
+    const m = this.m, cx = W * 0.42, cy = H / 2 + 6, R = Math.min(W * 0.36, H * 0.37), rgb = GASES[this.gas][1];
+    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+    // pump: pipe, cylinder, piston
+    const px = Math.min(W - 44, cx + R + (W - cx - R) * 0.55), ph = H * 0.34, pw = 24, top = cy - ph / 2;
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx + R, cy + ph / 2 - 8); ctx.lineTo(px - pw / 2, cy + ph / 2 - 8); ctx.stroke();
+    ctx.strokeRect(px - pw / 2, top, pw, ph);
+    const py = top + 8 + (1 - this.anim) * (ph - 26);
+    ctx.fillStyle = COL.cold; ctx.fillRect(px - pw / 2 + 2, py, pw - 4, 8);
+    ctx.fillRect(px - 2, top - 14, 4, py - top + 14); ctx.fillRect(px - 9, top - 18, 18, 5);
+    label('pump', px, top + ph + 16, COL.muted, 'center');
+    if (m.glow > 0.01) {
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
+      const hot = clamp((m.Ti - 2000) / 15000, 0, 1);
+      g.addColorStop(0, `rgba(${rgb.map(v => Math.round(v + (255 - v) * hot))},${0.85 * m.glow})`);
+      g.addColorStop(0.7, `rgba(${rgb},${0.35 * m.glow})`); g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.25, 0, TAU); ctx.fill();
+    }
+    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
+    // background gas thins as you pump
+    const haze = clamp(Math.log10(m.p / 0.05) / 4.2, 0, 1) * 0.12;
+    ctx.fillStyle = `rgba(154,166,201,${haze})`; ctx.beginPath(); ctx.arc(cx, cy, R - 1, 0, TAU); ctx.fill();
+    this.ions.forEach((q, i) => {
+      ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, 4, 0, TAU); ctx.fill();
+      const e = this.els[i]; ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(cx + e.x * R, cy + e.y * R, 1.8, 0, TAU); ctx.fill();
+    });
+    viewTitle('GLASS JAR · ' + GASES[this.gas][0].toUpperCase());
+    ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(38, H - 34, 4, 0, TAU); ctx.fill(); label('ion', 48, H - 30);
+    ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 18, 1.8, 0, TAU); ctx.fill(); label('electron', 48, H - 14);
+  }
+}, { gas: 'h', power: 15, p: 760, hold: 0, t: 0, anim: 0, pumping: false, strokeT: 0, ions: [], els: [] });
+
+/* ───────── Step 2: Hold ───────── */
+const MU0 = 4e-7 * Math.PI;
+const hold = stage({
+  name: 'Hold', title: 'Keep the ball together',
+  html: `
+    <div class="lesson">
+      <p><span class="tag lab">Lab physics</span>Left in open air, a hot plasma cools and spreads in a fraction of a second. Laboratory plasmoids last a few hundred milliseconds. A magnetised plasma can't hold itself together with its own field. Something outside has to: coils, a wall, or for a star, gravity.</p>
+      <p><span class="tag lab">Lab physics</span>The balance point is called beta one: the plasma's pressure equals the field's. Robert Bussard reported reaching it in his Polywell in 2006. Above it, the plasma leaks. Even a plasma that builds part of its own cage still needs outside coils to hold it in place, or it drifts into the wall and dies.</p>
+      <p class="note">One pad, two jobs. Up and down sets the field strength, to keep beta in the band. Left and right trims the coils, to push the ball back to the centre. Arrow keys work too.</p>
+    </div>
+    <div class="ctl">
+      <div>
+        <div class="pad" id="ho-pad" tabindex="0" role="application" aria-label="Coil control pad. Up and down arrows set field strength, left and right arrows trim the coils."><i id="ho-knob"></i></div>
+        <div class="padlabels"><span>← push left</span><span>↑ stronger field</span><span>push right →</span></div>
+      </div>
+      <div>
+        <div class="meter" aria-hidden="true"><div class="band" style="left:37.5%;width:12.5%"></div><div class="mark" id="ho-mark"></div></div>
+        <div class="mlabels"><span>β 0 · over-built</span><span>β 1</span><span>β 2 · leaking</span></div>
+      </div>
+    </div>
+    <dl class="reads">
+      <div><dt>Coil field</dt><dd id="ho-b"></dd></div>
+      <div><dt>Beta</dt><dd id="ho-beta"></dd></div>
+      <div><dt>Position</dt><dd id="ho-x"></dd></div>
+    </dl>`,
+  init() {
+    if (!this.parts.length) for (let i = 0; i < 80; i++) this.parts.push({ a: Math.random() * TAU, r: Math.sqrt(Math.random()), w: (Math.random() - 0.5) * 3 });
+    const pad = $('#ho-pad');
+    const from = e => { const r = pad.getBoundingClientRect(); this.trim = clamp((e.clientX - r.left) / r.width * 2 - 1, -1, 1); this.B = clamp(1 - (e.clientY - r.top) / r.height, 0, 1); };
+    pad.onpointerdown = e => { try { pad.setPointerCapture(e.pointerId); } catch (_) {} this.drag = true; from(e); };
+    pad.onpointermove = e => { if (this.drag) from(e); };
+    pad.onpointerup = pad.onpointercancel = () => { this.drag = false; };
+    pad.onkeydown = e => {
+      const k = { ArrowLeft: [-0.06, 0], ArrowRight: [0.06, 0], ArrowUp: [0, 0.01], ArrowDown: [0, -0.01] }[e.key];
+      if (k) { e.preventDefault(); this.trim = clamp(this.trim + k[0], -1, 1); this.B = clamp(this.B + k[1], 0, 1); }
+    };
+  },
+  push(t) { return 0.42 * Math.sin(t * 0.55 + 0.5) + 0.28 * Math.sin(t * 1.25 + 2); },
+  update(dt) {
+    this.t += dt;
+    const t = this.t, p = this.p = 100 + 26 * Math.sin(t * 0.8) + 16 * Math.sin(t * 0.37 + 1) + 8 * Math.sin(t * 1.5 + 2);
+    const pm = this.pm = this.B * this.B / (2 * MU0) / 1000, beta = this.beta = pm > 0 ? p / pm : Infinity;
+    const leak = beta > 1;
+    this.x += (this.push(t) + this.trim * 1.2 * clamp(this.B / 0.3, 0, 1)) * dt;
+    if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; snd.burst(0.3, 0.3, 300, 'lowpass'); }
+    this.hit = Math.max(0, this.hit - dt);
+    const centred = Math.abs(this.x) < 0.45;
+    if (!this.done) { if (!leak && beta >= 0.75 && centred) this.lock += dt; else if (leak) this.lock = Math.max(0, this.lock - dt * 1.5); }
+    if (this.lock >= 6) complete(this);
+    if (leak && Math.random() < dt * 14) snd.burst(0.03, 0.18, 2400);
+    snd.hum(55 + this.B * 110, 0.02 + this.B * 0.06);
+    const target = leak ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
+    this.size += (target - this.size) * Math.min(1, dt * 5);
+    const out = leak ? clamp(beta - 1, 0.15, 3) * 1.6 : 0;
+    this.parts.forEach(q => {
+      q.a += q.w * dt;
+      if (leak) { q.r += out * dt * (0.4 + q.r); if (q.r > 3.4) q.r = Math.sqrt(Math.random()) * 0.9; }
+      else if (q.r > 1) q.r = Math.max(0.2, q.r - dt * 2.5);
+    });
+    const kn = $('#ho-knob'); if (kn) { kn.style.left = (this.trim + 1) * 50 + '%'; kn.style.top = (1 - this.B) * 100 + '%'; }
+    set('ho-b', this.B.toFixed(2) + ' T<small>plasma at ' + fmt(p) + ' kPa</small>');
+    set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (leak ? 'leaking' : beta < 0.75 ? 'held, over-built' : 'balanced') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
+    set('ho-x', this.hit > 0 ? 'hit the wall<small>cooled and lost</small>' : centred ? 'centred' : this.x < 0 ? 'drifting left<small>push right</small>' : 'drifting right<small>push left</small>');
+    const mk = $('#ho-mark'); if (mk) mk.style.left = clamp((isFinite(beta) ? beta : 2) / 2, 0, 1) * 100 + '%';
+    goal(this.done ? 1 : this.lock / 6, this.done ? 'Held at beta one, and held in place. Both took coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
+  },
+  draw() {
+    const cx = W / 2, cy = H / 2 + 4, R0 = Math.min(W * 0.11, H * 0.17), rr = R0 * this.size, f = clamp(this.B / 0.6, 0, 1);
+    const bx = cx + this.x * R0 * 2.2, wall = R0 * 3.05;
+    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+    for (const s of [-1, 1]) { ctx.strokeStyle = this.hit > 0 ? COL.hot : COL.muted; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + s * wall, cy - R0 * 2.6); ctx.lineTo(cx + s * wall, cy + R0 * 2.6); ctx.stroke(); }
+    label('wall', cx + wall + 6, cy + 4);
+    ctx.setLineDash([2, 5]); ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy - R0 * 1.9); ctx.lineTo(cx, cy + R0 * 1.9); ctx.stroke(); ctx.setLineDash([]);
+    if (f > 0) {
+      ctx.strokeStyle = COL.cold; ctx.lineWidth = 1;
+      for (let k = 1; k <= 4; k++) { ctx.globalAlpha = f * (0.6 - k * 0.1); ctx.beginPath(); ctx.ellipse(cx, cy, R0 * (1.05 + 0.4 * k), R0 * (1.35 + 0.17 * k), 0, 0, TAU); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    for (const sy of [-1, 1]) for (const sx of [-1, 1]) {
+      const y = cy + sy * R0 * 2.25, w = R0 * 1.4, x = sx < 0 ? cx - w : cx;
+      ctx.fillStyle = `rgba(255,174,66,${clamp((0.2 + 0.8 * f) * (1 - sx * this.trim * 0.6), 0.08, 1)})`; ctx.fillRect(x, y - 6, w, 12);
+      ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.strokeRect(x, y - 6, w, 12);
+    }
+    label('coils', cx + R0 * 1.4 + 8, cy - R0 * 2.25 + 4);
+    const g = ctx.createRadialGradient(bx, cy, 0, bx, cy, rr * 1.5);
+    const a = this.beta > 1 ? 0.45 : 0.9;
+    g.addColorStop(0, `rgba(255,235,245,${a})`); g.addColorStop(0.45, `rgba(255,120,175,${a * 0.7})`); g.addColorStop(1, 'rgba(255,120,175,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, cy, rr * 1.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,200,225,.9)';
+    this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = clamp(1.2 - q.r / 3, 0.1, 1); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
+    ctx.globalAlpha = 1;
+    viewTitle('PLASMA BALL BETWEEN COILS');
+    if (this.B === 0) label('coils off: the plasma spreads and is gone', cx, H - 18, COL.hot, 'center');
+  }
+}, { B: 0, trim: 0, x: 0, lock: 0, t: 0, size: 1, hit: 0, drag: false, parts: [] });
+
+/* ───────── Step 3: Fuel ───────── */
+const FUELS = {
+  dt: { name: 'Deuterium + tritium', peak: 64, k: 1, width: 0.45, out: 'one helium nucleus and one neutron' },
+  pb: { name: 'Hydrogen + boron-11', peak: 600, k: 0.45, width: 0.4, out: 'three helium nuclei' }
+};
+const fuel = stage({
+  name: 'Fuel', title: 'Choose what it burns',
+  html: `
+    <div class="lesson">
+      <p><span class="tag read">Reading</span>Forbes's picture of an orb is "a coherent ball of plasma with potentially a device inside of it". A device that flies needs power on board, and his account leans on fusion.</p>
+      <p><span class="tag lab">Lab physics</span>Most fusion work burns two heavy forms of hydrogen. That reaction lights at the lowest temperature, but it throws out neutrons. No magnetic field can steer a neutron, so it goes straight into the wall and makes it radioactive.</p>
+      <p><span class="tag lab">Lab physics</span>Hydrogen and boron-11 make three helium nuclei and almost no neutrons. The energy comes out on charged particles, so it could in principle be turned straight into electricity. The catch: it needs far higher temperatures to burn. Boron fuel is being tested in experiments now.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Fuel">
+        <button type="button" id="fu-dt" data-fuel="dt">Deuterium + tritium</button>
+        <button type="button" id="fu-pb" data-fuel="pb">Hydrogen + boron-11</button>
+      </div>
+      <label for="fu-t">Plasma temperature <output id="fu-t-o"></output><input id="fu-t" type="range" min="0" max="3" step="0.01"></label>
+      <div>
+        <div class="meter" aria-hidden="true"><div class="fill bad" id="fu-dose"></div></div>
+        <div class="mlabels"><span>wall clean</span><span>neutron damage</span><span>radioactive</span></div>
+      </div>
+    </div>
+    <dl class="reads">
+      <div><dt>Reaction</dt><dd id="fu-rate"></dd></div>
+      <div><dt>Makes</dt><dd id="fu-out"></dd></div>
+      <div><dt>Energy in neutrons</dt><dd id="fu-n"></dd></div>
+    </dl>`,
+  init() {
+    const t = $('#fu-t'); t.value = this.lt; t.oninput = () => { this.lt = +t.value; };
+    const fs = panel.querySelectorAll('[data-fuel]');
+    const paint = () => fs.forEach(b => b.setAttribute('aria-pressed', b.dataset.fuel === this.fuel));
+    fs.forEach(b => b.onclick = () => { this.fuel = b.dataset.fuel; paint(); });
+    paint();
+  },
+  update(dt) {
+    const F = FUELS[this.fuel], keV = 10 ** this.lt, x = Math.log10(keV / F.peak) / F.width;
+    const rate = this.rate = F.k * Math.exp(-x * x), lit = this.lit = rate >= 0.15;
+    this.acc += rate * 16 * dt;
+    while (this.acc >= 1 && this.ev.length < 220) {
+      this.acc -= 1;
+      const a0 = Math.random() * TAU, r0 = Math.random() * 0.18, n = this.fuel === 'pb' ? 3 : 1, base = Math.random() * TAU;
+      for (let i = 0; i < n; i++) { const a = base + i * TAU / n; this.ev.push({ x: Math.cos(a0) * r0, y: Math.sin(a0) * r0, a, k: 'a', s: 0.5 + Math.random() * 0.2 }); }
+      if (this.fuel === 'dt') this.ev.push({ x: Math.cos(a0) * r0, y: Math.sin(a0) * r0, a: base + Math.PI, k: 'n', s: 1.5 });
+    }
+    if (this.acc > 1) this.acc = 1;
+    this.ev = this.ev.filter(q => {
+      if (q.k === 'a') q.a += dt * 5;       // charged: the field curls its path
+      q.x += Math.cos(q.a) * q.s * dt; q.y += Math.sin(q.a) * q.s * dt;
+      const d = Math.hypot(q.x, q.y);
+      if (q.k === 'n' && d >= 1) { this.spots.push({ a: Math.atan2(q.y, q.x), l: 1 }); snd.burst(0.012, 0.3, 3200, 'highpass'); return false; }
+      if (q.k === 'a' && (d >= 0.6 || (q.s -= dt * 0.12) <= 0.05)) return false;
+      return true;
+    });
+    this.spots = this.spots.filter(s => (s.l -= dt * 1.2) > 0).slice(-60);
+    this.dose = clamp(this.dose + (lit && this.fuel === 'dt' ? dt * 0.22 : -dt * 0.04), 0, 1);
+    this.hold = lit && this.fuel === 'pb' ? this.hold + dt : 0;
+    if (this.hold >= 3) complete(this);
+    snd.hum(70 + this.lt * 60, 0.015 + rate * 0.07);
+    const K = keV * 11.6e6;
+    set('fu-t-o', K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K');
+    set('fu-rate', lit ? 'Burning<small>' + fmt(rate * 100) + ' % of the best D-T rate</small>' : 'Not lit<small>' + (x < 0 ? 'too cold for this fuel' : 'past its best temperature') + '</small>');
+    set('fu-out', F.out);
+    set('fu-n', this.fuel === 'dt' ? '80 %<small>14.1 of 17.6 MeV, our sum</small>' : 'under 1 %<small>a few, from side reactions</small>');
+    const d = $('#fu-dose'); if (d) d.style.width = this.dose * 100 + '%';
+    goal(this.done ? 1 : this.hold / 3, this.done ? 'Burning boron: the energy stays on charged particles the field can catch. It took billions of kelvin.' : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: a burning reaction with under 1 % of its energy in neutrons, for three seconds.');
+  },
+  draw() {
+    const cx = W / 2, cy = H / 2 - 4, R = Math.min(W, H) * 0.34, hotness = clamp(this.lt / 3, 0, 1);
+    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+    ctx.lineWidth = 6; ctx.strokeStyle = `rgb(${Math.round(42 + 213 * this.dose)},${Math.round(55 + 30 * (1 - this.dose))},${Math.round(104 - 53 * this.dose)})`;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
+    this.spots.forEach(s => { ctx.fillStyle = `rgba(255,85,51,${s.l})`; ctx.beginPath(); ctx.arc(cx + Math.cos(s.a) * R, cy + Math.sin(s.a) * R, 5, 0, TAU); ctx.fill(); });
+    ctx.setLineDash([3, 5]); ctx.lineWidth = 1; ctx.strokeStyle = COL.cold; ctx.beginPath(); ctx.arc(cx, cy, R * 0.6, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.34);
+    g.addColorStop(0, `rgba(255,${Math.round(150 + 105 * hotness)},${Math.round(120 + 135 * hotness)},${0.25 + 0.7 * hotness})`); g.addColorStop(1, 'rgba(255,120,175,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 0.34, 0, TAU); ctx.fill();
+    this.ev.forEach(q => {
+      ctx.fillStyle = q.k === 'n' ? COL.hot : COL.cold;
+      ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, q.k === 'n' ? 2.2 : 2.8, 0, TAU); ctx.fill();
+    });
+    label('wall', cx + R + 10, cy + 4);
+    label('field edge', cx + R * 0.6 * 0.71 + 6, cy - R * 0.6 * 0.71 - 4, COL.cold);
+    ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 34, 2.8, 0, TAU); ctx.fill(); label('helium (charged)', 48, H - 30);
+    ctx.fillStyle = COL.hot; ctx.beginPath(); ctx.arc(38, H - 18, 2.2, 0, TAU); ctx.fill(); label('neutron', 48, H - 14);
+    viewTitle('REACTOR CORE · ' + (this.fuel === 'dt' ? 'D-T' : 'P-B11'));
+  }
+}, { fuel: 'dt', lt: 0.3, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
+
+/* ───────── Shared scene helpers ───────── */
+function sceneScale() { return Math.min(W, H) / 2 / 122; }
+function triangle(cx, cy, r, ang, sc, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i < 3; i++) { const a = ang + i * TAU / 3, x = cx + Math.cos(a) * r * sc, y = cy + Math.sin(a) * r * sc; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.closePath(); ctx.stroke();
+}
+function scaleBarDraw(sc) {
+  const x = 34, y = H - 20; ctx.strokeStyle = COL.muted; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x, y); ctx.lineTo(x + 50 * sc, y); ctx.lineTo(x + 50 * sc, y - 4); ctx.stroke();
+  label('50 m', x + 50 * sc + 6, y + 1);
+}
+
+/* ───────── Step 4: Orbit, seen by two cameras ───────── */
+const TILT = 24 * Math.PI / 180, TRUE_CAM = 132;
+// The three objects in 3D (metres): a triangle in a tilted plane whose tilt axis slowly turns, so it tumbles.
+function formation(r, ang, tumble) {
+  const ca = Math.cos(tumble), sa = Math.sin(tumble), ct = Math.cos(TILT), st = Math.sin(TILT);
+  const u = [ca, sa, 0], v = [-sa * ct, ca * ct, st], out = [];
+  for (let i = 0; i < 3; i++) { const a = ang + i * TAU / 3, c = Math.cos(a) * r, s = Math.sin(a) * r; out.push([u[0] * c + v[0] * s, u[1] * c + v[1] * s, u[2] * c + v[2] * s]); }
+  return out;
+}
+const camB = (p, deg) => { const th = deg * Math.PI / 180; return [p[0], p[1] * Math.cos(th) - p[2] * Math.sin(th)]; };
+const orbit = stage({
+  name: 'Orbit', title: 'Fly the formation',
+  html: `
+    <div class="lesson">
+      <p><span class="tag meas">Measured</span>Where both videos track them cleanly, the three objects circle the airliner once in about two and a half seconds, 60 to 70 metres out if the aircraft is a Boeing 777. For about sixteen seconds they hold one equal-sided triangle centred on the aircraft. The triangle spins, and as it spins it tumbles.</p>
+      <p><span class="tag lab">Lab physics</span>Anything moving in a circle is being pulled toward the centre. Speed is the circumference over the time for one lap. The pull is the speed squared over the radius. Tighter and faster both cost you.</p>
+      <p><span class="tag meas">Measured</span>Two cameras pin down one scene. 4orbs fitted the two lines of sight at 123 to 141 degrees apart, which is why the objects circle in opposite senses in the two videos.</p>
+      <p class="note">The hollow rings are the tracked objects. Put your orbs on them in both views.</p>
+    </div>
+    <div class="ctl">
+      <label for="or-r">Distance from the aircraft <output id="or-r-o"></output><input id="or-r" type="range" min="30" max="100" step="1"></label>
+      <label for="or-t">Time for one lap <output id="or-t-o"></output><input id="or-t" type="range" min="1" max="8" step="0.1"></label>
+      <label for="or-c">Angle between the two cameras <output id="or-c-o"></output><input id="or-c" type="range" min="0" max="180" step="1"></label>
+    </div>
+    <dl class="reads">
+      <div><dt>Speed</dt><dd id="or-v"></dd></div>
+      <div><dt>Turn</dt><dd id="or-g"></dd></div>
+      <div><dt>Airliner needs</dt><dd id="or-air"></dd></div>
+      <div><dt>Fighter needs</dt><dd id="or-ftr"></dd></div>
+    </dl>`,
+  init() {
+    for (const [id, k] of [['or-r', 'r'], ['or-t', 'T'], ['or-c', 'cam']]) { const el = $('#' + id); el.value = this[k]; el.oninput = () => { this[k] = +el.value; }; }
+  },
+  update(dt) {
+    this.ghost += TAU / 2.5 * dt; this.tumble += TAU / 11 * dt;
+    this.ang += TAU / this.T * dt;
+    const paced = this.T >= 2.3 && this.T <= 2.7;
+    if (paced) { let d = (this.ghost - this.ang) % (TAU / 3); if (d > TAU / 6) d -= TAU / 3; if (d < -TAU / 6) d += TAU / 3; this.ang += d * Math.min(1, dt * 4); }
+    const v = TAU * this.r / this.T, a = v * v / this.r, g = a / 9.81;
+    const ok = this.r >= 60 && this.r <= 70 && paced && this.cam >= 123 && this.cam <= 141;
+    this.hold = ok ? this.hold + dt : 0;
+    if (this.hold >= 1.5) complete(this);
+    snd.hum(40 + v * 0.6, 0.05);
+    set('or-r-o', this.r + ' m'); set('or-t-o', this.T.toFixed(1) + ' s'); set('or-c-o', this.cam + '°');
+    set('or-v', fmt(v * 3.6) + ' km/h<small>relative to the airliner</small>');
+    set('or-g', fmt(g, 1) + ' g<small>a 75 kg person would weigh ' + fmt(75 * g / 1000, 1) + ' t</small>');
+    set('or-air', fmt(2 * v * v / (9.81 * Math.sqrt(2.5 * 2.5 - 1))) + ' m<small>circle width at its 2.5 g limit</small>');
+    set('or-ftr', fmt(2 * v * v / (9.81 * Math.sqrt(80))) + ' m<small>circle width at 9 g</small>');
+    goal(this.done ? 1 : this.hold / 1.5, this.done ? 'About 600 km/h round a circle 130 m across: about forty g. No known aircraft of 2014 could do it.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
+  },
+  draw() {
+    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6;
+    ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
+    const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
+    const views = [[hw / 2, p => [p[0], p[1]], 1, 'CAMERA 1 · FROM ABOVE'], [hw * 1.5, p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), 'CAMERA 2']];
+    views.forEach(([cx, proj, sy, title], vi) => {
+      const tp = vi ? p => camB(p, TRUE_CAM) : proj;
+      ctx.save(); ctx.translate(cx, cy); plane(sc, '#cfd6e6', '#8791ad', Math.abs(sy) < 0.04 ? 0.04 : sy); ctx.restore();
+      truth.forEach(p => { const q = tp(p); ring(cx + q[0] * sc, cy + q[1] * sc, 7, COL.warm); });
+      ctx.strokeStyle = 'rgba(236,230,214,.4)'; ctx.lineWidth = 1; ctx.beginPath();
+      mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
+      ctx.closePath(); ctx.stroke();
+      mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
+      label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
+    });
+    scaleBarDraw(sc);
+  }
+}, { r: 95, T: 6, cam: 40, ang: 0, ghost: 0, tumble: 0, hold: 0 });
+
+/* ───────── Step 5: Open ───────── */
+const J_PER_M = 0.709 * 1.898e27 * 8.988e16;   // joules of negative energy per metre of throat, from the 2010 study's table
+const HBARC = 1.0546e-34 * 2.998e8;
+const open = stage({
+  name: 'Open', title: 'Prop a wormhole open',
+  html: `
+    <div class="lesson">
+      <p><span class="tag lab">Lab physics</span>Einstein and Nathan Rosen described a wormhole in 1935: a tunnel joining two places in space. Nothing can cross that kind. It pinches shut. In 1988 Michael Morris and Kip Thorne worked out what a crossable one needs: negative energy, energy below that of empty space, to hold the throat open.</p>
+      <p><span class="tag lab">Lab physics</span>Negative energy is real, in traces. Experiments have measured the force it is tied to between two metal plates set very close together, though not the energy itself.</p>
+      <p><span class="tag gap">Nobody knows</span>A 2010 Defense Intelligence Agency survey puts a 100 metre wormhole at about 70 Jupiter masses of negative energy, and says nobody knows how to build one.</p>
+      <p class="note">Every Jupiter you assume beyond the minimum costs you points.</p>
+    </div>
+    <div class="ctl">
+      <label for="op-w">Throat width <output id="op-w-o"></output><input id="op-w" type="range" min="1" max="200" step="1"></label>
+      <label for="op-d">Gap between the plates <output id="op-d-o"></output><input id="op-d" type="range" min="1" max="4" step="0.01"></label>
+      <label for="op-a">Plate area <output id="op-a-o"></output><input id="op-a" type="range" min="0" max="6" step="0.05"></label>
+      <div>
+        <div class="meter" aria-hidden="true"><div class="fill" id="op-fill"></div><div class="need" id="op-need"></div></div>
+        <div class="mlabels"><span>10⁻¹² J</span><span>negative energy, each tick ×10</span><span>10⁴⁸ J</span></div>
+      </div>
+      <div class="actions"><button type="button" class="btn gapbtn" id="op-assume">Assume a source nobody has</button></div>
+    </div>
+    <dl class="reads">
+      <div><dt>Need</dt><dd id="op-needv"></dd></div>
+      <div><dt>Plates give</dt><dd id="op-have"></dd></div>
+      <div><dt>Short by</dt><dd id="op-short"></dd></div>
+    </dl>`,
+  init() {
+    for (const [id, k] of [['op-w', 'w'], ['op-d', 'ld'], ['op-a', 'la']]) { const el = $('#' + id); el.value = this[k]; el.oninput = () => { this[k] = +el.value; }; }
+    $('#op-assume').onclick = () => { this.assumed = !this.assumed; if (this.assumed) snd.tone(55, 1.2, 0.2); };
+  },
+  update(dt) {
+    this.t += dt;
+    const need = this.need = this.w * J_PER_M, d = 10 ** this.ld * 1e-9, A = 10 ** this.la;
+    const have = Math.PI ** 2 * HBARC / (720 * d ** 3) * A;
+    const pos = x => clamp((Math.log10(x) + 12) / 60, 0, 1) * 100;
+    const fill = $('#op-fill'), nd = $('#op-need'), btn = $('#op-assume');
+    if (fill) { fill.style.width = (this.assumed ? pos(need) : pos(have)) + '%'; fill.classList.toggle('assumed', this.assumed); nd.style.left = pos(need) + '%'; btn.textContent = this.assumed ? 'Take the assumption back' : 'Assume a source nobody has'; }
+    const dn = d * 1e9;
+    set('op-w-o', this.w + ' m'); set('op-d-o', dn >= 1000 ? fmt(dn / 1000, 1) + ' µm' : fmt(dn) + ' nm');
+    set('op-a-o', A >= 1e6 ? fmt(A / 1e6, 1) + ' km²' : fmt(A) + ' m²');
+    set('op-needv', fmt(this.w * 0.709, 1) + ' Jupiters<small>' + sci(need) + ' J</small>');
+    set('op-have', sci(have) + ' J');
+    set('op-short', this.assumed ? 'assumed<small>the gap is still there</small>' : fmt(Math.log10(need / have)) + ' zeros<small>a factor of 10' + sup(Math.round(Math.log10(need / have))) + '</small>');
+    const fits = this.w >= 61;
+    if (fits && this.assumed) complete(this);
+    if (this.assumed) snd.hum(46, 0.07);
+    goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open, on paper. The throat clears the wings only because you assumed the energy.' : !fits ? 'Goal: a throat wide enough for a 60.9 m wingspan, held open.' : 'Wide enough. Now find the negative energy. Try the plates first.');
+  },
+  draw() {
+    const cx = W / 2, cy = H / 2, sc = sceneScale();
+    const openness = this.assumed ? 1 : Math.max(0, Math.sin(this.t * (reduced ? 0.5 : 1.3)));
+    const rad = this.w / 2 * sc * openness;
+    ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
+    if (rad > 0.5) {
+      const g = ctx.createRadialGradient(cx, cy, rad * 0.2, cx, cy, rad * 1.25);
+      g.addColorStop(0, COL.void); g.addColorStop(0.78, COL.void); g.addColorStop(0.86, 'rgba(98,210,232,.8)'); g.addColorStop(1, 'rgba(98,210,232,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad * 1.25, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(98,210,232,.35)'; ctx.lineWidth = 1;
+      for (let i = 1; i <= 5; i++) { ctx.beginPath(); ctx.arc(cx, cy, rad * Math.pow(1 - i / 6, 1.4), 0, TAU); ctx.stroke(); }
+    }
+    ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = 0.92; plane(sc, '#cfd6e6', '#8791ad'); ctx.restore();
+    const fits = this.w >= 61;
+    ctx.strokeStyle = fits ? COL.cold : COL.hot; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.arc(cx, cy, this.w / 2 * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    if (!fits) for (const sx of [-1, 1]) ring(cx + sx * 30.45 * sc, cy + 10.7 * sc, 7, COL.hot);
+    label(fits ? 'throat clears the 60.9 m wingspan' : 'wingtips outside the throat', cx, H - 18, fits ? COL.cold : COL.hot, 'center');
+    if (!this.assumed) label(openness < 0.06 ? 'pinched shut' : 'no negative energy: it will not stay open', cx, 44, COL.muted, 'center');
+    else label('held open by an assumed source', cx, 44, COL.hot, 'center');
+    viewTitle('LOOKING DOWN THE THROAT');
+  }
+}, { w: 10, ld: 3, la: 0, assumed: false, t: 0 });
+
+/* ───────── Step 6: Converge ───────── */
+const conv = stage({
+  name: 'Converge', title: 'Close in, and open it',
+  html: `
+    <div class="lesson">
+      <p><span class="tag meas">Measured</span>In the last four thermal frames before the flash, two of the objects move in on screen. With all three in view the triangle is about a quarter smaller, its centre unmoved. A faint dark mark, colder than the sky, leads each object along its path.</p>
+      <p><span class="tag read">Reading</span>Forbes: "you can produce a wormhole by having three of these orbs converge." Nothing in plasma physics makes an airliner vanish. This step is his account, not a mechanism.</p>
+      <p><span class="tag meas">Measured</span>From above, the flash is bright. On the heat camera it reads black: colder than the sky. The 2010 survey reports a calculation that negative energy should cool the matter it meets. Its authors said it was too early to draw conclusions about heat.</p>
+      <p class="note">Each mistimed opening costs you points.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Camera">
+        <button type="button" id="cv-thermal" data-view="thermal">Thermal, from the side</button>
+        <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
+      </div>
+      <div>
+        <div class="meter" aria-hidden="true"><div class="band" style="left:42%;width:16%"></div><div class="mark" id="cv-mark"></div></div>
+        <div class="mlabels"><span>50 %</span><span>triangle size</span><span>100 %</span></div>
+      </div>
+      <div class="actions"><button type="button" class="btn primary" id="cv-go"></button></div>
+    </div>
+    <dl class="reads">
+      <div><dt>Triangle</dt><dd id="cv-k"></dd></div>
+      <div><dt>Time to cross</dt><dd id="cv-x">0.25 s<small>our sum: 63.7 m at 905 km/h</small></dd></div>
+      <div><dt>Status</dt><dd id="cv-msg"></dd></div>
+    </dl>`,
+  init() {
+    const vs = panel.querySelectorAll('[data-view]');
+    const paint = () => { vs.forEach(b => b.setAttribute('aria-pressed', b.dataset.view === this.view)); scaleBar.hidden = this.view !== 'thermal'; };
+    vs.forEach(b => b.onclick = () => { this.view = b.dataset.view; paint(); });
+    paint();
+    $('#cv-go').onclick = () => {
+      if (this.phase === 'orbit') { this.phase = 'closing'; this.msg = 'Closing in'; }
+      else if (this.phase === 'closing') {
+        if (Math.abs(this.k - 0.75) <= 0.04) { this.phase = 'flash'; this.q = 0; this.msg = 'Flash'; }
+        else { this.msg = this.k > 0.75 ? 'Too early: reset' : 'Too late: reset'; this.miss(); }
+      } else if (this.phase === 'gone') { this.phase = 'flash'; this.q = 0; }
+    };
+  },
+  miss() { this.phase = 'orbit'; this.k = 1; if (!this.done) S.misses++; snd.tone(110, 0.25, 0.15); },
+  update(dt) {
+    this.ang += TAU / 2.5 * dt;
+    if (this.phase === 'closing') { this.k -= dt * 0.5 / 5; if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(); } }
+    if (this.phase === 'flash') { this.q += dt / 1.6; if (this.q >= 1) { this.phase = 'gone'; this.msg = 'Open sky'; complete(this); } }
+    if (this.phase === 'orbit') snd.hum(80, 0.05);
+    if (this.phase === 'closing') snd.hum(80 + (1 - this.k) * 520, 0.08);   // the flash and what follows are silent
+    const b = $('#cv-go');
+    if (b) { b.textContent = { orbit: 'Start closing in', closing: 'Open it now', flash: 'Opening…', gone: 'Replay the flash' }[this.phase]; b.disabled = this.phase === 'flash'; }
+    const mk = $('#cv-mark'); if (mk) mk.style.left = clamp((this.k - 0.5) / 0.5, 0, 1) * 100 + '%';
+    set('cv-k', fmt(this.k * 100) + ' %'); set('cv-msg', this.msg || 'Orbiting');
+    goal(this.done ? 1 : 0, this.done ? 'Three slowed frames, then nothing warm where the aircraft was. Switch cameras and replay it.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
+  },
+  draw() {
+    const cx = W / 2, cy = H / 2, sc = sceneScale(), th = this.view === 'thermal';
+    const flashing = this.phase === 'flash', gone = this.phase === 'gone';
+    if (th) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); }
+    else {
+      ctx.fillStyle = '#1b2333'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(210,218,235,.10)';
+      for (const [x, y, r] of [[.2, .3, .22], [.72, .2, .18], [.8, .75, .26], [.3, .82, .2], [.5, .5, .3]]) { ctx.beginPath(); ctx.ellipse(x * W, y * H, r * W, r * H * 0.6, 0, 0, TAU); ctx.fill(); }
+    }
+    const showPlane = !gone && !(flashing && this.q > 0.18), showOrbs = !gone && !(flashing && this.q > 0.45);
+    if (showPlane) { ctx.save(); ctx.translate(cx, cy); th ? plane(sc, '#e59a4a', COL.hot) : plane(sc, '#d5dbe8', '#8b94ad'); ctx.restore(); }
+    const r = 65 * this.k;
+    if (showOrbs) {
+      if (!th) triangle(cx, cy, r, this.ang, sc, 'rgba(255,255,255,.25)');
+      for (let i = 0; i < 3; i++) {
+        const a = this.ang + i * TAU / 3, x = cx + Math.cos(a) * r * sc, y = cy + Math.sin(a) * r * sc;
+        if (th) {
+          ctx.strokeStyle = 'rgba(1,3,10,.85)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(cx, cy, r * sc, a + 0.14, a + 0.42); ctx.stroke(); ctx.lineCap = 'butt';
+          orb(x, y, 4.5, '#b9703f', 'rgba(185,112,63,.3)');
+          if (i === 0 && this.phase !== 'flash') label('cold mark leads', x + 10, y - 8, COL.muted);
+        } else orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
+      }
+    }
+    if (flashing) {
+      const s = Math.sin(Math.PI * this.q), R = (18 + 60 * s) * sc;
+      if (th) {
+        ctx.fillStyle = COL.void; ctx.beginPath();
+        for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU, rr = R * (1 + 0.12 * Math.sin(a * 5 + this.q * 6) + 0.07 * Math.sin(a * 9)); i ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+        ctx.fill();
+      } else {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.5);
+        g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, `rgba(255,255,255,${reduced ? 0.6 : 0.9})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, TAU); ctx.fill();
+      }
+      label('slowed: the real flash is three frames', cx, H - 40, th ? COL.muted : COL.ink, 'center');
+    }
+    if (gone) label('nothing warm is left where it was', cx, cy + 4, COL.muted, 'center');
+    viewTitle(th ? 'THERMAL · RED IS HOT, BLACK IS COLD' : 'VISIBLE LIGHT · FROM ABOVE');
+    scaleBarDraw(sc);
+  }
+}, { phase: 'orbit', k: 1, q: 0, ang: 0, view: 'thermal', msg: '' });
+
+/* ───────── Score, best run, shared board ───────── */
+const RANKS = [[8000, 'Chief pumper'], [6500, 'Senior pumper'], [4500, 'Apprentice pumper'], [0, 'Tourist with a pump']];
+function tally() {
+  const secs = STAGES.reduce((a, st) => a + (st.time || 0), 0), extra = Math.max(0, open.w - 61) * 0.709;
+  const score = Math.max(0, Math.round(10000 - 25 * secs - 300 * S.misses - 40 * extra));
+  return { score, secs, misses: S.misses, extra, rank: RANKS.find(r => score >= r[0])[1] };
+}
+function localBest(res) {
+  let best = null;
+  try { best = JSON.parse(localStorage.getItem('ipt-best') || 'null'); } catch (_) {}
+  if (res && (!best || res.score > best.score)) { best = { score: res.score, secs: Math.round(res.secs) }; try { localStorage.setItem('ipt-best', JSON.stringify(best)); } catch (_) {} }
+  return best;
+}
+const board = { db: null, user: null, me: null, rows: [], names: {}, state: 'loading', pending: null, readonly: false };
+function renderBoard() {
+  const el = $('#board'), note = $('#board-note'); if (!el) return;
+  el.textContent = '';
+  const say = t => { note.textContent = t; note.hidden = !t; };
+  if (board.state === 'loading') return say('Loading the board…');
+  if (board.state === 'off') return say('The shared board isn\'t available in this view. Your best run is still kept on this device.');
+  if (!board.rows.length) return say('No runs on the board yet. Finish a run to put the first one up.');
+  say(board.readonly ? 'You can see the board here, but this view can\'t add runs to it.' : '');
+  board.rows.forEach(r => {
+    const li = document.createElement('li'), nm = document.createElement('span'), sc = document.createElement('span'), tm = document.createElement('span');
+    const p = board.names[r.id];
+    nm.className = 'nm'; nm.textContent = ((p && p.name) || 'Someone') + (r.id === board.me ? ' (you)' : '');
+    sc.textContent = fmt(r.score); tm.className = 'tm'; tm.textContent = clock(r.secs);
+    if (r.id === board.me) li.className = 'me';
+    li.append(nm, sc, tm); el.append(li);
+  });
+}
+async function submit(res) {
+  if (!board.db || !board.me) { board.pending = res; return; }
+  board.pending = null;
+  try {
+    const ref = board.db.doc('scores/' + board.me), cur = await ref.get();
+    if (cur.exists && (Number(cur.data().score) || 0) >= res.score) return;
+    await ref.set({ score: res.score, secs: Math.round(res.secs), at: Date.now() });
+  } catch (_) { board.readonly = true; renderBoard(); }
+}
+(async () => {
+  const cl = window.claude;
+  if (!cl || !cl.use) { board.state = 'off'; return renderBoard(); }
+  const [db, user] = await Promise.all([cl.use('db'), cl.use('user')]);
+  if (!db) { board.state = 'off'; return renderBoard(); }
+  board.db = db; board.user = user;
+  try { board.me = user ? await user.id() : null; } catch (_) {}
+  if (!board.me) board.readonly = true;
+  const slow = setTimeout(() => { if (board.state === 'loading') { board.state = 'off'; renderBoard(); } }, 10000);
+  db.collection('scores').orderBy('score', 'desc').limit(10).onSnapshot(async snap => {
+    clearTimeout(slow);
+    board.rows = snap.docs.map(d => { const v = d.data() || {}; return { id: d.id, score: clamp(Math.round(Number(v.score) || 0), 0, 10000), secs: clamp(Number(v.secs) || 0, 0, 86400) }; });
+    board.state = 'ok'; renderBoard();
+    if (user && board.rows.length) { try { board.names = await user.profiles(board.rows.map(r => r.id)); renderBoard(); } catch (_) {} }
+  }, () => { clearTimeout(slow); board.state = 'off'; renderBoard(); });
+  if (board.pending) submit(board.pending);
+})();
+
+/* ───────── Ledger ───────── */
+const ledger = stage({
+  name: 'Ledger', title: 'What you actually used', end: true,
+  get html() {
+    if (!S.result) { S.result = tally(); S.result.best = localBest(S.result); submit(S.result); }
+    const res = S.result, jup = fmt(open.w * 0.709), rows = [
+      ['lab', 'Lab physics', 'A plasma that glows while its ions stay cool. Neon signs do it.'],
+      ['lab', 'Lab physics', 'Beta one: plasma pressure balanced by a magnetic field, and held in place. Both needed coils outside the plasma. Open-air plasmoids last a few hundred milliseconds.'],
+      ['lab', 'Lab physics', 'Hydrogen-boron fusion: three helium nuclei and almost no neutrons, at billions of kelvin. Being tested in experiments now. No such reactor flies.'],
+      ['meas', 'Measured', 'Three objects in a rigid, tumbling triangle, 60 to 70 m out, one lap in about 2.5 s: roughly 600 km/h and forty g. Two cameras 123 to 141° apart agree on it.'],
+      ['lab', 'Lab physics', 'A crossable wormhole needs negative energy (Morris and Thorne, 1988). The plate force tied to it has been measured.'],
+      ['gap', 'Nobody knows', `A source of about ${jup} Jupiter masses of negative energy for your ${open.w} m throat. The plates fall short by dozens of zeros.`],
+      ['read', 'Reading', 'That the objects are plasma, and that three of them converging make a wormhole. This is Forbes\'s account.'],
+      ['gap', 'Nobody knows', 'What holds a flying ball of plasma, and how to build a wormhole at all. The 2010 survey says so itself.'],
+      ['gap', 'Nobody knows', 'What a heat camera would show. 4orbs found no calculation of it.']
+    ];
+    return `
+      <dl class="reads">
+        <div><dt>Score</dt><dd>${fmt(res.score)}<small>${res.rank}</small></dd></div>
+        <div><dt>Time</dt><dd>${clock(res.secs)}<small>25 points a second</small></dd></div>
+        <div><dt>Mistimed</dt><dd>${res.misses}<small>300 points each</small></dd></div>
+        <div><dt>Spare Jupiters</dt><dd>${fmt(res.extra, 1)}<small>40 points each</small></dd></div>
+        <div><dt>Your best here</dt><dd>${res.best ? fmt(res.best.score) : '–'}<small>${res.best ? clock(res.best.secs) + ', this device' : ''}</small></dd></div>
+      </dl>
+      <div class="sect">
+        <p class="tally">Three steps ran on lab physics. One matched a measurement. The teleport itself ran on <b>three things nobody knows how to do</b>.</p>
+        <ul class="ledger">${rows.map(r => `<li><span class="tag ${r[0]}">${r[1]}</span><span>${r[2]}</span></li>`).join('')}</ul>
+        <p class="note">4orbs reads the pieces this way: the orbs are "beyond anything published", and not, it thinks, beyond physics. It also lists what it can't show: what holds the objects, how anyone makes a wormhole, and whether anyone has built one. The US Navy's own test of the related "Pais Effect" concluded it "could not be proven".</p>
+      </div>
+      <div class="sect">
+        <h3>Best runs, everyone</h3>
+        <ol class="board" id="board"></ol>
+        <p class="note" id="board-note"></p>
+      </div>
+      <div class="actions"><button type="button" class="btn primary" id="again">Run it again</button></div>`;
+  },
+  init() { renderBoard(); $('#again').onclick = restart; },
+  update(dt) { this.ang += TAU / 2.5 * dt * 0.25; },
+  draw() {
+    const cx = W / 2, cy = H / 2, sc = sceneScale();
+    ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
+    ctx.setLineDash([2, 6]); triangle(cx, cy, 65 * 0.75, this.ang, sc, COL.muted); ctx.setLineDash([]);
+    label('open sky', cx, H - 40, COL.muted, 'center');
+    viewTitle('WHERE THE AIRCRAFT WAS'); scaleBarDraw(sc);
+  }
+}, { ang: 0 });
+
+const STAGES = [ignite, hold, fuel, orbit, open, conv, ledger];
+const N = STAGES.length - 1;
+
+function goal(frac, text) {
+  const b = $('#goalbar'); if (b) b.style.width = clamp(frac, 0, 1) * 100 + '%';
+  set('goaltext', text);
+}
+function complete(st) {
+  const i = STAGES.indexOf(st);
+  if (!st.done) { st.done = true; S.unlocked = Math.max(S.unlocked, i + 1); tracker(); if (st !== conv) snd.chime(); }
+  const n = $('#next'); if (n && S.stage === i) n.disabled = false;
+}
+function tracker() {
+  $('#steps').innerHTML = STAGES.map((st, i) => `<li class="${st.end ? 'end' : ''}"><button type="button" id="step-${i}" class="${st.done ? 'done' : ''}" ${i > S.unlocked ? 'disabled' : ''} ${i === S.stage ? 'aria-current="step"' : ''}>${st.name}</button></li>`).join('');
+  STAGES.forEach((_, i) => { $('#step-' + i).onclick = () => show(i); });
+}
+function show(i) {
+  S.stage = i; const st = STAGES[i];
+  scaleBar.hidden = true;
+  panel.innerHTML = st.end
+    ? `<p class="eyebrow">After the flash</p><h2>${st.title}</h2>${st.html}`
+    : `<p class="eyebrow">Step ${i + 1} of ${N}</p><h2>${st.title}</h2>${st.html}
+       <div class="goal"><span id="goaltext"></span><div class="bar"><i id="goalbar"></i></div></div>
+       <div class="actions"><button type="button" class="btn primary" id="next" ${st.done ? '' : 'disabled'}>${STAGES[i + 1].end ? 'See the ledger' : 'Next: ' + STAGES[i + 1].name.toLowerCase()}</button></div>`;
+  st.init();
+  const n = $('#next'); if (n) n.onclick = () => show(i + 1);
+  tracker();
+}
+function restart() {
+  STAGES.forEach(st => st.reset());
+  S.unlocked = 0; S.misses = 0; S.result = null;
+  show(0);
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const st = STAGES[S.stage];
+  if (!st.end && !st.done) st.time += dt;
+  st.update(dt);
+  snd.apply();
+  set('hud-time', clock(S.result ? S.result.secs : STAGES.reduce((a, s) => a + (s.time || 0), 0)));
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  st.draw();
+  requestAnimationFrame(frame);
+}
+function start(d) {
+  if (d && d.unlocked) {
+    S.unlocked = Math.min(d.unlocked, N); S.misses = d.misses || 0;
+    STAGES.forEach((st, i) => { if (i < S.unlocked) st.done = true; st.time = (d.times || [])[i] || 0; });
+    if (orbit.done) Object.assign(orbit, { r: 65, T: 2.5, cam: 132 });
+    if (open.done) Object.assign(open, { assumed: true, w: d.w || 64 });
+    if (conv.done) conv.phase = 'gone';
+  }
+  fit(); show(d && d.stage ? Math.min(d.stage, S.unlocked) : 0);
+  requestAnimationFrame(frame);
+}
+const hot = window.claude && window.claude.hot;
+if (hot && hot.snapshot) hot.snapshot(() => ({ stage: S.stage, unlocked: S.unlocked, misses: S.misses, times: STAGES.map(s => s.time || 0), w: open.w }));
+if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+window.__lab = { S, STAGES, show, complete, board };
+})();
+</script>
+</body></html>

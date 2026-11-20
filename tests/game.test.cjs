@@ -13,7 +13,10 @@ function boot(storage = new Map(), options = {}) {
   const ids = new Map(), drawing = [], frames = [];
   const context = new Proxy({}, { get(target, key) {
     if (key in target) return target[key];
-    if (String(key).startsWith('create')) return () => ({ addColorStop() {} });
+    if (String(key).startsWith('create')) return (...args) => {
+      for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg));
+      drawing.push([key, ...args]); return { addColorStop() {} };
+    };
     return (...args) => {
       for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg), `${String(key)} received ${arg}`);
       if (key === 'arc') assert.ok(args[2] >= 0, 'negative radius');
@@ -218,4 +221,93 @@ test('scientific source cards use only the approved corrected-source pages', () 
   for (const source of lab.SOURCES) assert.ok(['https://4orbs.com/the-vanishing/part-3-the-science/', 'https://4orbs.com/research/satellite-videos/measurements/'].includes(source.url));
   assert.match(lab.SOURCE_REVISION, /corrected/);
   assert.doesNotMatch(html, /% of the best D-T rate|under 1 %/);
+});
+
+test('transit units and geometry describe passage past an entrance, not travel time', () => {
+  const { lab } = boot();
+  const start = lab.transitModel(0, 61), middle = lab.transitModel(.5, 61), end = lab.transitModel(1, 61);
+  assert.equal(start.duration, 63.7 / 250);
+  assert.ok(Math.abs(start.clearance - .05) < 1e-12);
+  assert.equal(start.centreY - 63.7 / 2, 0, 'nose reaches the entrance at start');
+  assert.equal(middle.centreY, 0);
+  assert.equal(end.centreY + 63.7 / 2, 0, 'tail clears at the end');
+  assert.equal(end.elapsed, end.duration);
+  assert.equal(lab.transitModel(-2, 60).fraction, 0);
+  assert.equal(lab.transitModel(2, 60).fraction, 1);
+  assert.equal(lab.transitModel(.5, 60).fits, false);
+  assert.ok(lab.transitModel(.5, 60).clearance < 0);
+});
+
+test('transit diagram clips the aircraft at the entrance and exposes changing clearance', () => {
+  const { lab, ids, drawing } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  ids.get('cv-transit').onclick(); assert.equal(c.view, 'transit');
+  c.draw(); assert.ok(drawing.some(call => call[0] === 'clip'));
+  assert.ok(drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
+  const before = JSON.stringify(drawing);
+  lab.STAGES[4].w = 70; drawing.length = 0; c.update(0); c.draw();
+  assert.notEqual(JSON.stringify(drawing), before);
+  assert.match(ids.get('cv-clear').innerHTML, /4.55/);
+  assert.match(ids.get('cv-x').innerHTML, /0.255/);
+  assert.match(ids.get('cv-view-note').innerHTML, /No destination/);
+  assert.equal(ids.get('scale').hidden, true);
+});
+
+test('replay cannot bypass the mission and scrub events keep completed playback paused', () => {
+  const { lab, ids } = boot(); lab.restart('challenge'); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  const slider = ids.get('cv-scrub');
+  slider.value = 100; slider.oninput();
+  assert.equal(c.done, false); assert.equal(c.phase, 'orbit');
+  assert.equal(slider.disabled, true); assert.equal(ids.get('cv-replay').hidden, true);
+  ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); lab.advance(1.6);
+  assert.equal(c.done, true); assert.equal(lab.S.paused, true);
+  const result = JSON.stringify(lab.tally()), elapsed = lab.S.elapsed;
+  assert.equal(ids.get('cv-replay').hidden, false);
+  for (const q of [0, 25, 75, 100, 50]) {
+    slider.value = q; slider.oninput();
+    // Native input bubbles to the panel after the control's own handler.
+    ids.get('panel').listeners.input({ target: { closest: selector => ['.ctl', '#cv-scrub'].includes(selector) ? slider : null } });
+    lab.advance(5);
+    assert.equal(c.q, q / 100); assert.equal(lab.S.paused, true);
+    assert.equal(lab.S.elapsed, elapsed); assert.equal(JSON.stringify(lab.tally()), result);
+  }
+  assert.equal(ids.get('cv-go').textContent, 'Play from here');
+  ids.get('cv-go').onclick(); assert.equal(lab.S.paused, false);
+  lab.advance(.8); assert.equal(c.phase, 'gone'); assert.equal(lab.S.paused, true);
+  assert.equal(JSON.stringify(lab.tally()), result);
+  ids.get('cv-go').onclick(); lab.advance(.4); assert.equal(c.q, .25);
+  assert.equal(lab.S.elapsed, elapsed);
+});
+
+test('scrubbing retraces one formation and a mid-replay save restores a completed sequence', () => {
+  const { lab, ids } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  ids.get('cv-go').onclick(); c.update(2.5); ids.get('cv-go').onclick(); c.update(1.6);
+  const slider = ids.get('cv-scrub'); slider.value = 25; slider.oninput();
+  const angle = c.ang, tumble = c.tumble;
+  slider.value = 75; slider.oninput(); slider.value = 25; slider.oninput();
+  assert.equal(c.ang, angle); assert.equal(c.tumble, tumble);
+  c.view = 'transit'; const saved = JSON.parse(JSON.stringify(lab.snapshot()));
+  const second = boot(); assert.equal(second.lab.restore(saved), true);
+  const restored = second.lab.STAGES[5];
+  assert.equal(restored.phase, 'gone'); assert.equal(restored.q, 1); assert.equal(restored.view, 'transit');
+  const otherSlider = second.ids.get('cv-scrub'); otherSlider.value = 25; otherSlider.oninput();
+  assert.equal(restored.ang, angle); assert.equal(restored.tumble, tumble);
+});
+
+test('reduced-motion finale draws a static aperture without a pulsing radial fill', () => {
+  const { lab, ids, drawing } = boot(new Map(), { reduced: true }); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); c.update(.96);
+  c.view = 'visible'; drawing.length = 0; c.draw();
+  assert.ok(drawing.some(call => call.includes('assumed aperture')));
+  assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
+});
+
+test('a prior source revision starts a fresh run with a visible explanation', () => {
+  const { lab } = boot(); prepare(lab); lab.show(4);
+  const prior = JSON.parse(JSON.stringify(lab.snapshot())); prior.sourceRevision = '4orbs-part3-corrected-2026-11-25m24s';
+  const storage = new Map([['ipt-run-v2', JSON.stringify(prior)], ['ipt-best-v2', '{"score":1234}']]);
+  const next = boot(storage);
+  assert.equal(next.lab.S.stage, 0); assert.equal(next.lab.S.mode, 'learn');
+  assert.equal(next.ids.get('restore-status').hidden, false);
+  assert.match(next.ids.get('restore-status').innerHTML, /Source assumptions have changed/);
+  assert.equal(storage.get('ipt-best-v2'), '{"score":1234}');
 });

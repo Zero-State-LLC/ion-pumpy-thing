@@ -13,7 +13,7 @@ The closing ledger sorts everything you used into lab physics, measurements from
 
 The default **learning run** is untimed. **Timed practice** is a separate mode. Source cards pause the experiment and clock, and successful experiments pause to preserve their settings. The finale checks current readiness and uses your formation and throat settings. Retuning a completed lesson can make it unready without erasing its mastery badge.
 
-The Casimir lesson includes an adjustable plate diagram and a separate throat view. Both finale cameras project one shared formation. Thermal colours are illustrative.
+The Casimir lesson includes an adjustable plate diagram and a separate throat view. Both finale cameras project one shared formation. Thermal colours are illustrative. A third view shows the aircraft passing an assumed entrance, with wing clearance and a length/speed calculation. It does not depict a destination or predict wormhole travel time. After completion, scrub the sequence or replay it without changing your result. Reduced-motion mode replaces the bright pulse with a static aperture.
 
 ## Running it
 
@@ -23,7 +23,7 @@ It is one self-contained file. Open `index.html` in a browser, or serve the fold
 
 The only external load is Google Fonts. Sound is off until you turn it on.
 
-Progress saves on this device and reloads paused. Starting either new-run mode replaces progress but keeps your timed best. If browser storage is blocked, the game shows that it cannot save. Private browsing or clearing browser data can remove local progress.
+Progress saves on this device and reloads paused. Starting either new-run mode replaces progress but keeps your timed best. A changed source revision starts a new run and shows an explanation rather than resuming outdated assumptions. If browser storage is blocked, the game shows that it cannot save. Private browsing or clearing browser data can remove local progress.
 
 The optional shared practice board only works in a Claude artifact with database access to `scores-v2`. Elsewhere the board is unavailable and your timed best stays local. Learning runs do not post scores. These are client-reported practice results, not a verified competitive leaderboard.
 

@@ -1,6 +1,6 @@
 # Corrected source register
 
-Reviewed on 19 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-25m24s`.
+Reviewed on 20 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-25m24s-transit1`.
 
 The narrative baseline is the live [corrected November 2026 Part Three](https://4orbs.com/the-vanishing/part-3-the-science/), duration 25:24, video identifier `_gzWIv7uABs`. The 19:38 April edition returned by an earlier search cache is excluded. The live page was retrieved twice during review. The [homepage correction notices](https://4orbs.com/) document replacement of the older episode.
 
@@ -15,7 +15,15 @@ The second source is the live [measurement page](https://4orbs.com/research/sate
 | Fuel | Corrected Part Three, 10:15 | Charged versus neutral reaction products; differing fuel requirements | The reaction curves, thresholds and exposure rate are illustrative. p-B11 side reactions are acknowledged but not simulated. No measured-yield percentage is claimed. |
 | Orbit | Measurement page, rigid formation and camera fit | One equilateral formation in two projections | Reported radius, period and camera ranges guide a synthetic reconstruction. The fixed 24° tilt and 11-second tumble are illustrative, not imported tracks. |
 | Open | Corrected Part Three, 16:51 | Plate gap/area relationship; scale comparison; a conditional open throat | Ideal parallel-plate energy magnitude uses `π² ħ c A / (720 d³)`. This omits real-material, edge and temperature effects. Linear throat scaling is illustrative. |
-| Converge | Corrected Part Three, 16:51; measurement page, final frames | The player's formation converges; both cameras share one scene | Triggering a throat from three orbs is an explicit scenario assumption. False colour and the flash are illustrations, not predicted sensor output. |
+| Converge | Corrected Part Three, 16:51; measurement page, final frames and scale | The player's formation converges; both cameras share one scene; a separate transit diagram shows geometric clearance | Triggering a throat from three orbs is an explicit scenario assumption. False colour and the flash are illustrations, not predicted sensor output. Crossing a fixed entrance is a separate kinematic illustration, not a measured trajectory or a travel-time prediction. |
+
+## Transit diagram assumptions
+
+Fresh live reads on 20 November reconfirmed the corrected episode's 25:24 duration and the measurement page's qualifications. The measurement page uses a 63.7 m fuselage to set its conditional 777 scale. For the cold-patch analysis it assumes 250 m/s cruise speed, explicitly noting that the video cannot supply the aircraft's forward speed. The diagram uses that assumption instead of the old game's unsupported 905 km/h value.
+
+The aircraft drawing retains its assumed 60.9 m span. For a centred aircraft and a transverse entrance of width `w`, per-wing clearance is `(w - 60.9) / 2`. Passage of a 63.7 m fuselage past a fixed entrance at 250 m/s takes `63.7 / 250 = 0.2548 s`. Neither calculation supplies a wormhole interior, destination, travel time, or evidence of a crossing. The diagram clips the aircraft at the entrance and leaves the other side unspecified. Its playback lasts 1.6 seconds for inspection; that is display time only.
+
+This source revision invalidates prior in-progress saves with an on-screen explanation. Personal best scores remain compatible because the scoring rule and active sequence duration have not changed.
 
 ## Linked papers and verification status
 

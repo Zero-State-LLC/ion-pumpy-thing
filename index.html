@@ -183,6 +183,7 @@ footer p { margin: 0; }
   </div>
   <p id="run-status" class="statusline" role="status" aria-live="polite"></p>
   <p id="save-status" class="statusline"></p>
+  <p id="restore-status" class="statusline" role="status" hidden></p>
 
   <main class="deck">
     <section class="view" aria-label="Simulation view">
@@ -284,7 +285,7 @@ $('#snd').onclick = e => {
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
-const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-25m24s';
+const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-25m24s-transit1';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
 const SOURCES = [
@@ -293,7 +294,7 @@ const SOURCES = [
   { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei; side reactions can make neutrons. Curves, exposure rate and ignition thresholds here are illustrative, not measured reaction rates.' },
   { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Synthetic reconstruction using the reported ranges, not imported tracking data. The 24° tilt and tumble period are illustrative. The site describes scale and depth ambiguities.' },
   { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Ideal parallel-plate energy magnitude is a teaching model. The throat comparison scales the episode’s approximate 70 Jupiter masses per 100 m; it is not a verified design calculation. The cited Davis table has not been independently checked in this edition.' },
-  { url: MEASUREMENTS_URL, section: 'Last frames and limits of the measurements', note: 'Convergence triggering a throat is the scenario assumption. False colour and flash appearance are illustrative, not a predicted or calibrated thermal-camera response.' }
+  { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence triggering a throat is the scenario assumption. False colour and flash appearance are illustrative. The transit diagram uses a 63.7 m aircraft, a 60.9 m assumed span and the site’s assumed 250 m/s cruise speed. Length divided by speed only gives passage past a fixed entrance, not a wormhole travel time or evidence of arrival.' }
 ];
 const BRIEFS = [
   'Hold the pump and raise the drive power. Keep the glow while the ions stay cool.',
@@ -308,7 +309,7 @@ function lessonContent(st, i) {
   if (!source) return st.html;
   return st.html.replace(/<div class="lesson">([\s\S]*?)<\/div>/, (_, content) =>
     `<p class="brief">${BRIEFS[i]}</p><details class="source-card"><summary>Why it works · source and model</summary>
-    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Corrected-source review: 19 November 2026 PT.<br>${source.note}<br>The experiment and timer pause while this card is open.</p></details>`);
+    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Corrected-source review: 20 November 2026 PT.<br>${source.note}<br>The experiment and timer pause while this card is open.</p></details>`);
 }
 function stage(def, s0) {
   def.reset = () => Object.assign(def, JSON.parse(JSON.stringify(s0)), { done: false, time: 0 });
@@ -854,6 +855,37 @@ function readyToAdvance(i) {
 }
 
 /* ───────── Step 6: Converge ───────── */
+const AIRCRAFT = { length: 63.7, span: 60.9, speed: 250 };
+const FINALE_SECONDS = 1.6; // Display time only, shared by all three views.
+function transitModel(progress, width) {
+  const fraction = clamp(progress, 0, 1), duration = AIRCRAFT.length / AIRCRAFT.speed;
+  return { fraction, duration, elapsed: fraction * duration, centreY: AIRCRAFT.length * (.5 - fraction),
+    clearance: (width - AIRCRAFT.span) / 2, fits: width >= AIRCRAFT.span };
+}
+function drawTransit(st) {
+  const q = st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
+  const m = transitModel(q, open.w), cx = W / 2, cy = H / 2;
+  const sc = Math.min((W - 56) / Math.max(open.w, 85), (H - 130) / (2 * AIRCRAFT.length));
+  const half = open.w * sc / 2;
+  ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+  // Top-down cutaway: the plane points up and meets a fixed transverse entrance.
+  // Only the pre-entrance part is drawn. No exit, destination or transit interior is inferred.
+  ctx.fillStyle = 'rgba(185,162,255,.07)'; ctx.fillRect(24, 48, W - 48, cy - 48);
+  label('BEYOND ENTRANCE: UNSPECIFIED', cx, 56, COL.read, 'center', W < 400 ? 9 : 10);
+  ctx.setLineDash([3, 5]); ctx.strokeStyle = COL.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, 70); ctx.lineTo(cx, H - 65); ctx.stroke(); ctx.setLineDash([]);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, cy, W, H - cy); ctx.clip();
+  ctx.translate(cx, cy + m.centreY * sc); plane(sc, COL.ink, COL.warm); ctx.restore();
+  ctx.strokeStyle = m.fits ? COL.cold : COL.hot; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx - half, cy); ctx.lineTo(cx + half, cy); ctx.stroke();
+  for (const x of [cx - half, cx + half]) {
+    ctx.beginPath(); ctx.moveTo(x, cy - 8); ctx.lineTo(x, cy + 8); ctx.stroke();
+  }
+  label(`${open.w} m entrance`, cx, cy - 15, m.fits ? COL.cold : COL.hot, 'center');
+  label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 48, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
+  label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at assumed 250 m/s`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
+  viewTitle('TRANSIT DIAGRAM · SCENARIO ASSUMPTION');
+}
 const conv = stage({
   name: 'Converge', title: 'Close in, and open it',
   html: `
@@ -866,46 +898,77 @@ const conv = stage({
     <div class="ctl">
       <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
       <p class="note">Earlier experiments are held at their saved settings. Revisit a step to retune it. These are mission rules, not a physical conversion from fusion power to negative energy.</p>
-      <div class="seg" role="group" aria-label="Camera">
+      <div class="seg" role="group" aria-label="Final sequence view">
         <button type="button" id="cv-thermal" data-view="thermal">Thermal, from the side</button>
         <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
+        <button type="button" id="cv-transit" data-view="transit">Transit diagram</button>
       </div>
+      <p class="note" id="cv-view-note">Camera views are illustrative. The transit diagram shows an assumed entrance, not a recorded crossing.</p>
       <div>
         <div class="meter" aria-hidden="true"><div class="band" style="left:42%;width:16%"></div><div class="mark" id="cv-mark"></div></div>
         <div class="mlabels"><span>50 %</span><span>triangle size</span><span>100 %</span></div>
       </div>
       <div class="actions"><button type="button" class="btn primary" id="cv-go"></button></div>
+      <div id="cv-replay" hidden>
+        <label for="cv-scrub">Inspect the completed sequence <output id="cv-scrub-o"></output><input id="cv-scrub" type="range" min="0" max="100" step="1" value="100" disabled aria-describedby="cv-replay-note"></label>
+        <p class="note" id="cv-replay-note">Drag or use the arrow keys to inspect a moment. Scrubbing pauses playback. Views use current settings; your saved result stays fixed.</p>
+      </div>
     </div>
     <dl class="reads">
       <div><dt>Triangle</dt><dd id="cv-k"></dd></div>
-      <div><dt>Time to cross</dt><dd id="cv-x">0.25 s<small>our sum: 63.7 m at 905 km/h</small></dd></div>
-      <div><dt>Status</dt><dd id="cv-msg"></dd></div>
+      <div><dt>Past a fixed entrance</dt><dd id="cv-x"></dd></div>
+      <div><dt>Wing clearance</dt><dd id="cv-clear"></dd></div>
+      <div><dt>Status</dt><dd id="cv-msg" role="status" aria-live="polite"></dd></div>
     </dl>`,
   init() {
     const vs = panel.querySelectorAll('[data-view]');
     const paint = () => { vs.forEach(b => b.setAttribute('aria-pressed', b.dataset.view === this.view)); scaleBar.hidden = this.view !== 'thermal'; };
-    vs.forEach(b => b.onclick = () => { this.view = b.dataset.view; paint(); });
+    vs.forEach(b => b.onclick = () => { this.view = b.dataset.view; paint(); this.update(0); });
     paint();
+    $('#cv-scrub').oninput = () => {
+      if (!this.done) return;
+      this.q = clamp(Number($('#cv-scrub').value) / 100, 0, 1);
+      this.phase = this.q >= 1 ? 'gone' : 'flash';
+      this.msg = 'Inspecting the completed sequence'; S.paused = true; this.update(0);
+    };
     $('#cv-go').onclick = () => {
       if (!missionReady()) { this.msg = 'Retune the highlighted steps first'; return; }
+      S.paused = false;
       if (this.phase === 'orbit') { this.phase = 'closing'; this.msg = 'Closing in'; }
       else if (this.phase === 'closing') {
-        if (Math.abs(this.k - 0.75) <= 0.04) { this.phase = 'flash'; this.q = 0; this.msg = 'Flash'; }
+        if (Math.abs(this.k - 0.75) <= 0.04) { this.phase = 'flash'; this.q = 0; this.startAng = this.ang; this.startTumble = this.tumble; this.msg = 'Flash'; }
         else { this.msg = this.k > 0.75 ? 'Too early: reset' : 'Too late: reset'; this.miss(); }
-      } else if (this.phase === 'gone') { this.phase = 'flash'; this.q = 0; }
+      } else if (this.phase === 'gone') { this.phase = 'flash'; this.q = 0; this.msg = 'Replaying the completed sequence'; }
+      else if (this.phase === 'flash' && this.done) this.msg = 'Replaying the completed sequence';
+      this.update(0);
     };
   },
   miss() { this.phase = 'orbit'; this.k = 1; if (!this.done) S.misses++; snd.tone(110, 0.25, 0.15); },
   update(dt) {
-    this.ang += TAU / orbit.T * dt;
-    this.tumble += TAU / 11 * dt;
+    if (['orbit', 'closing'].includes(this.phase)) {
+      this.ang += TAU / orbit.T * dt;
+      this.tumble += TAU / 11 * dt;
+    }
     if (!missionReady() && ['closing', 'flash'].includes(this.phase)) { this.phase = 'orbit'; this.k = 1; this.q = 0; this.msg = 'System changed: retune before opening'; }
     if (this.phase === 'closing') { this.k -= dt * 0.5 / 5; if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(); } }
-    if (this.phase === 'flash') { this.q += dt / 1.6; if (this.q >= 1) { this.phase = 'gone'; this.msg = 'Open sky'; complete(this); } }
+    if (this.phase === 'flash') {
+      this.q = Math.min(1, this.q + dt / FINALE_SECONDS);
+      this.ang = this.startAng + TAU / orbit.T * this.q * FINALE_SECONDS;
+      this.tumble = this.startTumble + TAU / 11 * this.q * FINALE_SECONDS;
+      if (this.q >= 1) { this.phase = 'gone'; this.msg = 'Sequence complete; destination unspecified'; complete(this); S.paused = true; }
+    }
     if (this.phase === 'orbit') snd.hum(80, 0.05);
     if (this.phase === 'closing') snd.hum(80 + (1 - this.k) * 520, 0.08);   // the flash and what follows are silent
     const b = $('#cv-go');
-    if (b) { b.textContent = { orbit: 'Start closing in', closing: 'Open it now', flash: 'Opening…', gone: 'Replay the flash' }[this.phase]; b.disabled = this.phase === 'flash' || !missionReady(); }
+    if (b) { b.textContent = { orbit: 'Start closing in', closing: 'Open it now', flash: this.done && S.paused ? 'Play from here' : 'Opening…', gone: 'Replay the sequence' }[this.phase]; b.disabled = (this.phase === 'flash' && !(this.done && S.paused)) || !missionReady(); }
+    const scrub = $('#cv-scrub'), replay = $('#cv-replay');
+    if (replay) replay.hidden = !this.done;
+    if (scrub) { scrub.disabled = !this.done; scrub.value = Math.round(this.q * 100); }
+    set('cv-scrub-o', fmt(this.q * 100) + ' %');
+    const crossing = transitModel(this.q, open.w);
+    set('cv-x', fmt(crossing.duration, 3) + ' s<small>63.7 m ÷ assumed 250 m/s; not travel time</small>');
+    set('cv-clear', fmt(crossing.clearance, 2) + ' m<small>each wing; centred 60.9 m span</small>');
+    set('cv-view-note', this.view === 'transit' ? 'Schematic only: a centred aircraft passes a fixed entrance. No destination or wormhole travel time is predicted. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: static aperture instead of a bright pulse. Camera colours are illustrative.' : 'Camera views are illustrative. The transit diagram shows an assumed entrance, not a recorded crossing.');
     const checks = $('#mission-checks');
     if (checks) {
       const checkHTML = missionReadiness().map(r => `<li class="${r.ok ? 'ready' : 'blocked'}"><span>${r.ok ? '✓' : '○'} ${r.name}: ${r.ok ? r.detail : 'retune required'}</span><button type="button" class="btn small" data-retune="${r.stage}">Retune</button></li>`).join('');
@@ -913,9 +976,10 @@ const conv = stage({
     }
     const mk = $('#cv-mark'); if (mk) mk.style.left = clamp((this.k - 0.5) / 0.5, 0, 1) * 100 + '%';
     set('cv-k', fmt(this.k * 100) + ' %'); set('cv-msg', this.msg || 'Orbiting');
-    goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Three slowed frames, then nothing warm where the aircraft was. Switch cameras and replay it.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
+    goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Sequence complete. Switch views or scrub the replay to inspect the assumptions.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
   },
   draw() {
+    if (this.view === 'transit') return drawTransit(this);
     const cx = W / 2, cy = H / 2, sc = sceneScale(), th = this.view === 'thermal';
     const flashing = this.phase === 'flash', gone = this.phase === 'gone';
     if (th) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); }
@@ -945,7 +1009,10 @@ const conv = stage({
     }
     if (flashing) {
       const s = Math.sin(Math.PI * this.q), R = (open.w / 2) * (0.4 + s) * sc;
-      if (th) {
+      if (reduced) {
+        ring(cx, cy, open.w / 2 * sc, COL.cold);
+        label('assumed aperture', cx, cy, COL.cold, 'center');
+      } else if (th) {
         ctx.fillStyle = COL.void; ctx.beginPath();
         for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU, rr = R * (1 + 0.12 * Math.sin(a * 5 + this.q * 6) + 0.07 * Math.sin(a * 9)); i ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
         ctx.fill();
@@ -960,7 +1027,7 @@ const conv = stage({
     viewTitle(th ? 'THERMAL · SYNTHETIC FALSE COLOUR' : 'VISIBLE LIGHT · FROM ABOVE');
     scaleBarDraw(sc);
   }
-}, { phase: 'orbit', k: 1, q: 0, ang: 0, tumble: 0, view: 'thermal', msg: '' });
+}, { phase: 'orbit', k: 1, q: 0, ang: 0, tumble: 0, startAng: 0, startTumble: 0, view: 'thermal', msg: '' });
 
 /* ───────── Score, best run, shared board ───────── */
 const RANKS = [[8000, 'Chief pumper'], [6500, 'Senior pumper'], [4500, 'Apprentice pumper'], [0, 'Tourist with a pump']];
@@ -1031,10 +1098,11 @@ const ledger = stage({
     const res = S.result, jup = fmt(res.width * JUPITERS_PER_M), rows = [
       ['lab', 'Lab physics', 'A plasma that glows while its ions stay cool. Neon signs do it.'],
       ['lab', 'Lab physics', 'Beta one: plasma pressure balanced by a magnetic field, and held in place. Both needed coils outside the plasma. Open-air plasmoids last a few hundred milliseconds.'],
-      ['lab', 'Lab physics', 'Hydrogen-boron fusion: three helium nuclei and almost no neutrons, at billions of kelvin. Being tested in experiments now. No such reactor flies.'],
+      ['lab', 'Lab physics', 'The main hydrogen-boron reaction makes three helium nuclei. Side reactions can make neutrons and are not simulated here. The response curve is illustrative.'],
       ['meas', 'Measured', 'Three objects in a rigid, tumbling triangle, 60 to 70 m out, one lap in about 2.5 s: roughly 600 km/h and forty g. Two cameras 123 to 141° apart agree on it.'],
       ['model', 'Theory', 'The Morris-Thorne traversable-wormhole model requires negative energy. The Casimir force has been measured; this does not demonstrate a traversable wormhole.'],
       ['gap', 'Nobody knows', `An assumed source, illustratively scaled to about ${jup} Jupiter masses of negative energy for your completed ${res.width} m throat. The plates fall short by dozens of zeros.`],
+      ['model', 'Scenario', `A centred 60.9 m wingspan has ${fmt(transitModel(1, res.width).clearance, 2)} m clearance per wing in that entrance. At an assumed 250 m/s, the 63.7 m aircraft passes a fixed entrance in ${fmt(transitModel(1, res.width).duration, 3)} s. This does not predict wormhole travel time or a destination.`],
       ['read', 'Reading', 'That the objects are plasma, and that three of them converging make a wormhole. This is Forbes\'s account.'],
       ['gap', 'Nobody knows', 'What holds a flying ball of plasma, and how to build a wormhole at all. The 2010 survey says so itself.'],
       ['gap', 'Nobody knows', 'What a heat camera would show. 4orbs found no calculation of it.']
@@ -1113,6 +1181,7 @@ function show(i) {
 function restart(mode = S.mode) {
   STAGES.forEach(st => st.reset());
   S.unlocked = 0; S.misses = 0; S.result = null; S.completion = null; S.elapsed = 0; S.mode = mode === 'challenge' ? 'challenge' : 'learn'; S.paused = false;
+  $('#restore-status').hidden = true;
   show(0);
 }
 
@@ -1124,7 +1193,7 @@ const RUN_FIELDS = [
   { fuel: ['dt', 'pb'], lt: [0, 3], hold: [0, 86400], dose: [0, 1] },
   { r: [30, 100], T: [1, 8], cam: [0, 180], ang: [-1e9, 1e9], ghost: [-1e9, 1e9], tumble: [-1e9, 1e9], hold: [0, 86400] },
   { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: ['plates', 'throat'] },
-  { k: [.5, 1], ang: [-1e9, 1e9], tumble: [-1e9, 1e9], view: ['thermal', 'visible'] }
+  { k: [.5, 1], ang: [-1e9, 1e9], tumble: [-1e9, 1e9], startAng: [-1e9, 1e9], startTumble: [-1e9, 1e9], view: ['thermal', 'visible', 'transit'] }
 ];
 function snapshot() {
   return { version: 2, sourceRevision: SOURCE_REVISION, mode: S.mode, stage: S.stage, elapsed: S.elapsed, misses: S.misses, completion: S.completion,
@@ -1160,7 +1229,11 @@ function restore(d) {
     Object.assign(STAGES[i], values, { done: saved.done });
     if (saved.done) S.unlocked = i + 1;
   });
-  conv.phase = conv.done ? 'gone' : 'orbit'; conv.k = conv.done ? .75 : 1;
+  conv.phase = conv.done ? 'gone' : 'orbit'; conv.k = conv.done ? .75 : 1; conv.q = conv.done ? 1 : 0;
+  if (conv.done) {
+    conv.ang = conv.startAng + TAU / orbit.T * FINALE_SECONDS;
+    conv.tumble = conv.startTumble + TAU / 11 * FINALE_SECONDS;
+  }
   show(d.stage); S.paused = true; return true;
 }
 function saveProgress() {
@@ -1182,10 +1255,10 @@ function advance(dt, clockDt = dt) {
   set('run-status', S.completion ? 'Completed run saved. Retuning does not change its result; start a new run to score again.' : panel.querySelector('.source-card[open]') ? 'Reading source: experiment and timer paused.' : S.paused ? 'Experiment paused. Continue to the next step or resume to retune.' : S.mode === 'learn' ? 'Explore freely. There is no time penalty.' : 'Timed practice: pause or open a source card to stop the clock.');
 }
 // Editing an experiment resumes it. Navigation and source reading do not.
-panel.addEventListener('input', e => { if (e.target.closest('.ctl')) { S.paused = false; } });
+panel.addEventListener('input', e => { if (e.target.closest('.ctl') && !e.target.closest('#cv-scrub')) { S.paused = false; } });
 panel.addEventListener('pointerdown', e => { if (e.target.closest('#ig-pump, #ho-pad')) S.paused = false; });
 panel.addEventListener('keydown', e => { if (e.target.closest('#ig-pump, #ho-pad') && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter'].includes(e.key)) S.paused = false; });
-panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume, #cv-go')) { S.paused = false; } saveProgress(); });
+panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume')) { S.paused = false; } saveProgress(); });
 $('#pause').onclick = () => { S.paused = !S.paused; ignite.pumping = false; hold.drag = false; saveProgress(); };
 $('#mode-learn').onclick = () => restart('learn'); $('#mode-challenge').onclick = () => restart('challenge');
 document.addEventListener('visibilitychange', () => { last = performance.now(); ignite.pumping = false; hold.drag = false; saveProgress(); });
@@ -1204,13 +1277,17 @@ function start(d) {
   let saved = d;
   if (!validSnapshot(saved)) { try { saved = JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); } catch (_) {} }
   fit(); if (!restore(saved)) show(0);
+  if (saved && saved.sourceRevision !== SOURCE_REVISION) {
+    set('restore-status', 'Source assumptions have changed in this edition. The previous in-progress run could not resume, so a new learning run has started. Your timed best is kept.');
+    $('#restore-status').hidden = false;
+  }
   advance(0);
   requestAnimationFrame(frame);
 }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(snapshot);
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__lab = { S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
+window.__lab = { S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
 })();
 </script>
 </body></html>

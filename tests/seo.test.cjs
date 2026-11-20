@@ -28,7 +28,7 @@ test('robots.txt allows crawlers and points at the production sitemap', () => {
 test('sitemap.xml lists only the official production URLs', () => {
   const sitemap = read('sitemap.xml');
   const locs = [...sitemap.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map((m) => m[1].trim());
-  assert.deepEqual(locs, [`${APEX}/`, `${APEX}/privacy.html`]);
+  assert.deepEqual(locs, [`${APEX}/`, `${APEX}/privacy`]);
 });
 
 test('index.html has canonical, description, social cards, icons, and theme color', () => {
@@ -47,7 +47,7 @@ test('index.html has canonical, description, social cards, icons, and theme colo
   assert.match(index, /rel=["']icon["'][^>]*href=["']favicon\.ico["']/);
   assert.match(index, /rel=["']apple-touch-icon["'][^>]*href=["']assets\/apple-touch-icon\.png["']/);
   assert.match(index, /rel=["']manifest["'][^>]*href=["']site\.webmanifest["']/);
-  assert.match(index, /href=["']privacy\.html["']/);
+  assert.match(index, /href=["']\/privacy["']/);
 });
 
 test('JSON-LD describes the game honestly and invents no ratings or reviews', () => {
@@ -93,7 +93,7 @@ test('404 page is noindex and privacy page has a canonical', () => {
   const notFound = read('404.html');
   assert.equal(meta(notFound, 'name', 'robots'), 'noindex');
   const privacy = read('privacy.html');
-  assert.match(privacy, /<link\s+rel=["']canonical["']\s+href=["']https:\/\/ion-pumpy-thing\.app\/privacy\.html["']/);
+  assert.match(privacy, /<link\s+rel=["']canonical["']\s+href=["']https:\/\/ion-pumpy-thing\.app\/privacy["']/);
   assert.match(privacy, /G-TEC2RE9FGC/);
   assert.match(privacy, /ion-pumpy-thing\.app/);
 });

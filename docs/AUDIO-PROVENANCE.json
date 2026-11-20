@@ -1,0 +1,348 @@
+{
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v2",
+  "processing": "Filtered and levelled provider textures; selected cues include local deterministic tuning layers.",
+  "reference_hz": 7.83,
+  "assets": [
+    {
+      "id": "pump-stroke",
+      "function": "One physical compression of the vacuum pump. Match the existing 5 Hz stroke rate.",
+      "source_generation_id": "XaAdb8f6PiHpHytNuuQM",
+      "master_sha256": "d55fd61e1ed17a6b4e2108f35d4b56a436596c4fec12cfaceef0d18489b88209",
+      "mp3_sha256": "71a468340bb8e6cb8a07e49e820542c552ce08a91a7d1bce34816c8e473b86f3",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.3
+    },
+    {
+      "id": "plasma-bed",
+      "function": "Sustained electrical discharge. Brightness can follow power.",
+      "source_generation_id": "2SRH8JhG7inVHAcWQYzT",
+      "master_sha256": "bfe1a1bec528c157167b199a362b648f8a48179311ff2319806d00097274a2dd",
+      "mp3_sha256": "5ddb2df129c753d1ed801bf4d229fbc7f318137d6d58ff30d0440a04f37b73d4",
+      "tuning_layer_hz": [
+        125.28,
+        250.56,
+        375.84000000000003
+      ],
+      "pulse_hz": 7.83,
+      "seconds": 8.1736875,
+      "pulse_off_mp3_sha256": "cd063b907ca3b0de56b4deb9399608f8bc09bfadecdde4fffa27094fcd4c60f2"
+    },
+    {
+      "id": "lesson-complete",
+      "function": "A lesson target earned, once per stage.",
+      "source_generation_id": "cAElLE0VPkIdkcCB4h9S",
+      "master_sha256": "5462a523fd020b76c78a2538132ebb1f4573087be7238d76c1a2c3bbc7367844",
+      "mp3_sha256": "8780f50b3a1889f07576a6da01c0e7b9d4e61f1401a802f12845e22b9b7265d5",
+      "tuning_layer_hz": [
+        250.56,
+        313.2,
+        375.84
+      ],
+      "pulse_hz": null,
+      "seconds": 1.8
+    },
+    {
+      "id": "timing-miss",
+      "function": "The action was early or late; retry.",
+      "source_generation_id": "9JZDlPzLx2wYzn3ZqyEs",
+      "master_sha256": "1f18813dc334be221c2b5673f71192856bc3678e3397cabba34f7c3d1a48a62b",
+      "mp3_sha256": "b4d911d4d48fc6519323c1fd533cdb5c06cb57c742dc7d78231cc78c0c2dd6a3",
+      "tuning_layer_hz": [
+        313.2,
+        250.56
+      ],
+      "pulse_hz": null,
+      "seconds": 0.9
+    },
+    {
+      "id": "ui-confirm",
+      "function": "A deliberate button press, including enabling sound.",
+      "source_generation_id": "lxcFVA3JNIhh2QEFNlZX",
+      "master_sha256": "3ade51d9a05a5803a571e0be8e275ff5215caa2092e087d865b091ad92d12a4b",
+      "mp3_sha256": "7c2033c4b4612d78154c4df38767caeaa817112b3939ead5cdb9a4f5f9651c3f",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.4
+    },
+    {
+      "id": "ui-toggle",
+      "function": "Gas, fuel, view, pause or mode changes.",
+      "source_generation_id": "I1JIptOBxCVdlp6jOPH2",
+      "master_sha256": "4d6185b0502423ecbb121d77653baf0fc98c1917ee0036afe465ea4c13b080be",
+      "mp3_sha256": "cec5eec015efc7ea1068f35cb401bd84b7973232b6c472def60f4ad6fc1edee3",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.5
+    },
+    {
+      "id": "control-tick",
+      "function": "A small control detent, rate-limited during slider movement.",
+      "source_generation_id": "zyr0FOsdb0tHzSfdPrB3",
+      "master_sha256": "73c941cfad57891971960a3b481b6f2252de7d37941be1b4eb7f1584520d928c",
+      "mp3_sha256": "c8b6e0bf1fe7209dbb0c4ef795485d7e4459a30a857d1dbb986db024183c48d6",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.2
+    },
+    {
+      "id": "stage-enter",
+      "function": "Navigation into an experiment.",
+      "source_generation_id": "rjxqYjtim3oMcoRe0uSg",
+      "master_sha256": "a29227d3780f17c44c0afac829f225ac8200d7028c88909a73ae6a2f4b5745a0",
+      "mp3_sha256": "2bac3f720cbf807cc638007d44e9f7ffd12a585c34aa8601ef6d5e538e9ccfc0",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 1.2
+    },
+    {
+      "id": "reset",
+      "function": "Restart the experiment without a punishing buzzer.",
+      "source_generation_id": "9boFpAhk1IiTcqY3zPob",
+      "master_sha256": "76253f69a6943ca849544eb269c7a5f9c20a895dc70c655a58b8ed75c711de0d",
+      "mp3_sha256": "1af70e9ddd80589e676f0ee350581f2c17733e03eaebfdd8d9308b27eea57c6a",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 1.2
+    },
+    {
+      "id": "lab-air",
+      "function": "Optional low laboratory ambience.",
+      "source_generation_id": "PASQ9tMQ51IDIF9sbGLG",
+      "master_sha256": "6c326f93d59b39fe28238415960edf64770f3bf9b602032a3f197d0cd9023a18",
+      "mp3_sha256": "8998cedff10c53bdf969392b59ccfc03958ebaba1eb515d6709985a37433629d",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 8.1736875
+    },
+    {
+      "id": "plasma-ignite",
+      "function": "Entry into the ionised state.",
+      "source_generation_id": "zqVei0EODK5oq9hgBvvy",
+      "master_sha256": "3aee29f71e55ecb632c02f51ceadef493b49cf87800d111e1f5a959161065ac1",
+      "mp3_sha256": "6dbfd519e08d437aebdfc2dda48e8193b11d0b13635e0520e44f632861a32f95",
+      "tuning_layer_hz": [
+        125.28
+      ],
+      "pulse_hz": null,
+      "seconds": 0.8
+    },
+    {
+      "id": "caution",
+      "function": "A new out-of-range state, not a continuous alarm.",
+      "source_generation_id": "MnJV1Emtt9IIaHW34cMe",
+      "master_sha256": "713528e91bb620d66b499bcfdb0ea29b28937d6fbab0cc2ee34c6c24b91022d0",
+      "mp3_sha256": "6e554da24b9701ef2d8767b76ef39d8e1699718bda42165c6b46472bd57a7d4b",
+      "tuning_layer_hz": [
+        250.56,
+        250.56
+      ],
+      "pulse_hz": null,
+      "seconds": 0.8
+    },
+    {
+      "id": "plasma-fade",
+      "function": "Loss of glow or power-down.",
+      "source_generation_id": "A5OKtlwi7Gz2RZCi9hE2",
+      "master_sha256": "eb2eeaa2836d1203c3fdf4cb20f4be39f0d4439a023b32a55c6e7f8dc45a6509",
+      "mp3_sha256": "5e7963b40a7cbcb6fed3cfccf3913cf721f8ccf10397fad364b4bf23394b6ac7",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.8
+    },
+    {
+      "id": "field-bed",
+      "function": "Coils operating during confinement.",
+      "source_generation_id": "ximplhPn1lFZzGkmIGJd",
+      "master_sha256": "f89707aaa010d2647b0b85e65023cc403aaf8186dbf41be10cf40c56206ada61",
+      "mp3_sha256": "5ec46d7aab637469635a808b7c5c47c6b0772cfc44183e4f59dfd98dc3b916ad",
+      "tuning_layer_hz": [
+        125.28,
+        250.56,
+        375.84000000000003
+      ],
+      "pulse_hz": 7.83,
+      "seconds": 8.1736875,
+      "pulse_off_mp3_sha256": "211608451b803feb60baca29c0a3b4803475fce93e7d405d8f24738d69b50b67"
+    },
+    {
+      "id": "stability-lock",
+      "function": "Control has settled into the valid hold band.",
+      "source_generation_id": "vJL7Id0fst4nrFyPkZ69",
+      "master_sha256": "36e164f99eca0247dc95dbe5080efa8e7c8b6cad2e7edd6ffdbc11a40185620f",
+      "mp3_sha256": "ddd442dbe206ed0cb066f41f110e28b6196b79378c3a9e0c9ff06b099751704d",
+      "tuning_layer_hz": [
+        125.28
+      ],
+      "pulse_hz": null,
+      "seconds": 1.0
+    },
+    {
+      "id": "particle-leak",
+      "function": "Representative particle escape. Sonification, not a recording of plasma.",
+      "source_generation_id": "8GlmmZwkKaFMxPtl05JP",
+      "master_sha256": "b68e7b9111f18560674e9ed16e2e5adda9ab33e04eaaf76b4a8cd1b3b777b9ca",
+      "mp3_sha256": "90c8e14b739539abd7547fa7a90a8b9c824db40a4f367e68db5f3647bc6144e5",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.2
+    },
+    {
+      "id": "wall-loss",
+      "function": "Plasma reaches the chamber wall and is lost.",
+      "source_generation_id": "FoXBZLmEJmC9dgweuPrd",
+      "master_sha256": "671bd1a8c086d98b5368791e4cd10224feb1c7f213a5d5abf33bf492cc26518b",
+      "mp3_sha256": "9a28f24c2cfab515fda6fbb33a1116153c380afe6966973785953e6fd2b295aa",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.5
+    },
+    {
+      "id": "fusion-bed",
+      "function": "Illustrative reaction activity.",
+      "source_generation_id": "RxhzvyxkV1NX9GPbLef0",
+      "master_sha256": "0b92d1fec2acd5832d0b400cacc8ecb127404f6c2c8698a170355a1950b8f51d",
+      "mp3_sha256": "cbf2cde8bb55e1802be8178853fc76ef8b8ed07f2122303b88765a88164b34b1",
+      "tuning_layer_hz": [
+        125.28,
+        250.56,
+        375.84000000000003
+      ],
+      "pulse_hz": 7.83,
+      "seconds": 8.1736875,
+      "pulse_off_mp3_sha256": "49f1b7390f099237c1cb328abf9fbdf508c3f061292757152b4c2fc72032c774"
+    },
+    {
+      "id": "neutron-impact",
+      "function": "A subdued detector-like tick for a neutron striking the wall.",
+      "source_generation_id": "geyFLSarE9CqVJXjcdUc",
+      "master_sha256": "231adf2c3bdc4d7a3cc8a008e068aa56601dc0e3d2b5a5f82a163dedc9988759",
+      "mp3_sha256": "1e99d5706e4aac4f2bbdde2e7f14bbece0cbd274806fbdacdf6cb1b471dc5560",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.15
+    },
+    {
+      "id": "charged-product",
+      "function": "A short curved zip for a charged product bending in a field.",
+      "source_generation_id": "4XeE1zlCDQuV753UskNs",
+      "master_sha256": "9ae4310d5fd1fc6313d412969f8fc9ebeba54ae04f86ddb8b1887db6531d12f9",
+      "mp3_sha256": "d23d40cb0ad4fb38b4f653ee31d06b16bc520adbea787b368ba435822230ac89",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 0.3
+    },
+    {
+      "id": "formation-bed",
+      "function": "Airflow and orbital motion around the aircraft.",
+      "source_generation_id": "JRAIzinXnbn9ya7eu8fy",
+      "master_sha256": "688fe041e01881488980bbff7374caee0f90ec1e58af3b3777cfdaace971c80c",
+      "mp3_sha256": "3e1251ea1630358226c01f0d3d649010de05ece7fbfac5e83c026e64c0355466",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 8.1736875
+    },
+    {
+      "id": "alignment",
+      "function": "The formation matches both camera views.",
+      "source_generation_id": "f9ksLD1J95ZqOTHehdt9",
+      "master_sha256": "0ca489f553308a33925ab371345eff5f9030bc01eb7de821fd968e4c29c2ca47",
+      "mp3_sha256": "68fafbecfdc00738dc7e6cd8c8c267aeb977d9749aab73bff169cf52658aedb2",
+      "tuning_layer_hz": [
+        250.56,
+        313.2,
+        375.84
+      ],
+      "pulse_hz": null,
+      "seconds": 1.0
+    },
+    {
+      "id": "plate-adjust",
+      "function": "The precision stage moving the plates, not sound produced by the Casimir effect.",
+      "source_generation_id": "CAaHwhRL7J3SZXLfmXUk",
+      "master_sha256": "0fb4aae2f6daad9d96a6c4dfb016873142899e868a4b947ea733fa49ac114477",
+      "mp3_sha256": "9a0a95fb25c7465c9a9c55ac4c0e3552313b9308fdb88f3a529b2a99afe81042",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 4.086854166666667
+    },
+    {
+      "id": "assumption",
+      "function": "A hypothetical source is enabled. Intentionally different from earned success.",
+      "source_generation_id": "sAltOZCC5SDQ609Rd6Aj",
+      "master_sha256": "6e68ed3013023611ff791421910eaebee2a9c911729c6b1568bf4f759be891ef",
+      "mp3_sha256": "7059f612f7510638acfdd1a843a9e11c5f460e88ba34122fd0f7b89e5ae3c909",
+      "tuning_layer_hz": [
+        250.56,
+        281.88
+      ],
+      "pulse_hz": null,
+      "seconds": 1.5
+    },
+    {
+      "id": "throat-bed",
+      "function": "Designed feedback for the assumed aperture. No claim of a real wormhole sound.",
+      "source_generation_id": "iHakKL76qtIiJ1SbzMdJ",
+      "master_sha256": "a4db84f1b245fae8c6347aaf6bb262149f5372417f0b73856c8bdcc8f0cefd65",
+      "mp3_sha256": "04d4f49568a6d98ef29811da60367f618d4985696c0bc366698bfaa492e3c0d6",
+      "tuning_layer_hz": [
+        62.64,
+        125.28,
+        187.92000000000002
+      ],
+      "pulse_hz": 7.83,
+      "seconds": 8.1736875,
+      "pulse_off_mp3_sha256": "fa3cd81ab8137ba1f502a71ef056e65239fe3ff8b8bde441b58257f5e9b6c84d"
+    },
+    {
+      "id": "convergence",
+      "function": "The formation closes. Stop it at the flash.",
+      "source_generation_id": "SK93Hdkt7GOXOlk19yil",
+      "master_sha256": "de6dab21290262aef8317e28845796947db60888cc17a050a5e5c2275e179211",
+      "mp3_sha256": "0cec5fc75280d6df39d6608862689fc24a5535b1267d7ae261b4ec7e978fe145",
+      "tuning_layer_hz": [],
+      "pulse_hz": null,
+      "seconds": 5.0
+    },
+    {
+      "id": "timing-window",
+      "function": "Entry into the valid opening window.",
+      "source_generation_id": "zQozjYS8hgEOWVSueEfI",
+      "master_sha256": "53652cb67afa0d3cfb77d1bea6e355521d6e702a26a5ee2bf983176a7c60cfe2",
+      "mp3_sha256": "5751e092cc1fc396f1cdd2f6d97633d769bda9df149b1cb94d0be52993df99ba",
+      "tuning_layer_hz": [
+        501.12
+      ],
+      "pulse_hz": null,
+      "seconds": 0.5
+    },
+    {
+      "id": "system-ready",
+      "function": "The current checklist becomes ready.",
+      "source_generation_id": "vO3PW3pjLo3Fo3VSvRdS",
+      "master_sha256": "d3f51d933f9192f0bfba45bab44f36dafcffda2227e2183125a9ee526863a085",
+      "mp3_sha256": "3d298ec56257e9eac7fa232729d96df2efb57325c9eaefbe62dac6570e54c9dc",
+      "tuning_layer_hz": [
+        250.56,
+        375.84
+      ],
+      "pulse_hz": null,
+      "seconds": 0.8
+    },
+    {
+      "id": "ledger",
+      "function": "A quiet close after deliberately opening the ledger. The flash and crossing remain silent.",
+      "source_generation_id": "VPAmREUeKj8gsrio9Ss5",
+      "master_sha256": "a2af7933fd4638f6949af4056033cc7c73234fded4876a1099058de3420d0eca",
+      "mp3_sha256": "018bd8b9b3be864be546eeb8c3b4a731c4a89b204377d33cb0044b153ec17833",
+      "tuning_layer_hz": [
+        250.56,
+        313.2,
+        375.84
+      ],
+      "pulse_hz": null,
+      "seconds": 2.0
+    }
+  ]
+}

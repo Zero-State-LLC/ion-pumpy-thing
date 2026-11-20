@@ -19,11 +19,13 @@ The Casimir lesson includes an adjustable plate diagram and a separate throat vi
 
 The game is at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). A short [privacy notice](privacy.html) describes local progress and measurement on that host.
 
-It is one self-contained file. Open `index.html` in a browser, or serve the folder:
+Serve the static files from this folder, then open http://localhost:8000:
 
     python3 -m http.server
 
-The only external load is Google Fonts. Sound is off until you turn it on.
+Sound is off on every page load until you turn it on. The 29 effects use local ElevenLabs assets and follow the game events. Volume, background level, and the optional gentle pulse are adjustable. Those preferences stay on this device. See the [sound map and playback notes](docs/AUDIO.md).
+
+The pages load Google Fonts. Google Analytics loads only on the production host, as described in the privacy notice. Audio plays from this site with no ElevenLabs runtime connection.
 
 Progress saves on this device and reloads paused. Restarting or switching mode replaces progress, after asking, but keeps your timed best. A changed source revision starts a new run and shows an explanation rather than resuming outdated assumptions. If browser storage is blocked, the game shows that it cannot save. Private browsing or clearing browser data can remove local progress.
 
@@ -33,13 +35,14 @@ The optional shared practice board only works in a Claude artifact with database
 
 With Node 20 or later:
 
-    node --test tests/game.test.cjs tests/seo.test.cjs
+    node --test tests/*.test.cjs
 
-The suite checks the actual game logic and drawing commands with a minimal DOM. It does not replace a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
+The suite checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. It does not replace a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
 
 ## Sources and framing
 
 The narrative follows *The Vanishing, Part Three: The Science*, corrected November 2026 edition (25:24), and the current 4orbs measurement page. The [source register](docs/SOURCES.md) maps each lesson to those pages and to the papers they cite. Older, conflicting summaries are excluded.
 
 The game takes the 4orbs account as its premise and builds its mechanics from the theory and papers that account cites. Every claim carries its source label: lab physics, theory, measured, or the 4orbs account. Simplifications made for play are labelled Game rule. The aircraft is referred to only by make and model, a Boeing 777-200ER.
+
 

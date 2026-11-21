@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "mode": "learn",
+  "stage": 0,
+  "elapsed": 0,
+  "misses": 0,
+  "completion": null,
+  "stages": [
+    {
+      "done": false,
+      "values": {
+        "gas": "h",
+        "power": 15,
+        "p": 760,
+        "hold": 0,
+        "t": 0
+      }
+    },
+    {
+      "done": false,
+      "values": {
+        "B": 0,
+        "trim": 0,
+        "x": 0,
+        "lock": 0,
+        "t": 0,
+        "assist": false,
+        "assisted": false
+      }
+    },
+    {
+      "done": false,
+      "values": {
+        "fuel": "dt",
+        "lt": 0.3,
+        "hold": 0,
+        "dose": 0
+      }
+    },
+    {
+      "done": false,
+      "values": {
+        "r": 95,
+        "T": 6,
+        "cam": 40,
+        "ang": 0,
+        "ghost": 0,
+        "tumble": 0,
+        "hold": 0
+      }
+    },
+    {
+      "done": false,
+      "values": {
+        "w": 10,
+        "ld": 3,
+        "la": 0,
+        "assumed": false,
+        "view": "plates"
+      }
+    },
+    {
+      "done": false,
+      "values": {
+        "k": 1,
+        "ang": 0,
+        "tumble": 0,
+        "startAng": 0,
+        "startTumble": 0,
+        "view": "thermal"
+      }
+    }
+  ]
+}

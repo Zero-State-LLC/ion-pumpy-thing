@@ -11,6 +11,9 @@ const register = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SOURCES.md'
 // Common ways of naming the flight. The airliner is only ever its make and model.
 const FLIGHT_NAMES = /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i;
 
+// The page's colour tokens (`--sky: #0b1330;`), so the canvas draws in the colours a player sees.
+const colourTokens = new Map([...html.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{3,8})\s*;/gi)].map(m => [m[1], m[2]]));
+
 // Minimal DOM and drawing boundary. This exercises actual game code, not a
 // second implementation of its models. It does not replace browser QA.
 function boot(storage = new Map(), options = {}) {
@@ -27,7 +30,9 @@ function boot(storage = new Map(), options = {}) {
       if (key === 'ellipse') assert.ok(args[2] >= 0 && args[3] >= 0, 'negative ellipse radius');
       drawing.push([key, ...args]);
     };
-  } });
+  },
+  // A setting the game gives the canvas, such as its stroke colour, is drawn too: [name, value].
+  set(target, key, value) { drawing.push([key, value]); target[key] = value; return true; } });
   class Element {
     constructor(attrs = '') {
       this.style = {}; this.dataset = {}; this.attributes = {}; this.children = [];
@@ -62,7 +67,7 @@ function boot(storage = new Map(), options = {}) {
   const root = new Element(); root.innerHTML = html.split('<script>')[0];
   const document = { hidden: false, documentElement: root, querySelector: s => root.querySelector(s), getElementById: s => ids.get(s) || null, createElement: () => new Element(), listeners: {}, addEventListener(k, fn) { this.listeners[k] = fn; } };
   const window = { listeners: {}, addEventListener(k, fn) { this.listeners[k] = fn; }, devicePixelRatio: 1 };
-  const sandbox = { document, window, getComputedStyle: () => ({ getPropertyValue: () => '#123456' }), matchMedia: () => ({ matches: !!options.reduced }), ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frames.push(f), performance: { now: () => 0 }, localStorage: { getItem: key => { if (options.noStorage) throw Error('blocked'); return storage.get(key) || null; }, setItem: (key, value) => { if (options.noStorage) throw Error('blocked'); storage.set(key, value); } }, setTimeout() { return 1; }, clearTimeout() {}, console };
+  const sandbox = { document, window, getComputedStyle: () => ({ getPropertyValue: name => colourTokens.get(name) || '' }), matchMedia: () => ({ matches: !!options.reduced }), ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frames.push(f), performance: { now: () => 0 }, localStorage: { getItem: key => { if (options.noStorage) throw Error('blocked'); return storage.get(key) || null; }, setItem: (key, value) => { if (options.noStorage) throw Error('blocked'); storage.set(key, value); } }, setTimeout() { return 1; }, clearTimeout() {}, console };
   // Record every request the game makes of the sound engine, from the moment the page starts.
   const sounds = [];
   if (!options.noAudioScript) {
@@ -153,6 +158,62 @@ const scene = game => { game.drawing.length = 0; paint(game); return JSON.string
 // The words drawn on the canvas in the last frame painted.
 const drawnWords = game => game.drawing.filter(call => call[0] === 'fillText').map(call => call[1]);
 const ledgerScore = game => { click(game, 'step-6'); return text(game, 'panel').match(/<dt>Score<\/dt><dd>([^<]+)/)[1]; };
+// The value a canvas setting, such as 'strokeStyle', has when the command at
+// `index` in the drawing runs, following save and restore.
+function settingAt(drawing, index, name) {
+  let value; const saved = [];
+  for (const [call, arg] of drawing.slice(0, index)) {
+    if (call === 'save') saved.push(value); else if (call === 'restore') value = saved.pop(); else if (call === name) value = arg;
+  }
+  return value;
+}
+// The colour the scene's sky is filled with: the first fill of the whole canvas.
+function skyColour(game) {
+  const sky = game.drawing.findIndex(c => c[0] === 'fillRect' && c[1] === 0 && c[2] === 0);
+  return settingAt(game.drawing, sky, 'fillStyle');
+}
+// How bright a drawn colour (#rrggbb or rgb()/rgba()) is, from 0 for black to 1 for white.
+function brightness(colour) {
+  const hex = /^#([0-9a-f]{6})$/i.exec(colour), rgb = /^rgba?\(([^)]+)\)$/.exec(colour);
+  assert.ok(hex || rgb, `a colour: ${colour}`);
+  const [r, g, b] = hex ? [0, 2, 4].map(i => parseInt(hex[1].slice(i, i + 2), 16)) : rgb[1].split(',').slice(0, 3).map(Number);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+// The glow round each orb on the canvas. An orb is a soft halo (a radial
+// gradient from its centre) round a bright core; a circle about the same
+// centre, wider than the halo, is a glow round it. One entry per orb drawn,
+// with the glow's radius and colour, or null for both where the orb has none.
+function orbGlows(game) {
+  game.drawing.length = 0; paint(game);
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
+  return game.drawing.filter(c => c[0] === 'createRadialGradient' && c[3] === 0 && near(c[1], c[4]) && near(c[2], c[5]))
+    .map(([, x, y, , , , halo]) => {
+      const ring = game.drawing.findIndex(c => c[0] === 'arc' && near(c[1], x) && near(c[2], y) && c[3] > halo + 1e-6);
+      return ring < 0 ? { x, y, glow: null, colour: null } : { x, y, glow: game.drawing[ring][3], colour: settingAt(game.drawing, ring, 'strokeStyle') };
+    });
+}
+// Orbit: the orbs in each camera view, nearest that view's title.
+function orbitCameras(game) {
+  const orbs = orbGlows(game), titles = game.drawing.filter(c => c[0] === 'fillText' && /^CAMERA /.test(c[1])).map(c => c[2]);
+  assert.equal(titles.length, 2, 'two camera views');
+  return titles.map((x, i) => orbs.filter(o => Math.abs(o.x - x) < Math.abs(o.x - titles[1 - i])));
+}
+// The one glow size shared by all three orbs in view, or null with no glow.
+function glowSize(orbs) {
+  assert.equal(orbs.length, 3, 'three orbs in view');
+  const sizes = [...new Set(orbs.map(o => o.glow))];
+  assert.equal(sizes.length, 1, 'every orb glows alike');
+  return sizes[0];
+}
+// The Formation's ranges as a fresh Orbit step's goal states them, with the
+// step of the slider that sets each.
+function formationRanges() {
+  const game = bootFromSavedRun(savedRunOn(3));
+  const m = text(game, 'goaltext').match(/([\d.]+) to ([\d.]+) m out, a lap in ([\d.]+) to ([\d.]+) s, cameras ([\d.]+) to ([\d.]+)°/);
+  assert.ok(m, text(game, 'goaltext'));
+  const n = m.slice(1).map(Number), step = id => +game.ids.get(id).attributes.step;
+  return { 'or-r': [n[0], n[1], step('or-r')], 'or-t': [n[2], n[3], step('or-t')], 'or-c': [n[4], n[5], step('or-c')] };
+}
 
 // A player who reads the plasma pressure off the lesson keeps beta at 0.9 (or at
 // `beta`) with the coil pad, for `seconds` of play. The field comes from the
@@ -189,6 +250,17 @@ function holdView(game) {
 // Converge: start closing in, then open the throat after `closing` seconds.
 function openAfter(game, closing) {
   click(game, 'cv-go'); game.lab.advance(closing); click(game, 'cv-go');
+}
+// Converge: start closing in, and look at the step as the triangle readout shows each
+// size in turn (per cent, from 100 down). Learning runs and reduced motion close at
+// half speed, 5 % of the triangle's size each second. Returns what `look` returns.
+function closeThrough(game, sizes, look) {
+  click(game, 'cv-go'); let size = 100;
+  return sizes.map(shown => {
+    game.lab.advance((size - shown) / 5); size = shown;
+    assert.equal(text(game, 'cv-k'), `${shown} %`);
+    return look(shown);
+  });
 }
 
 test('sound settings restore without restoring autoplay or changing the experiment', () => {
@@ -646,6 +718,105 @@ test('reduced-motion finale draws a static aperture without a pulsing radial fil
   assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
 });
 
+test('the Orbit glow shows in both cameras exactly when the Formation readiness check passes', () => {
+  const ranges = formationRanges();
+  // Each range's edges, and the slider positions just outside them.
+  const settings = [];
+  for (const [id, [lo, hi, step]] of Object.entries(ranges)) {
+    const outside = x => +x.toFixed(1); // a slider position, without float noise
+    settings.push([id, outside(lo - step), false], [id, lo, true], [id, hi, true], [id, outside(hi + step), false]);
+  }
+  for (const [id, value, inRange] of settings) {
+    const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-3');
+    slide(game, id, value); game.lab.advance(1);
+    const cameras = orbitCameras(game), said = description(game);
+    click(game, 'step-5');
+    const ready = !/Formation: retune required/.test(text(game, 'mission-checks'));
+    assert.equal(ready, inRange, `readiness with ${id} at ${value}`);
+    for (const [i, orbs] of cameras.entries()) {
+      const size = glowSize(orbs);
+      assert.equal(size !== null, ready, `camera ${i + 1} glow with ${id} at ${value}`);
+    }
+    assert.equal(/formation is matched/i.test(said), ready, `description with ${id} at ${value}: ${said}`);
+    assert.equal(/both views highlight them/.test(said), ready, `description with ${id} at ${value}: ${said}`);
+    // The views highlight the match; the orbs themselves do not glow.
+    assert.doesNotMatch(said, /field|lock|glow/i);
+  }
+});
+
+test('the Orbit glow builds while the formation is held, and reduced motion shows it settled at once', () => {
+  const ranges = formationRanges();
+  const glowOverTheHold = reduced => {
+    const game = bootFromSavedRun(savedRunOn(3), { reduced });
+    for (const [id, [lo, hi]] of Object.entries(ranges)) slide(game, id, (lo + hi) / 2);
+    game.lab.advance(.5); const early = orbitCameras(game).map(glowSize);
+    game.lab.advance(1.5); assert.equal(goalBar(game), 100, 'the formation hold completes the step');
+    const settled = orbitCameras(game).map(glowSize);
+    for (const size of [...early, ...settled]) assert.notEqual(size, null, 'the matched formation glows from the start');
+    assert.equal(new Set(early).size, 1, 'both cameras show the same glow'); assert.equal(new Set(settled).size, 1);
+    return [early[0], settled[0]];
+  };
+  const [early, settled] = glowOverTheHold(false);
+  assert.ok(early < settled, `the glow builds: ${early} then ${settled}`);
+  const [stillEarly, stillSettled] = glowOverTheHold(true);
+  assert.equal(stillEarly, stillSettled, 'reduced motion: settled at once');
+  assert.equal(stillEarly, settled, 'reduced motion: the same settled glow');
+});
+
+test('the Converge glow grows as the triangle closes, shown and described as the throat forming', () => {
+  for (const view of ['cv-thermal', 'cv-visible']) {
+    const game = bootFromSavedRun('ready-to-converge'); click(game, view);
+    const seen = [];
+    const look = () => { const size = glowSize(orbGlows(game)); seen.push(description(game), ...drawnWords(game), text(game, 'cv-view-note'), text(game, 'cv-msg')); return size; };
+    game.lab.advance(1);
+    assert.equal(look(), null, `${view}: no glow before closing in`);
+    assert.doesNotMatch(description(game), /throat is forming/);
+    // On through the opening band (71 to 79 %) to near the end of the close, so the
+    // glow's growth gives no cue of when to open.
+    const sizes = closeThrough(game, [95, 85, 75, 65, 55], shown => {
+      const size = look();
+      assert.match(description(game), /throat is forming as the triangle closes/, `${view} at ${shown} %`);
+      assert.ok(drawnWords(game).includes('throat forming'), `${view} at ${shown} %: the canvas says so`);
+      return size;
+    });
+    assert.ok(sizes[0] > 0 && sizes.every((size, i) => i === 0 || size > sizes[i - 1]), `${view}: the glow keeps growing, ${sizes}`);
+    // Opened in the band, the flash and what follows say nothing of a snap or a field.
+    const opened = bootFromSavedRun('ready-to-converge'); click(opened, view);
+    openAfter(opened, 5);
+    for (let i = 0; i < 5; i++) { opened.lab.advance(.4); opened.drawing.length = 0; paint(opened); seen.push(description(opened), ...drawnWords(opened)); }
+    assert.equal(opened.ids.get('cv-go').textContent, 'Replay the sequence');
+    assert.doesNotMatch(seen.join('\n'), /snap|field|lock/i, view);
+  }
+});
+
+// The Converge lesson (Measured): on the heat camera a faint dark mark, colder than
+// the sky, leads each object, and the flash reads black; from above, the flash is bright.
+test('on the heat camera the throat-forming glow is drawn colder than the sky, and from above bright', () => {
+  for (const [view, colder] of [['cv-thermal', true], ['cv-visible', false]]) {
+    const game = bootFromSavedRun('ready-to-converge'); click(game, view);
+    closeThrough(game, [85], () => {
+      const orbs = orbGlows(game), sky = skyColour(game);
+      assert.equal(orbs.length, 3, `${view}: three orbs`);
+      for (const { colour } of orbs) assert.equal(brightness(colour) < brightness(sky), colder, `${view}: a ${colour} glow on a ${sky} sky`);
+      // A screen reader hears what is drawn: a cold ring on the heat camera, a glow from above.
+      if (colder) { assert.match(description(game), /colder than the sky/, view); assert.doesNotMatch(description(game), /glow/, view); }
+      else assert.match(description(game), /glow/, view);
+    });
+  }
+});
+
+test('reduced motion holds the throat-forming glow still', () => {
+  for (const view of ['cv-thermal', 'cv-visible']) {
+    const game = bootFromSavedRun('ready-to-converge', { reduced: true }); click(game, view);
+    const sizes = closeThrough(game, [95, 85, 75], () => {
+      assert.match(description(game), /throat is forming as the triangle closes/);
+      return glowSize(orbGlows(game));
+    });
+    assert.notEqual(sizes[0], null, `${view}: the close shows a glow`);
+    assert.equal(new Set(sizes).size, 1, `${view}: the glow holds still, ${sizes}`);
+  }
+});
+
 test('a prior source revision starts a fresh run with a visible explanation', () => {
   const storage = new Map([['ipt-best-v2', '{"score":1234}']]);
   const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = '4orbs-part3-corrected-2026-11-25m24s'; }), { storage });
@@ -784,131 +955,6 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
   assert.match(html, /Boeing 777-200ER/);
   for (const tag of ['Lab physics', 'Theory', 'Measured', '4orbs account', 'Game rule']) assert.match(html, new RegExp(`class="tag [a-z]+">${tag}<`));
   assert.doesNotMatch(pages, /\[object Object\]|>undefined</, 'every cited paper renders as text');
-});
-
-
-function fieldRadii(drawing) {
-  return drawing.filter(call => call[0] === 'arc' && call[3] >= 12 && call[3] <= 32).map(call => call[3]);
-}
-function fieldArcs(drawing) {
-  return drawing.filter(call => call[0] === 'arc' && call[3] >= 16 && call[3] <= 40);
-}
-function resume(game) {
-  if (game.ids.get('pause').textContent === 'Resume') click(game, 'pause');
-}
-function setOrbit(game, r, period, cam) {
-  slide(game, 'or-r', r);
-  slide(game, 'or-t', period);
-  slide(game, 'or-c', cam);
-}
-function trianglePercent(game) {
-  return Number.parseFloat(text(game, 'cv-k'));
-}
-
-test('orbit field builds when the formation sits on the tracked rings', () => {
-  const game = bootFromSavedRun(savedRunOn(3));
-  assert.equal(currentStep(game), 3);
-  resume(game);
-  setOrbit(game, 40, 6, 40);
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.equal(fieldRadii(game.drawing).length, 0);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /off the tracked rings/);
-  assert.doesNotMatch(game.ids.get('cv').attributes['aria-label'], /field/);
-  setOrbit(game, 65, 2.5, 132);
-  game.lab.advance(0.3, 1);
-  game.drawing.length = 0; paint(game);
-  const building = fieldRadii(game.drawing);
-  assert.equal(building.length, 6);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /tracked rings/);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /field is building/);
-  game.lab.advance(1.2, 1);
-  game.drawing.length = 0; paint(game);
-  const settled = fieldRadii(game.drawing);
-  assert.equal(settled.length, 6);
-  assert.ok(Math.min(...settled) > Math.max(...building));
-  assert.match(game.ids.get('cv').attributes['aria-label'], /settled field/);
-});
-
-test('reduced-motion orbit shows a settled field without a grow cycle', () => {
-  const game = bootFromSavedRun(savedRunOn(3), { reduced: true });
-  resume(game);
-  setOrbit(game, 65, 2.5, 132);
-  game.lab.advance(0.15, 1);
-  game.drawing.length = 0; paint(game);
-  const early = fieldRadii(game.drawing);
-  assert.equal(early.length, 6);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /settled field/);
-  const first = JSON.stringify(game.drawing);
-  game.drawing.length = 0; paint(game);
-  assert.equal(JSON.stringify(game.drawing), first);
-  game.lab.advance(1.35, 1);
-  game.drawing.length = 0; paint(game);
-  assert.deepEqual(fieldRadii(game.drawing), early);
-  const plain = bootFromSavedRun(savedRunOn(3));
-  resume(plain);
-  setOrbit(plain, 65, 2.5, 132);
-  plain.lab.advance(0.15, 1);
-  plain.drawing.length = 0; paint(plain);
-  assert.ok(early[0] > Math.max(...fieldRadii(plain.drawing)));
-});
-
-test('converge field grows while closing and the flash shows a snap along the path', () => {
-  const game = bootFromSavedRun('ready-to-converge');
-  assert.equal(game.ids.get('cv-go').textContent, 'Start closing in');
-  click(game, 'cv-go');
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.equal(fieldArcs(game.drawing).length, 0);
-  assert.equal(game.ids.get('cv-go').textContent, 'Open it now');
-  game.lab.advance(2, 1);
-  game.drawing.length = 0; paint(game);
-  const early = fieldArcs(game.drawing).map(call => call[3]);
-  assert.equal(early.length, 3);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /field around them is growing/);
-  assert.ok(trianglePercent(game) > 85 && trianglePercent(game) < 95);
-  game.lab.advance(3, 1);
-  game.drawing.length = 0; paint(game);
-  const late = fieldArcs(game.drawing).map(call => call[3]);
-  assert.equal(late.length, 3);
-  assert.ok(Math.min(...late) > Math.max(...early));
-  assert.ok(trianglePercent(game) >= 71 && trianglePercent(game) <= 79);
-  click(game, 'cv-visible');
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.equal(fieldArcs(game.drawing).length, 3);
-  assert.ok(Math.min(...fieldArcs(game.drawing).map(call => call[3])) > Math.max(...early));
-  click(game, 'cv-thermal');
-  click(game, 'cv-go');
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
-  assert.match(game.ids.get('cv').attributes['aria-label'], /snap runs along the path/);
-  click(game, 'cv-visible');
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
-});
-
-test('reduced-motion flash keeps a static aperture and a static path snap', () => {
-  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
-  click(game, 'cv-go');
-  game.lab.advance(5, 5);
-  assert.ok(trianglePercent(game) >= 71 && trianglePercent(game) <= 79);
-  click(game, 'cv-go');
-  game.lab.advance(0.8, 0.8);
-  click(game, 'cv-visible');
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
-  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
-  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
-  const first = JSON.stringify(game.drawing);
-  game.lab.advance(0.32, 0.32);
-  game.drawing.length = 0; paint(game);
-  assert.equal(JSON.stringify(game.drawing), first);
-  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
-  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
 });
 
 test('transit diagram says the airliner keeps flying forward and only the path changes', () => {

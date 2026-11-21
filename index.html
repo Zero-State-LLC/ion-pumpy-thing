@@ -487,6 +487,21 @@ function orb(x, y, r, core, halo) {
   ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
 }
 function ring(x, y, r, color) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); }
+// A glow round three orbs: a ring round each and an outline round their triangle.
+// `pts` are the orbs' projected positions in metres from (cx, cy); `look` sizes and colours it.
+function orbGlow(cx, cy, sc, pts, look) {
+  ctx.save();
+  ctx.globalAlpha = look.alpha; ctx.strokeStyle = look.colour; ctx.lineWidth = look.width;
+  ctx.beginPath();
+  pts.forEach((q, i) => {
+    const m = Math.hypot(q[0], q[1]), s = m > 0.5 ? (m * sc + look.pad) / (m * sc) : 1;
+    const x = cx + q[0] * sc * s, y = cy + q[1] * sc * s;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.closePath(); ctx.stroke();
+  pts.forEach(q => { ctx.beginPath(); ctx.arc(cx + q[0] * sc, cy + q[1] * sc, look.ring, 0, TAU); ctx.stroke(); });
+  ctx.restore();
+}
 
 /* ───────── Step 1: Ignite ───────── */
 const GASES = { h: ['Hydrogen', [255, 120, 175]], ar: ['Argon', [168, 118, 255]] };
@@ -918,13 +933,6 @@ function scaleBarDraw(sc) {
 
 /* ───────── Step 4: Orbit, seen by two cameras ───────── */
 const TILT = 24 * Math.PI / 180, TRUE_CAM = 132;
-function orbitLockStrength(st) {
-  const matched = st.r >= 60 && st.r <= 70 && st.T >= 2.3 && st.T <= 2.7 && st.cam >= 123 && st.cam <= 141;
-  if (!matched) return 0;
-  // Reduced motion shows the settled field at once, with no pulse or grow-cycle.
-  if (reduced || st.done || st.hold >= 1.5) return 1;
-  return clamp(st.hold / 1.5, 0, 1);
-}
 // The three objects in 3D (metres): a triangle in a tilted plane whose tilt axis slowly turns, so it tumbles.
 function formation(r, ang, tumble) {
   const ca = Math.cos(tumble), sa = Math.sin(tumble), ct = Math.cos(TILT), st = Math.sin(TILT);
@@ -933,6 +941,15 @@ function formation(r, ang, tumble) {
   return out;
 }
 const camB = (p, deg) => { const th = deg * Math.PI / 180; return [p[0], p[1] * Math.cos(th) - p[2] * Math.sin(th)]; };
+// The Formation's ranges, as Orbit's goal states them: distance from the aircraft (m),
+// time for one lap (s) and angle between the cameras (°).
+const FORMATION_RANGES = { r: [60, 70], T: [2.3, 2.7], cam: [123, 141] };
+const inRange = (x, [lo, hi]) => x >= lo && x <= hi;
+// The Formation is matched inside all three: the check Formation readiness uses.
+function formationMatched(o) { return Object.entries(FORMATION_RANGES).every(([k, range]) => inRange(o[k], range)); }
+// How far the matched Formation's glow has built, from 0 to 1: over the hold that
+// completes the step, or at once under reduced motion and once Orbit is done.
+function formationGlowAmount(o) { return reduced || o.done ? 1 : clamp(o.hold / 1.5, 0, 1); }
 const orbit = stage({
   name: 'Orbit', title: 'Fly the formation',
   html: `
@@ -959,11 +976,10 @@ const orbit = stage({
   update(dt) {
     this.ghost += TAU / 2.5 * dt; this.tumble += TAU / 11 * dt;
     this.ang += TAU / this.T * dt;
-    const paced = this.T >= 2.3 && this.T <= 2.7;
+    const paced = inRange(this.T, FORMATION_RANGES.T);
     if (paced) { let d = (this.ghost - this.ang) % (TAU / 3); if (d > TAU / 6) d -= TAU / 3; if (d < -TAU / 6) d += TAU / 3; this.ang += d * Math.min(1, dt * 4); }
     const v = TAU * this.r / this.T, a = v * v / this.r, g = a / 9.81;
-    const ok = this.r >= 60 && this.r <= 70 && paced && this.cam >= 123 && this.cam <= 141;
-    this.hold = ok ? this.hold + dt : 0;
+    this.hold = formationMatched(this) ? this.hold + dt : 0;
     if (this.hold >= 1.5) complete(this);
     snd.bed('formation-bed', { level: .65, brightness: 1200 + Math.min(v, 400) * 5 });
     out('or-r', this.r + ' m'); out('or-t', this.T.toFixed(1) + ' s'); out('or-c', this.cam + '°');
@@ -974,7 +990,7 @@ const orbit = stage({
     goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
   },
   draw() {
-    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6, strength = orbitLockStrength(this);
+    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6, matched = formationMatched(this), glow = formationGlowAmount(this);
     ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
@@ -987,31 +1003,13 @@ const orbit = stage({
       mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
       ctx.closePath(); ctx.stroke();
       mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
-      if (strength > 0) {
-        const ringR = 12 + 18 * strength;
-        ctx.save();
-        ctx.globalAlpha = 0.28 + 0.67 * strength;
-        ctx.strokeStyle = COL.cold; ctx.lineWidth = 1.25 + 1.75 * strength;
-        ctx.beginPath();
-        mine.forEach((p, i) => {
-          const q = proj(p), mag = Math.hypot(q[0], q[1]), pad = 10 + 14 * strength;
-          const scale = mag > 0.5 ? (mag * sc + pad) / (mag * sc) : 1;
-          const x = cx + q[0] * sc * scale, y = cy + q[1] * sc * scale;
-          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-        });
-        ctx.closePath(); ctx.stroke();
-        mine.forEach(p => { const q = proj(p); ctx.beginPath(); ctx.arc(cx + q[0] * sc, cy + q[1] * sc, ringR, 0, TAU); ctx.stroke(); });
-        ctx.restore(); ctx.globalAlpha = 1;
-      }
+      if (matched) orbGlow(cx, cy, sc, mine.map(proj), { ring: 12 + 18 * glow, pad: 10 + 14 * glow, alpha: .28 + .67 * glow, width: 1.25 + 1.75 * glow, colour: COL.cold });
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });
     scaleBarDraw(sc);
   },
   describe() {
-    const match = this.r >= 60 && this.r <= 70 && this.T >= 2.3 && this.T <= 2.7 && this.cam >= 123 && this.cam <= 141;
-    const strength = orbitLockStrength(this);
-    const field = strength >= 1 ? ' A settled field surrounds the orbs.' : strength > 0 ? ' A field is building around the orbs.' : '';
-    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${match ? 'The orbs sit on the tracked rings in both views.' : 'The orbs are off the tracked rings.'}${field}`;
+    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${formationMatched(this) ? 'The formation is matched: the orbs sit on the tracked rings, and both views highlight them.' : 'The orbs are off the tracked rings.'}`;
   }
 }, { r: 95, T: 6, cam: 40, ang: 0, ghost: 0, tumble: 0, hold: 0 });
 
@@ -1139,7 +1137,7 @@ function missionReadiness() {
     { name: 'Plasma', stage: 0, ok: ignite.done && ignite.model().ok, detail: 'cold glow' },
     { name: 'Confinement', stage: 1, ok: hold.done && hold.lock >= 6 && inBetaBand(beta) && Math.abs(hold.x) < .45, detail: 'six-second hold captured' },
     { name: 'Fuel', stage: 2, ok: fuel.done && fuel.fuel === 'pb' && fuelActivity(fuel) >= .15, detail: 'hydrogen-boron active' },
-    { name: 'Formation', stage: 3, ok: orbit.done && orbit.r >= 60 && orbit.r <= 70 && orbit.T >= 2.3 && orbit.T <= 2.7 && orbit.cam >= 123 && orbit.cam <= 141, detail: `${orbit.r} m / ${orbit.T.toFixed(1)} s / ${orbit.cam}°` },
+    { name: 'Formation', stage: 3, ok: orbit.done && formationMatched(orbit), detail: `${orbit.r} m / ${orbit.T.toFixed(1)} s / ${orbit.cam}°` },
     { name: 'Throat', stage: 4, ok: open.done && open.w >= 61 && open.assumed, detail: `${open.w} m / held by the orbs` }
   ];
 }
@@ -1156,6 +1154,14 @@ function transitModel(progress, width) {
   const fraction = clamp(progress, 0, 1), duration = AIRCRAFT.length / AIRCRAFT.speed;
   return { fraction, duration, elapsed: fraction * duration, centreY: AIRCRAFT.length * (.5 - fraction),
     clearance: (width - AIRCRAFT.span) / 2, fits: width >= AIRCRAFT.span };
+}
+// How far the throat has formed as the triangle closes, from 0 when closing starts to
+// 1 at half size, where a close left unopened resets. It grows steadily through the
+// opening band, so it gives no cue of when to open. Reduced motion holds it still.
+// 0 outside the close.
+function throatFormingAmount(st) {
+  if (st.phase !== 'closing') return 0;
+  return reduced ? 1 : clamp((1 - st.k) / 0.5, 0, 1);
 }
 function drawTransit(st) {
   const q = st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
@@ -1306,24 +1312,11 @@ const conv = stage({
         } else orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
       }
     }
-    if (this.phase === 'closing') {
-      const grow = clamp((1 - this.k) / 0.25, 0, 1);
-      if (grow > 0) {
-        const ringR = 16 + 22 * grow;
-        ctx.save();
-        ctx.globalAlpha = 0.22 + 0.7 * grow;
-        ctx.strokeStyle = COL.cold; ctx.lineWidth = 1.25 + 2 * grow;
-        ctx.beginPath();
-        points.forEach((p, i) => {
-          const q = project(p), mag = Math.hypot(q[0], q[1]), pad = 8 + 16 * grow;
-          const scale = mag > 0.5 ? (mag * sc + pad) / (mag * sc) : 1;
-          const x = cx + q[0] * sc * scale, y = cy + q[1] * sc * scale;
-          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-        });
-        ctx.closePath(); ctx.stroke();
-        points.forEach(p => { const q = project(p); ctx.beginPath(); ctx.arc(cx + q[0] * sc, cy + q[1] * sc, ringR, 0, TAU); ctx.stroke(); });
-        ctx.restore(); ctx.globalAlpha = 1;
-      }
+    const forming = throatFormingAmount(this);
+    if (forming > 0) {
+      // The heat camera sees the convergence cold, as the lesson measures: the glow is darker than the sky there.
+      orbGlow(cx, cy, sc, points.map(project), { ring: 16 + 22 * forming, pad: 8 + 16 * forming, alpha: .22 + .7 * forming, width: 1.25 + 2 * forming, colour: th ? COL.void : COL.cold });
+      label('throat forming', cx, 44, COL.cold, 'center', W < 420 ? 10 : 12);
     }
     if (flashing) {
       const s = Math.sin(Math.PI * this.q), R = (open.w / 2) * (0.4 + s) * sc;
@@ -1339,28 +1332,6 @@ const conv = stage({
         g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, `rgba(255,255,255,${reduced ? 0.6 : 0.9})`); g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, TAU); ctx.fill();
       }
-      // Juice only: a mark along the formation path. Reduced motion keeps it static, and it is not the only cue.
-      ctx.save();
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (reduced) {
-        for (let i = 0; i < 3; i++) {
-          const a = -Math.PI / 2 + i * TAU / 3;
-          ctx.moveTo(cx + Math.cos(a) * 50, cy + Math.sin(a) * 50);
-          ctx.lineTo(cx + Math.cos(a) * 82, cy + Math.sin(a) * 82);
-        }
-      } else {
-        const reach = 28 + 34 * Math.sin(Math.PI * this.q);
-        points.forEach(p => {
-          const q = project(p), mag = Math.hypot(q[0], q[1]) || 1;
-          ctx.moveTo(cx + q[0] / mag * 20, cy + q[1] / mag * 20);
-          ctx.lineTo(cx + q[0] / mag * (20 + reach), cy + q[1] / mag * (20 + reach));
-        });
-      }
-      ctx.lineWidth = reduced ? 4.5 : 6; ctx.strokeStyle = 'rgba(8,12,20,.8)'; ctx.stroke();
-      ctx.lineWidth = reduced ? 2 : 2.75; ctx.strokeStyle = COL.warm; ctx.stroke();
-      ctx.restore(); ctx.lineCap = 'butt';
-      label('snap along the path', cx, 44, th ? COL.ink : COL.warm, 'center', W < 420 ? 10 : 12);
       label('Slowed for viewing', cx, H - 40, th ? COL.muted : COL.ink, 'center', W < 400 ? 9 : 11);
     }
     if (gone) label('nothing warm is left where it was', cx, cy + 4, COL.muted, 'center');
@@ -1371,9 +1342,10 @@ const conv = stage({
     if (this.view === 'transit') return `Transit diagram: the airliner keeps flying forward and only its path changes, passing into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing. No destination.`;
     const view = this.view === 'thermal' ? 'Thermal view from the side' : 'Visible view from above';
     if (this.phase === 'gone') return `${view}: the airliner is gone, leaving open sky.`;
-    if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner. A snap runs along the path.`;
-    if (this.phase === 'closing' && this.k < 0.999) return `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size. The field around them is growing.`;
-    return `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size.`;
+    if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner.`;
+    const orbs = `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size.`;
+    const ring = this.view === 'thermal' ? (reduced ? 'a steady dark ring, colder than the sky, surrounds' : 'a dark ring, colder than the sky, grows round') : (reduced ? 'a steady glow surrounds' : 'a glow grows round');
+    return throatFormingAmount(this) > 0 ? `${orbs} The throat is forming as the triangle closes, and ${ring} the orbs.` : orbs;
   }
 }, { phase: 'orbit', k: 1, q: 0, ang: 0, tumble: 0, startAng: 0, startTumble: 0, view: 'thermal', msg: '' });
 

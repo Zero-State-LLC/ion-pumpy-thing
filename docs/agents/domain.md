@@ -47,6 +47,7 @@ The game is the inline script in `index.html`; tests reach it through `window.__
 - **Readiness**: `missionReadiness()` and `readyToAdvance()`.
 - **Learning run** / **Timed practice**: `mode === 'learn'` / `mode === 'challenge'`.
 - **Practice board**: stored under `scores-v2`; available only inside a Claude artifact with database access.
+- **Saved run**: stored under `RUN_KEY` (`ipt-run-v2`), written by `snapshot()` and checked by `validSnapshot()` before `restore()`.
 - **Source revision**: `SOURCE_REVISION`.
 
 ## Use the glossary's vocabulary

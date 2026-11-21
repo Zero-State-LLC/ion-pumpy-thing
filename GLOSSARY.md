@@ -17,6 +17,10 @@ The panel that shows a lesson's source section, notes and cited papers. Opening 
 **Ledger**:
 The closing screen that traces each link of the chain to its source label.
 
+**Saved run**:
+A run's progress, kept on the player's device and resumed on reload. A changed source revision discards it.
+_Avoid_: save file, checkpoint
+
 **Readiness**:
 The per-system checks (Plasma, Confinement, Fuel, Formation, Throat) that must hold before the player can advance. A step can be done without its readiness check being ok.
 
@@ -58,7 +62,7 @@ The 4orbs narrative, taken as the game's premise.
 A simplification made for play.
 
 **Source revision**:
-The version of the sources a save was made against. A changed source revision starts a new run instead of resuming the save.
+The version of the sources a saved run was made against. A changed source revision starts a new run instead of resuming the saved run.
 
 ## Physics in play
 

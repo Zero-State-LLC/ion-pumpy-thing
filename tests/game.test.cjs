@@ -73,6 +73,20 @@ function prepare(lab) {
   lab.S.unlocked = 5;
 }
 
+// A saved run as a returning player's browser holds it: the fixture goes into
+// storage before the game starts and loads through the normal startup path.
+// Fixtures leave out the source revision; the current one is stamped in, so a
+// source update doesn't invalidate them. A fixture that sets its own keeps it.
+let currentRevision;
+function readSavedRun(name) {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', `${name}.json`), 'utf8'));
+}
+function bootFromSavedRun(fixture) {
+  const saved = typeof fixture === 'string' ? readSavedRun(fixture) : fixture;
+  currentRevision ??= boot().lab.SOURCE_REVISION;
+  return boot(new Map([['ipt-run-v2', JSON.stringify({ sourceRevision: currentRevision, ...saved })]]));
+}
+
 test('sound settings restore without restoring autoplay or changing the experiment', () => {
   const storage = new Map([['ion-pumpy-audio-v1', JSON.stringify({ volume: .2, ambience: .7, pulse: false, on: true })]]);
   const { lab, ids } = boot(storage);
@@ -178,10 +192,41 @@ test('neutron exposure accumulates and does not heal when fuel changes', () => {
 });
 
 test('every current preparation condition gates the final mission', () => {
-  const { lab } = boot(); prepare(lab); assert.equal(lab.missionReady(), true);
-  for (const [index, key, value] of [[0, 'power', 0], [1, 'B', 0], [2, 'fuel', 'dt'], [3, 'T', 8], [4, 'assumed', false], [4, 'w', 10]]) {
-    prepare(lab); lab.STAGES[index][key] = value; assert.equal(lab.missionReady(), false, key);
+  const ready = bootFromSavedRun('ready-to-converge');
+  assert.equal(ready.ids.get('step-5').attributes['aria-current'], 'step');
+  assert.equal(ready.ids.get('cv-go').disabled, false);
+  assert.doesNotMatch(ready.ids.get('mission-checks').innerHTML, /retune required/);
+  const slide = (id, value) => ids => { ids.get(id).value = String(value); ids.get(id).oninput(); };
+  const retunes = [
+    [0, 'Plasma', slide('ig-power', 0)],
+    [1, 'Confinement', ids => { const pad = ids.get('ho-pad'); pad.onpointerdown({ clientX: 195, clientY: 292.5, pointerId: 1 }); pad.onpointerup(); }],
+    [2, 'Fuel', ids => ids.get('fu-dt').onclick()],
+    [3, 'Formation', slide('or-t', 8)],
+    [4, 'Throat', ids => ids.get('op-assume').onclick()],
+    [4, 'Throat', slide('op-w', 10)]
+  ];
+  for (const [step, system, retune] of retunes) {
+    const { ids } = bootFromSavedRun('ready-to-converge');
+    ids.get(`step-${step}`).onclick(); retune(ids); ids.get('step-5').onclick();
+    assert.equal(ids.get('cv-go').disabled, true, system);
+    assert.match(ids.get('mission-checks').innerHTML, new RegExp(`${system}: retune required`), system);
   }
+});
+
+test('a saved run the game would reject starts a fresh run instead', () => {
+  const saved = readSavedRun('ready-to-converge');
+  saved.stages[3].values.T = 9; // the lap time slider stops at 8 s
+  const { ids } = bootFromSavedRun(saved);
+  assert.equal(ids.get('step-0').attributes['aria-current'], 'step');
+  assert.equal(ids.get('step-5').attributes['aria-disabled'], 'true');
+});
+
+test('a completed saved run reopens on its replay', () => {
+  const { ids } = bootFromSavedRun('completed-run');
+  assert.equal(ids.get('step-5').attributes['aria-current'], 'step');
+  assert.equal(ids.get('cv-go').textContent, 'Replay the sequence');
+  assert.equal(ids.get('cv-replay').hidden, false);
+  assert.equal(ids.get('cv-scrub').disabled, false);
 });
 
 test('past mastery cannot advance a currently invalid throat', () => {

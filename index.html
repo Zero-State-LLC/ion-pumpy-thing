@@ -625,39 +625,50 @@ const ignite = stage({
 
 /* ───────── Step 2: Hold ───────── */
 const MU0 = 4e-7 * Math.PI;
-// Cusp-hole angle is a function of beta only, so reduced motion does not flicker.
-function cuspLeak(beta) {
-  const closed = beta >= 0.75 && beta <= 1;
-  if (closed) return { closed, gap: 0.09 + 0.03 * (1 - beta) };
-  if (!(beta > 0)) return { closed: false, gap: 0.42 };
-  const over = beta > 1 ? beta - 1 : 0.75 - beta;
-  return { closed: false, gap: Math.min(0.42, 0.28 + 0.05 * over) };
+// The Hold step's goal, beta from 0.75 to 1. Only inside it do the cusp leaks close,
+// the six-second lock count, the readout say balanced and Confinement readiness hold.
+const BETA_BAND = { low: 0.75, high: 1 };
+const inBetaBand = beta => beta >= BETA_BAND.low && beta <= BETA_BAND.high;
+// The size a plasma ball settles to at a steady beta, against its starting size: blown
+// out past beta one, where the plasma overpowers the field, and otherwise squeezed
+// smaller as the field grows.
+const settledBallSize = beta => beta > 1 ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
+// The six cusp leaks show the lesson's claim (Park et al. 2015): near beta one the cusp
+// leaks close. Tight inside the beta band; open below or above it, and with the coils
+// off. Each leak's opening, as a half-angle in radians, follows current beta only and
+// widens the further beta is outside the band (coils off: an infinite beta, fully open).
+function cuspLeaks(beta) {
+  if (inBetaBand(beta)) return { closed: true, halfAngle: 0.09 + 0.03 * (BETA_BAND.high - beta) };
+  const outsideBy = isFinite(beta) ? (beta > BETA_BAND.high ? beta - BETA_BAND.high : BETA_BAND.low - beta) : Infinity;
+  return { closed: false, halfAngle: Math.min(0.42, 0.28 + 0.05 * outsideBy) };
 }
-function drawCuspLeaks(bx, cy, rr, beta) {
-  const leak = cuspLeak(beta), edge = Math.max(rr * 1.02, 6), mouth = edge + rr * (leak.closed ? 0.16 : 0.68);
+// The field's edge round a ball of radius `ballR`, broken at six cusps; plasma plumes out
+// of each leak. Returns whether the cusp leaks are closed.
+function drawCuspLeaks(bx, cy, ballR, beta) {
+  const { closed, halfAngle: half } = cuspLeaks(beta);
+  const edgeR = Math.max(ballR * 1.02, 6), plumeR = edgeR + ballR * (closed ? 0.16 : 0.68);
   ctx.save();
-  ctx.strokeStyle = leak.closed ? COL.cold : COL.hot;
-  ctx.lineWidth = leak.closed ? 2 : 1.25;
-  ctx.globalAlpha = leak.closed ? 0.95 : 0.45;
+  ctx.strokeStyle = closed ? COL.cold : COL.hot;
+  ctx.lineWidth = closed ? 2 : 1.25;
+  ctx.globalAlpha = closed ? 0.95 : 0.45;
   for (let i = 0; i < 6; i++) {
     const a = -Math.PI / 2 + i * TAU / 6;
-    ctx.beginPath(); ctx.arc(bx, cy, edge, a + leak.gap, a + TAU / 6 - leak.gap); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, cy, edgeR, a + half, a + TAU / 6 - half); ctx.stroke();
   }
-  ctx.lineWidth = leak.closed ? 1.25 : 2.5;
-  ctx.globalAlpha = leak.closed ? 0.75 : 0.9;
-  ctx.fillStyle = leak.closed ? COL.cold : COL.hot;
+  ctx.lineWidth = closed ? 1.25 : 2.5;
+  ctx.globalAlpha = closed ? 0.75 : 0.9;
+  ctx.fillStyle = closed ? COL.cold : COL.hot;
   for (let i = 0; i < 6; i++) {
     const a = -Math.PI / 2 + i * TAU / 6;
     ctx.beginPath();
-    ctx.moveTo(bx + Math.cos(a - leak.gap) * edge, cy + Math.sin(a - leak.gap) * edge);
-    ctx.lineTo(bx + Math.cos(a - leak.gap) * mouth, cy + Math.sin(a - leak.gap) * mouth);
-    ctx.arc(bx, cy, mouth, a - leak.gap, a + leak.gap);
-    ctx.lineTo(bx + Math.cos(a + leak.gap) * edge, cy + Math.sin(a + leak.gap) * edge);
+    ctx.moveTo(bx + Math.cos(a - half) * edgeR, cy + Math.sin(a - half) * edgeR);
+    ctx.lineTo(bx + Math.cos(a - half) * plumeR, cy + Math.sin(a - half) * plumeR);
+    ctx.arc(bx, cy, plumeR, a - half, a + half);
+    ctx.lineTo(bx + Math.cos(a + half) * edgeR, cy + Math.sin(a + half) * edgeR);
     ctx.closePath(); ctx.fill(); ctx.stroke();
   }
   ctx.restore();
-  ctx.globalAlpha = 1;
-  return leak.closed;
+  return closed;
 }
 const hold = stage({
   name: 'Hold', title: 'Keep the ball together',
@@ -725,13 +736,14 @@ const hold = stage({
       this.B = clamp(this.B + (Bt - this.B) * Math.min(1, dt * 3), 0, 1);
     }
     const pm = this.pm = this.B * this.B / (2 * MU0) / 1000, beta = this.beta = pm > 0 ? p / pm : Infinity;
-    const leak = beta > 1, before = this.lock;
+    // Past beta one the plasma overpowers the field and spills out (the readout's "leaking").
+    const overpowered = beta > 1, before = this.lock;
     let missed = false;
     this.x += (this.push(t) + this.trim * 1.2 * clamp(this.B / 0.3, 0, 1)) * dt;
     if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; missed = true; if (dt > 0) snd.play('wall-loss'); }
     this.hit = Math.max(0, this.hit - dt);
     const centred = Math.abs(this.x) < 0.45;
-    this.lock = !leak && beta >= 0.75 && centred ? Math.min(6, this.lock + dt) : 0;
+    this.lock = inBetaBand(beta) && centred ? Math.min(6, this.lock + dt) : 0;
     if (before >= 1 && this.lock === 0) missed = true;
     if (missed && !this.done) { this.fails++; if (this.fails === 3 && this.paintAssist) this.paintAssist(); }
     if (this.lock >= 6) {
@@ -740,19 +752,18 @@ const hold = stage({
       complete(this);
       if (this.paintAssist) this.paintAssist();
     }
-    if (dt > 0 && leak) snd.play('particle-leak', { level: .45 });
+    if (dt > 0 && overpowered) snd.play('particle-leak', { level: .45 });
     snd.bed('field-bed', { level: .3 + this.B * .5, brightness: 900 + this.B * 2800 });
-    const target = leak ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
-    this.size += (target - this.size) * Math.min(1, dt * 5);
-    const out = leak ? clamp(beta - 1, 0.15, 3) * 1.6 : 0;
+    this.size += (settledBallSize(beta) - this.size) * Math.min(1, dt * 5);
+    const spill = overpowered ? clamp(beta - 1, 0.15, 3) * 1.6 : 0;
     this.parts.forEach(q => {
       q.a += q.w * dt;
-      if (leak) { q.r += out * dt * (0.4 + q.r); if (q.r > 3.4) q.r = Math.sqrt(Math.random()) * 0.9; }
+      if (overpowered) { q.r += spill * dt * (0.4 + q.r); if (q.r > 3.4) q.r = Math.sqrt(Math.random()) * 0.9; }
       else if (q.r > 1) q.r = Math.max(0.2, q.r - dt * 2.5);
     });
     const kn = $('#ho-knob'); if (kn) { kn.style.left = (this.trim + 1) * 50 + '%'; kn.style.top = (1 - this.B) * 100 + '%'; }
     set('ho-b', this.B.toFixed(2) + ' T<small>plasma at ' + fmt(p) + ' kPa</small>');
-    set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (leak ? 'leaking' : beta < 0.75 ? 'held, over-built' : 'balanced') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
+    set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (inBetaBand(beta) ? 'balanced' : overpowered ? 'leaking' : 'held, over-built') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
     set('ho-x', this.hit > 0 ? 'hit the wall<small>cooled and lost</small>' : centred ? 'centred' : this.x < 0 ? 'drifting left<small>push right</small>' : 'drifting right<small>push left</small>');
     const mk = $('#ho-mark'); if (mk) mk.style.left = clamp((isFinite(beta) ? beta : 2) / 2, 0, 1) * 100 + '%';
     goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
@@ -782,7 +793,9 @@ const hold = stage({
     ctx.fillStyle = 'rgba(255,200,225,.9)';
     this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = clamp(1.2 - q.r / 3, 0.1, 1); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
     ctx.globalAlpha = 1;
-    const leaksClosed = drawCuspLeaks(bx, cy, rr, this.beta);
+    // The cusp leaks hug the ball. Under reduced motion they take the ball's settled size
+    // for the current beta at once, so they never grow or shrink as the ball eases.
+    const leaksClosed = drawCuspLeaks(bx, cy, reduced ? R0 * settledBallSize(this.beta) : rr, this.beta);
     viewTitle('PLASMA BALL BETWEEN COILS');
     // Bottom line, so the status does not cover the title on a narrow canvas.
     label(leaksClosed ? 'cusp leaks closed' : 'cusp leaks open', cx, this.B === 0 ? H - 34 : H - 16, leaksClosed ? COL.cold : COL.hot, 'center', W < 420 ? 10 : 12);
@@ -790,7 +803,7 @@ const hold = stage({
   },
   describe() {
     const pos = this.hit > 0 ? 'has hit the wall' : Math.abs(this.x) < 0.45 ? 'is centred' : this.x < 0 ? 'is drifting left' : 'is drifting right';
-    const leaks = this.beta >= 0.75 && this.beta <= 1 ? 'Cusp leaks are closed.' : 'Cusp leaks are open.';
+    const leaks = `The cusp leaks are ${cuspLeaks(this.beta).closed ? 'closed' : 'open'}.`;
     return this.B === 0 ? `Plasma ball between coils, coils off. ${leaks}` : `Plasma ball between coils at ${this.B.toFixed(2)} tesla, beta ${isFinite(this.beta) ? this.beta.toFixed(2) : 'infinite'}. The ball ${pos}. ${leaks}`;
   }
 }, { B: 0, trim: 0, x: 0, lock: 0, t: 0, size: 1, hit: 0, drag: false, assist: false, assisted: false, autopilot: false, fails: 0, parts: [] });
@@ -1124,7 +1137,7 @@ function missionReadiness() {
   const beta = hold.B > 0 ? pressure / (hold.B ** 2 / (2 * MU0) / 1000) : Infinity;
   return [
     { name: 'Plasma', stage: 0, ok: ignite.done && ignite.model().ok, detail: 'cold glow' },
-    { name: 'Confinement', stage: 1, ok: hold.done && hold.lock >= 6 && beta >= .75 && beta <= 1 && Math.abs(hold.x) < .45, detail: 'six-second hold captured' },
+    { name: 'Confinement', stage: 1, ok: hold.done && hold.lock >= 6 && inBetaBand(beta) && Math.abs(hold.x) < .45, detail: 'six-second hold captured' },
     { name: 'Fuel', stage: 2, ok: fuel.done && fuel.fuel === 'pb' && fuelActivity(fuel) >= .15, detail: 'hydrogen-boron active' },
     { name: 'Formation', stage: 3, ok: orbit.done && orbit.r >= 60 && orbit.r <= 70 && orbit.T >= 2.3 && orbit.T <= 2.7 && orbit.cam >= 123 && orbit.cam <= 141, detail: `${orbit.r} m / ${orbit.T.toFixed(1)} s / ${orbit.cam}°` },
     { name: 'Throat', stage: 4, ok: open.done && open.w >= 61 && open.assumed, detail: `${open.w} m / held by the orbs` }

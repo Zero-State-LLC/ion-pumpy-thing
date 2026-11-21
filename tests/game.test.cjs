@@ -142,20 +142,45 @@ const locked = (game, i) => game.ids.get(`step-${i}`).attributes['aria-disabled'
 const cues = game => game.sounds.filter(s => s.call === 'play').map(s => s.id);
 const soundMode = game => game.sounds.filter(s => s.call === 'mode').at(-1)?.id;
 const goalBar = game => Math.round(parseFloat(game.ids.get('goalbar').style.width) * 1e6) / 1e6;
+// The step's description, as a screen reader hears the canvas. It refreshes once a second of play.
+const description = game => game.ids.get('cv').attributes['aria-label'];
 // The drawn scene, to a millionth of a pixel.
 const scene = game => { game.drawing.length = 0; paint(game); return JSON.stringify(game.drawing, (k, v) => typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v); };
+// The words drawn on the canvas in the last frame painted.
+const drawnWords = game => game.drawing.filter(call => call[0] === 'fillText').map(call => call[1]);
 const ledgerScore = game => { click(game, 'step-6'); return text(game, 'panel').match(/<dt>Score<\/dt><dd>([^<]+)/)[1]; };
 
-// A player who reads the plasma pressure off the lesson keeps beta at 0.9 with
-// the coil pad, for `seconds` of play.
-function holdSteady(game, seconds, { trim = 0, from = 0 } = {}) {
+// A player who reads the plasma pressure off the lesson keeps beta at 0.9 (or at
+// `beta`) with the coil pad, for `seconds` of play. The field comes from the
+// lesson's formula, β = nkT / (B²/2μ₀); an infinite beta is the coils off.
+function holdSteady(game, seconds, { trim = 0, from = 0, beta = .9 } = {}) {
   let t = from;
   for (let i = 0; i < Math.round(seconds / .02); i++) {
     t += .02;
-    pad(game, t === .02 ? 'down' : 'move', { field: Math.sqrt(game.lab.plasmaPressure(t) * 1000 * 2 * 4e-7 * Math.PI / .9), trim });
+    pad(game, t === .02 ? 'down' : 'move', { field: Math.sqrt(game.lab.plasmaPressure(t) * 1000 * 2 * 4e-7 * Math.PI / beta), trim });
     game.lab.advance(.02);
   }
   return t;
+}
+// The Hold canvas, one frame: the cusp leaks and the words drawn. The field's
+// edge round the plasma ball is drawn as the innermost ring of arcs, and each gap
+// between neighbouring arcs is a cusp leak, given as the angle it leaves open
+// (radians), in order round the ring. Plasma plumes out of each leak to the next
+// ring of arcs out. `radius` is the edge's radius and `plume` how far past it the
+// plumes reach, in pixels. Whole circles (the ball, its particles) are neither.
+function holdView(game) {
+  game.drawing.length = 0; paint(game);
+  const turn = 2 * Math.PI, round = n => Math.round(n * 1e6) / 1e6, norm = a => round(((a % turn) + turn) % turn) % turn;
+  const rings = new Map();
+  for (const [call, x, y, r, from, to] of game.drawing) {
+    if (call !== 'arc' || to - from >= turn - 1e-9) continue;
+    const key = [x, y, r].map(round).join();
+    rings.set(key, { r, arcs: [...(rings.get(key)?.arcs || []), { start: norm(from), end: norm(from) + round(to - from) }] });
+  }
+  const [edge, plumes] = [...rings.values()].filter(ring => ring.arcs.length > 1).sort((a, b) => a.r - b.r);
+  const arcs = (edge?.arcs || []).sort((a, b) => a.start - b.start);
+  const leaks = arcs.map((arc, i) => norm(arcs[(i + 1) % arcs.length].start - arc.end));
+  return { leaks, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
 }
 // Converge: start closing in, then open the throat after `closing` seconds.
 function openAfter(game, closing) {
@@ -259,6 +284,56 @@ test('six uninterrupted seconds complete confinement and capture a stable experi
   holdSteady(game, 6.02);
   assert.equal(goalBar(game), 100); assert.match(text(game, 'goaltext'), /^Held near beta one/);
   assert.equal(game.ids.get('next').disabled, false); assert.equal(game.ids.get('pause').textContent, 'Resume');
+});
+
+// The Hold lesson (Lab physics, Park et al. 2015): near beta one "the cusp leaks
+// close". The band is the step's goal, beta 0.75 to 1.
+const IN_BAND = [['beta 0.76', .76], ['beta 0.9', .9], ['beta 0.99', .99]];
+const OUT_OF_BAND = [['beta 0.5', .5], ['beta 0.74', .74], ['beta 1.01', 1.01], ['beta 1.5', 1.5], ['coils off', Infinity]];
+
+test('the Hold canvas draws six cusp leaks, tight inside the beta band and open below it, above it or with the coils off', () => {
+  const game = bootFromSavedRun(savedRunOn(1)); let t = 0;
+  const viewAt = ([name, beta]) => {
+    t = holdSteady(game, .1, { beta, from: t });
+    assert.match(text(game, 'ho-beta'), isFinite(beta) ? new RegExp(`^${beta.toFixed(2)}<`) : /^∞/, `the player reads ${name}`);
+    return { name, ...holdView(game) };
+  };
+  const tight = IN_BAND.map(viewAt), open = OUT_OF_BAND.map(viewAt);
+  for (const { name, leaks } of [...tight, ...open]) assert.equal(leaks.length, 6, `six cusp leaks at ${name}`);
+  for (const { name, words } of tight) assert.ok(words.includes('cusp leaks closed'), `the canvas says the cusp leaks are closed at ${name}`);
+  for (const { name, words } of open) assert.ok(words.includes('cusp leaks open'), `the canvas says the cusp leaks are open at ${name}`);
+  const widestTight = Math.max(...tight.flatMap(v => v.leaks)), narrowestOpen = Math.min(...open.flatMap(v => v.leaks));
+  assert.ok(widestTight < narrowestOpen, `every tight leak (up to ${widestTight} rad) is narrower than every open one (from ${narrowestOpen} rad)`);
+});
+
+test('the Hold description says the cusp leaks are closed inside the beta band and open outside it', () => {
+  assert.match(description(bootFromSavedRun(savedRunOn(1))), /coils off\. The cusp leaks are open\.$/, 'a fresh hold, before the coils are on');
+  const game = bootFromSavedRun(savedRunOn(1)); let t = 0;
+  for (const [name, beta] of IN_BAND) {
+    t = holdSteady(game, 1.1, { beta, from: t });
+    assert.match(description(game), /The cusp leaks are closed\.$/, name);
+  }
+  for (const [name, beta] of OUT_OF_BAND) {
+    t = holdSteady(game, 1.1, { beta, from: t });
+    assert.match(description(game), /The cusp leaks are open\.$/, name);
+  }
+});
+
+test('under reduced motion the cusp leaks hold still and follow current beta only', () => {
+  // The whole drawn shape of the cusp leaks: their angles, the edge's radius and the plumes' length.
+  const shape = ({ leaks, radius, plume }) => ({ leaks, radius, plume });
+  const steady = bootFromSavedRun(savedRunOn(1), { reduced: true });
+  const t = holdSteady(steady, 1), first = holdView(steady);
+  holdSteady(steady, 1, { from: t }); const later = holdView(steady);
+  assert.deepEqual(shape(later), shape(first), 'beta held at 0.9 draws the same cusp leaks a second later');
+  assert.ok(later.words.includes('cusp leaks closed'), 'the closed state still shows');
+  // The same beta at the same moment, reached straight from a leaking ball.
+  const fromLeaking = bootFromSavedRun(savedRunOn(1), { reduced: true });
+  const u = holdSteady(fromLeaking, 1.98, { beta: 1.8 }), leaking = holdView(fromLeaking);
+  assert.ok(leaking.words.includes('cusp leaks open'), 'the open state still shows');
+  assert.ok(leaking.radius > later.radius && leaking.plume > later.plume, 'a leaking ball draws a wider edge and longer plumes');
+  holdSteady(fromLeaking, .02, { from: u });
+  assert.deepEqual(shape(holdView(fromLeaking)), shape(later), 'back at beta 0.9, the leaks, the edge and the plumes are at once as after a steady hold');
 });
 
 test('neutron exposure accumulates and does not heal when fuel changes', () => {
@@ -693,50 +768,14 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
 });
 
 
-function cuspArcs(drawing) {
-  return drawing.filter(call => call[0] === 'arc' && call[5] - call[4] < Math.PI * 2 - 1e-6);
-}
-function mouthShape(drawing) {
-  const arcs = cuspArcs(drawing), mouth = Math.max(...arcs.map(call => call[3]));
-  const sweep = Math.max(...arcs.filter(call => Math.abs(call[3] - mouth) < 1e-6).map(call => call[5] - call[4]));
-  return { mouth, sweep, count: arcs.length };
-}
 function fieldRadii(drawing) {
   return drawing.filter(call => call[0] === 'arc' && call[3] >= 12 && call[3] <= 32).map(call => call[3]);
 }
 function fieldArcs(drawing) {
   return drawing.filter(call => call[0] === 'arc' && call[3] >= 16 && call[3] <= 40);
 }
-function holdBeta(game) {
-  return Number.parseFloat(text(game, 'ho-beta'));
-}
 function resume(game) {
   if (game.ids.get('pause').textContent === 'Resume') click(game, 'pause');
-}
-function setCoil(game, field) {
-  pad(game, 'down', { field });
-  pad(game, 'up', { field });
-}
-function tuneHold(game, pattern, targetBeta) {
-  let bestField = null, bestScore = Infinity;
-  for (let field = 1; field >= -1e-9; field -= 0.002) {
-    setCoil(game, Math.max(0, field));
-    game.lab.advance(0);
-    const readout = text(game, 'ho-beta');
-    if (!pattern.test(readout)) continue;
-    const score = targetBeta == null ? 0 : Math.abs(holdBeta(game) - targetBeta);
-    if (score < bestScore) { bestScore = score; bestField = Math.max(0, field); }
-    if (targetBeta == null) break;
-  }
-  assert.notEqual(bestField, null, `hold readout should match ${pattern}`);
-  setCoil(game, bestField);
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  return {
-    shape: mouthShape(game.drawing),
-    aria: game.ids.get('cv').attributes['aria-label'],
-    readout: text(game, 'ho-beta')
-  };
 }
 function setOrbit(game, r, period, cam) {
   slide(game, 'or-r', r);
@@ -746,65 +785,6 @@ function setOrbit(game, r, period, cam) {
 function trianglePercent(game) {
   return Number.parseFloat(text(game, 'cv-k'));
 }
-
-test('hold cusp leaks close inside the beta band and open when beta leaves it', () => {
-  const game = bootFromSavedRun('ready-to-converge');
-  click(game, 'step-1'); resume(game);
-  const closed = tuneHold(game, /balanced/, 0.88);
-  assert.match(closed.readout, /balanced/);
-  assert.match(closed.aria, /Cusp leaks are closed/);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
-  assert.equal(closed.shape.count, 12);
-  assert.ok(closed.shape.sweep < 0.3);
-  const leaking = tuneHold(game, /leaking/);
-  assert.match(leaking.readout, /leaking/);
-  assert.match(leaking.aria, /Cusp leaks are open/);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
-  assert.equal(leaking.shape.count, 12);
-  assert.ok(leaking.shape.mouth > closed.shape.mouth);
-  assert.ok(leaking.shape.sweep > closed.shape.sweep);
-  const over = tuneHold(game, /over-built/);
-  assert.match(over.readout, /over-built/);
-  assert.match(over.aria, /Cusp leaks are open/);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
-  assert.equal(over.shape.count, 12);
-  assert.ok(over.shape.mouth > closed.shape.mouth);
-  assert.ok(over.shape.sweep > closed.shape.sweep);
-  setCoil(game, 0);
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  assert.match(text(game, 'ho-beta'), /coils off/);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /coils off/);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /Cusp leaks are open/);
-  const off = mouthShape(game.drawing);
-  assert.equal(off.count, 12);
-  assert.ok(off.mouth > closed.shape.mouth);
-  assert.ok(off.sweep > closed.shape.sweep);
-});
-
-test('hold cusp leaks keep a steady shape under reduced motion', () => {
-  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
-  click(game, 'step-1'); resume(game);
-  const closed = tuneHold(game, /balanced/, 0.88);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
-  assert.equal(closed.shape.count, 12);
-  game.drawing.length = 0; paint(game);
-  assert.deepEqual(mouthShape(game.drawing), closed.shape);
-  click(game, 'ho-assist');
-  game.lab.advance(4.2, 4.2);
-  const later = tuneHold(game, /balanced/, 0.88);
-  assert.ok(Math.abs(later.shape.sweep - closed.shape.sweep) < 1e-3);
-  assert.equal(later.shape.count, closed.shape.count);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
-  const open = tuneHold(game, /leaking/);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
-  assert.equal(open.shape.count, 12);
-  assert.ok(open.shape.mouth > later.shape.mouth + 5);
-  assert.ok(open.shape.sweep > later.shape.sweep);
-  const over = tuneHold(game, /over-built/);
-  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
-  assert.ok(over.shape.mouth > later.shape.mouth + 5);
-});
 
 test('orbit field builds when the formation sits on the tracked rings', () => {
   const game = bootFromSavedRun(savedRunOn(3));

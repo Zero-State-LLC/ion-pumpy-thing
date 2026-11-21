@@ -30,6 +30,8 @@ jobs:
         run: node --test tests/game.test.cjs tests/seo.test.cjs
       - name: Build Pages dist
         run: scripts/build-dist.sh
+      - name: Verify Pages dist
+        run: DIST_PREBUILT=1 node --test tests/dist.test.cjs
       - name: Require deploy secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -80,6 +82,9 @@ jobs:
       - name: Build Pages dist
         if: steps.creds.outputs.present == 'true'
         run: scripts/build-dist.sh
+      - name: Verify Pages dist
+        if: steps.creds.outputs.present == 'true'
+        run: DIST_PREBUILT=1 node --test tests/dist.test.cjs
       - name: Deploy preview
         if: steps.creds.outputs.present == 'true'
         id: preview

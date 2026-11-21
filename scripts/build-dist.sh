@@ -18,6 +18,8 @@ files=(
   assets/apple-touch-icon.png
   assets/favicon-64.png
   assets/og-image.png
+  audio.js
+  audio-cues.js
 )
 
 rm -rf "$dest"
@@ -38,3 +40,14 @@ for f in "${files[@]}"; do
   mkdir -p "$dest/$(dirname "$f")"
   cp -a "$root/$f" "$dest/$f"
 done
+
+# Sound effects referenced by audio-cues.js. Copy only the audio files,
+# not licence or source notes kept alongside them.
+shopt -s nullglob
+audio=("$root"/assets/audio/*.mp3)
+if [[ ${#audio[@]} -eq 0 ]]; then
+  echo "missing required files: assets/audio/*.mp3" >&2
+  exit 1
+fi
+mkdir -p "$dest/assets/audio"
+cp -a "${audio[@]}" "$dest/assets/audio/"

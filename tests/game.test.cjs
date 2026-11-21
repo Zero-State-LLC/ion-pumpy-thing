@@ -541,6 +541,194 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
 });
 
 
+function cuspArcs(drawing) {
+  return drawing.filter(call => call[0] === 'arc' && call[5] - call[4] < Math.PI * 2 - 1e-6);
+}
+function mouthShape(drawing) {
+  const arcs = cuspArcs(drawing), mouth = Math.max(...arcs.map(call => call[3]));
+  const sweep = Math.max(...arcs.filter(call => Math.abs(call[3] - mouth) < 1e-6).map(call => call[5] - call[4]));
+  return { mouth, sweep, count: arcs.length };
+}
+function coilField(lab, hold, beta) {
+  return Math.sqrt(lab.plasmaPressure(hold.t) * 1000 * 2 * 4e-7 * Math.PI / beta);
+}
+
+test('hold cusp leaks close inside the beta band and open when beta leaves it', () => {
+  const { lab, ids, drawing } = boot();
+  lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
+  assert.equal(lab.S.paused, true);
+  const sample = beta => {
+    h.B = coilField(lab, h, beta); h.update(0); drawing.length = 0; h.draw(); lab.advance(1);
+    return { shape: mouthShape(drawing), text: h.describe(), aria: ids.get('cv').attributes['aria-label'], readout: ids.get('ho-beta').innerHTML };
+  };
+  const closed = sample(0.9);
+  assert.match(closed.readout, /balanced/);
+  assert.match(closed.text, /Cusp leaks are closed/);
+  assert.match(closed.aria, /Cusp leaks are closed/);
+  assert.ok(drawing.some(call => call.includes('cusp leaks closed')));
+  assert.equal(closed.shape.count, 12);
+  assert.ok(closed.shape.sweep < 0.3);
+  const leaking = sample(1.8);
+  assert.match(leaking.readout, /leaking/);
+  assert.match(leaking.text, /Cusp leaks are open/);
+  assert.match(leaking.aria, /Cusp leaks are open/);
+  assert.ok(drawing.some(call => call.includes('cusp leaks open')));
+  assert.equal(leaking.shape.count, 12);
+  assert.ok(leaking.shape.mouth > closed.shape.mouth);
+  assert.ok(leaking.shape.sweep > closed.shape.sweep);
+  const over = sample(0.45);
+  assert.match(over.readout, /over-built/);
+  assert.match(over.text, /Cusp leaks are open/);
+  assert.ok(drawing.some(call => call.includes('cusp leaks open')));
+  assert.equal(over.shape.count, 12);
+  assert.ok(over.shape.mouth > closed.shape.mouth);
+  assert.ok(over.shape.sweep > closed.shape.sweep);
+  h.B = 0; h.update(0); drawing.length = 0; h.draw(); lab.advance(1);
+  assert.match(ids.get('ho-beta').innerHTML, /coils off/);
+  assert.match(h.describe(), /coils off/);
+  assert.match(h.describe(), /Cusp leaks are open/);
+  assert.match(ids.get('cv').attributes['aria-label'], /Cusp leaks are open/);
+  const off = mouthShape(drawing);
+  assert.equal(off.count, 12);
+  assert.ok(off.mouth > closed.shape.mouth);
+  assert.ok(off.sweep > closed.shape.sweep);
+});
+
+test('hold cusp leaks keep a steady shape under reduced motion', () => {
+  const { lab, drawing } = boot(new Map(), { reduced: true });
+  lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
+  h.B = coilField(lab, h, 0.88); h.update(0); drawing.length = 0; h.draw();
+  const closed = mouthShape(drawing);
+  assert.ok(drawing.some(call => call.includes('cusp leaks closed')));
+  assert.equal(closed.count, 12);
+  drawing.length = 0; h.draw();
+  assert.deepEqual(mouthShape(drawing), closed);
+  h.t = 4.2; h.B = coilField(lab, h, 0.88); h.update(0); drawing.length = 0; h.draw();
+  const later = mouthShape(drawing);
+  assert.ok(Math.abs(later.mouth - closed.mouth) < 1e-6);
+  assert.ok(Math.abs(later.sweep - closed.sweep) < 1e-6);
+  assert.equal(later.count, closed.count);
+  assert.ok(drawing.some(call => call.includes('cusp leaks closed')));
+  h.B = coilField(lab, h, 1.6); h.update(0); drawing.length = 0; h.draw();
+  const open = mouthShape(drawing);
+  assert.ok(drawing.some(call => call.includes('cusp leaks open')));
+  assert.equal(open.count, 12);
+  assert.ok(open.mouth > closed.mouth + 5);
+  assert.ok(open.sweep > closed.sweep);
+  h.B = coilField(lab, h, 0.5); h.update(0); drawing.length = 0; h.draw();
+  const over = mouthShape(drawing);
+  assert.ok(drawing.some(call => call.includes('cusp leaks open')));
+  assert.ok(over.mouth > closed.mouth + 5);
+});
+
+function fieldRadii(drawing) {
+  return drawing.filter(call => call[0] === 'arc' && call[3] >= 12 && call[3] <= 32).map(call => call[3]);
+}
+
+test('orbit field builds when the formation sits on the tracked rings', () => {
+  const { lab, drawing } = boot();
+  lab.S.unlocked = 3; lab.show(3); const o = lab.STAGES[3];
+  assert.equal(o.done, false);
+  o.r = 40; o.T = 6; o.cam = 40; o.hold = 0; o.update(0);
+  drawing.length = 0; o.draw();
+  assert.equal(fieldRadii(drawing).length, 0);
+  assert.match(o.describe(), /off the tracked rings/);
+  assert.doesNotMatch(o.describe(), /field/);
+  o.r = 65; o.T = 2.5; o.cam = 132; o.hold = 0.3; o.done = false; o.update(0);
+  drawing.length = 0; o.draw();
+  const building = fieldRadii(drawing);
+  assert.equal(building.length, 6);
+  assert.match(o.describe(), /tracked rings/);
+  assert.match(o.describe(), /field is building/);
+  o.hold = 1.5; o.update(0); drawing.length = 0; o.draw();
+  const settled = fieldRadii(drawing);
+  assert.equal(settled.length, 6);
+  assert.ok(Math.min(...settled) > Math.max(...building));
+  assert.match(o.describe(), /settled field/);
+});
+
+test('reduced-motion orbit shows a settled field without a grow cycle', () => {
+  const { lab, drawing } = boot(new Map(), { reduced: true });
+  lab.S.unlocked = 3; lab.show(3); const o = lab.STAGES[3];
+  o.r = 65; o.T = 2.5; o.cam = 132; o.done = false; o.hold = 0.15; o.update(0);
+  drawing.length = 0; o.draw();
+  const early = fieldRadii(drawing);
+  assert.equal(early.length, 6);
+  assert.match(o.describe(), /settled field/);
+  const first = JSON.stringify(drawing);
+  drawing.length = 0; o.draw();
+  assert.equal(JSON.stringify(drawing), first);
+  o.ang += 1.4; o.tumble += 0.7; o.hold = 1.5; o.update(0);
+  drawing.length = 0; o.draw();
+  assert.deepEqual(fieldRadii(drawing), early);
+  const plain = boot(); plain.lab.S.unlocked = 3; plain.lab.show(3); const slow = plain.lab.STAGES[3];
+  slow.r = 65; slow.T = 2.5; slow.cam = 132; slow.done = false; slow.hold = 0.15; slow.update(0);
+  plain.drawing.length = 0; slow.draw();
+  assert.ok(early[0] > Math.max(...fieldRadii(plain.drawing)));
+});
+
+test('converge field grows while closing and the flash shows a snap along the path', () => {
+  const { lab, ids, drawing } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  const fieldArcs = () => drawing.filter(call => call[0] === 'arc' && call[3] >= 16 && call[3] <= 40);
+  ids.get('cv-go').onclick(); assert.equal(c.phase, 'closing');
+  c.k = 1; c.update(0); drawing.length = 0; c.draw();
+  assert.equal(fieldArcs().length, 0);
+  c.k = 0.9; c.update(0); drawing.length = 0; c.draw();
+  const early = fieldArcs().map(call => call[3]);
+  assert.equal(early.length, 3);
+  assert.match(c.describe(), /field around them is growing/);
+  c.k = 0.75; c.update(0); drawing.length = 0; c.draw();
+  const late = fieldArcs().map(call => call[3]);
+  assert.equal(late.length, 3);
+  assert.ok(Math.min(...late) > Math.max(...early));
+  ids.get('cv-visible').onclick(); drawing.length = 0; c.draw();
+  assert.equal(fieldArcs().length, 3);
+  assert.ok(Math.min(...fieldArcs().map(call => call[3])) > Math.max(...early));
+  ids.get('cv-thermal').onclick(); ids.get('cv-go').onclick();
+  assert.equal(c.phase, 'flash');
+  drawing.length = 0; c.draw();
+  assert.ok(drawing.some(call => call.includes('snap along the path')));
+  assert.match(c.describe(), /snap runs along the path/);
+  c.view = 'visible'; drawing.length = 0; c.draw();
+  assert.ok(drawing.some(call => call.includes('snap along the path')));
+});
+
+test('reduced-motion flash keeps a static aperture and a static path snap', () => {
+  const { lab, ids, drawing } = boot(new Map(), { reduced: true });
+  prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  ids.get('cv-go').onclick(); c.k = 0.75; ids.get('cv-go').onclick();
+  c.update(0.8); c.view = 'visible'; drawing.length = 0; c.draw();
+  assert.ok(c.q > 0.45 && c.q < 0.6);
+  assert.ok(drawing.some(call => call.includes('wormhole aperture')));
+  assert.ok(drawing.some(call => call.includes('snap along the path')));
+  assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
+  const first = JSON.stringify(drawing);
+  c.update(0.32); drawing.length = 0; c.draw();
+  assert.ok(c.q > 0.65 && c.q < 0.8);
+  assert.equal(JSON.stringify(drawing), first);
+  assert.ok(drawing.some(call => call.includes('wormhole aperture')));
+  assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
+});
+
+test('transit diagram says the airliner keeps flying forward and only the path changes', () => {
+  const { lab, ids, drawing } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  ids.get('cv-transit').onclick(); assert.equal(c.view, 'transit');
+  c.draw();
+  const note = ids.get('cv-view-note').innerHTML;
+  assert.match(note, /No destination/);
+  assert.match(note, /keeps flying forward/);
+  assert.match(note, /only its path changes/);
+  assert.match(note, /1\.6 seconds/);
+  assert.ok(drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
+  assert.ok(drawing.some(call => call.includes('Airliner keeps flying forward; only the path changes')));
+  assert.ok(drawing.some(call => call[0] === 'clip'));
+  assert.match(c.describe(), /keeps flying forward and only its path changes/);
+  assert.match(c.describe(), /No destination/);
+  assert.equal(lab.transitModel(0, 61).duration, 63.7 / 250);
+  assert.ok(Math.abs(lab.transitModel(0, 61).clearance - 0.05) < 1e-12);
+  assert.equal(lab.transitModel(1, 61).centreY + 63.7 / 2, 0);
+});
+
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
   for (const [mode, reduced, rate] of [['learn', false, .5], ['challenge', false, 1], ['challenge', true, .5]]) {
     const { lab, ids } = boot(new Map(), { reduced }); lab.restart(mode); prepare(lab); lab.show(5);

@@ -14,4 +14,4 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents
 
 ### Checks
 
-`npm test` (same as `node --test tests/*.test.cjs`) must pass before a PR. `npm run typecheck` checks the standalone scripts (`audio.js`, `audio-cues.js`, `ga4.js`); the inline game script in `index.html` is covered by the tests, not the type check.
+`npm test` (same as `node --test tests/*.test.cjs`) must pass before a PR. `npm run typecheck` runs `tsc` on the standalone scripts (`audio.js`, `audio-cues.js`, `ga4.js`): run `npm ci` first when you have network; without it, any TypeScript 5 or later on your PATH gives the same result. The inline game script in `index.html` is covered by the tests, not the type check. `npm run dev` serves the site at http://localhost:8080.

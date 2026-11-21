@@ -18,6 +18,21 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 File issues only into the user's own repo. Never file into `mattpocock/skills` (the repo these skills come from) unless the user owns it. In a fork, `gh` can default to the upstream parent, so before the first `gh issue create` of a session, check the target with `gh repo view --json nameWithOwner` and confirm it with the user if it is not their repo.
 
+## When `gh` refuses GraphQL
+
+`gh issue …` and `gh pr …` use GitHub's GraphQL API. Cloud Claude Code sessions refuse it with `HTTP 403: GitHub GraphQL is not available`. There, use the REST API through `gh api`, with `R=repos/Zero-State-LLC/ion-pumpy-thing`:
+
+- **Create an issue**: `gh api $R/issues -f title='...' -f body="$(cat body.md)" -f 'labels[]=ready-for-agent'` (repeat `labels[]` for each label). The response's `number` is the issue number and `id` its database id.
+- **Read an issue**: `gh api $R/issues/<n> --jq '{number, title, body, labels: [.labels[].name]}'`, and its comments with `gh api $R/issues/<n>/comments --jq '.[].body'`.
+- **List issues**: `gh api "$R/issues?state=open&labels=ready-for-agent&per_page=100" --jq '.[] | select(.pull_request | not) | {number, title, labels: [.labels[].name]}'`. This endpoint returns PRs too; the `select` drops them.
+- **Comment**: `gh api $R/issues/<n>/comments -f body='...'`
+- **Add a label**: `gh api $R/issues/<n>/labels -f 'labels[]=<label>'`. **Remove one**: `gh api -X DELETE $R/issues/<n>/labels/<label>`.
+- **Close**: comment first, then `gh api -X PATCH $R/issues/<n> -f state=closed`.
+- **Assign (claim)**: `gh api $R/issues/<n>/assignees -f 'assignees[]=<login>'`.
+- **Sub-issues and blocking**: the `gh api` commands under **Conventions** already use REST.
+- **Read a PR**: `gh api $R/pulls/<n>`, its diff with `gh api $R/pulls/<n> -H 'Accept: application/vnd.github.diff'`.
+- **Open a PR**: push the branch, then `gh api $R/pulls -f title='...' -f head='<branch>' -f base=main -f body="$(cat body.md)"`. Add `-F draft=true` for a draft.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
@@ -42,7 +57,7 @@ Read it as in **Read an issue** above.
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
+- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map` (REST: `-f 'labels[]=wayfinder:map'`, see **When `gh` refuses GraphQL**). The five `wayfinder:` labels exist on the repo.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (see **Make an issue a sub-issue of a parent**). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: see **Blocking** under Conventions.
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (see **Count open blockers**, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.

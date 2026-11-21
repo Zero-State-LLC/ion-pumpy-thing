@@ -1,39 +1,39 @@
 {
   "version": 2,
   "mode": "learn",
-  "stage": 3,
+  "stage": 0,
   "elapsed": 0,
   "misses": 0,
   "completion": null,
   "stages": [
     {
-      "done": true,
+      "done": false,
       "values": {
         "gas": "h",
-        "power": 60,
-        "p": 1,
+        "power": 15,
+        "p": 760,
         "hold": 0,
         "t": 0
       }
     },
     {
-      "done": true,
+      "done": false,
       "values": {
-        "B": 0.5806581302951808,
+        "B": 0,
         "trim": 0,
         "x": 0,
-        "lock": 6,
+        "lock": 0,
         "t": 0,
         "assist": false,
         "assisted": false
       }
     },
     {
-      "done": true,
+      "done": false,
       "values": {
-        "fuel": "pb",
-        "lt": 2.7781512503836434,
-        "hold": 3,
+        "fuel": "dt",
+        "lt": 0.3,
+        "hold": 0,
         "dose": 0
       }
     },
@@ -52,10 +52,10 @@
     {
       "done": false,
       "values": {
-        "w": 66,
+        "w": 10,
         "ld": 3,
         "la": 0,
-        "assumed": true,
+        "assumed": false,
         "view": "plates"
       }
     },

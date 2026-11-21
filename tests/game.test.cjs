@@ -37,7 +37,7 @@ function boot(storage = new Map(), options = {}) {
     set innerHTML(value) {
       for (const node of this.children) if (node.attributes.id) ids.delete(node.attributes.id);
       this._html = value; this.children = [];
-      for (const m of value.matchAll(/<[a-z][\w-]*\b([^>]*)>/g)) this.children.push(new Element(m[1]));
+      for (const m of value.matchAll(/<[a-z][\w-]*\b([^>]*)>([^<]*)/g)) { const el = new Element(m[1]); el.textContent = m[2]; this.children.push(el); }
     }
     get innerHTML() { return this._html || ''; }
     setAttribute(k, v) { this.attributes[k] = String(v); }
@@ -56,24 +56,23 @@ function boot(storage = new Map(), options = {}) {
     }
   }
   const root = new Element(); root.innerHTML = html.split('<script>')[0];
-  const document = { hidden: false, documentElement: root, querySelector: s => root.querySelector(s), getElementById: s => ids.get(s) || null, createElement: () => new Element(), addEventListener() {} };
-  const window = { addEventListener() {}, devicePixelRatio: 1 };
+  const document = { hidden: false, documentElement: root, querySelector: s => root.querySelector(s), getElementById: s => ids.get(s) || null, createElement: () => new Element(), listeners: {}, addEventListener(k, fn) { this.listeners[k] = fn; } };
+  const window = { listeners: {}, addEventListener(k, fn) { this.listeners[k] = fn; }, devicePixelRatio: 1 };
   const sandbox = { document, window, getComputedStyle: () => ({ getPropertyValue: () => '#123456' }), matchMedia: () => ({ matches: !!options.reduced }), ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frames.push(f), performance: { now: () => 0 }, localStorage: { getItem: key => { if (options.noStorage) throw Error('blocked'); return storage.get(key) || null; }, setItem: (key, value) => { if (options.noStorage) throw Error('blocked'); storage.set(key, value); } }, setTimeout() { return 1; }, clearTimeout() {}, console };
-  if (!options.noAudioScript) for (const file of ['audio-cues.js', 'audio.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), sandbox, { filename: file });
+  // Record every request the game makes of the sound engine, from the moment the page starts.
+  const sounds = [];
+  if (!options.noAudioScript) {
+    for (const file of ['audio-cues.js', 'audio.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), sandbox, { filename: file });
+    window.IonSound = class extends window.IonSound {
+      play(id, o) { sounds.push({ call: 'play', id, options: o }); return super.play(id, o); }
+      bed(id, o) { sounds.push({ call: 'bed', id, options: o }); return super.bed(id, o); }
+      setMode(mode) { sounds.push({ call: 'mode', id: mode }); return super.setMode(mode); }
+    };
+  }
   vm.runInNewContext(script, sandbox, { filename: 'index.html' });
-  return { lab: window.__lab, ids, document, storage, drawing, frames };
+  return { lab: window.__lab, ids, document, window, storage, drawing, frames, sounds };
 }
-function prepare(lab) {
-  const [ig, ho, fu, or, op] = lab.STAGES;
-  Object.assign(ig, { p: 1, power: 60, done: true });
-  Object.assign(ho, { t: 0, B: Math.sqrt(lab.plasmaPressure(0) * 1000 * 2 * 4e-7 * Math.PI / .9), x: 0, lock: 6, done: true });
-  Object.assign(fu, { fuel: 'pb', lt: Math.log10(600), hold: 3, done: true });
-  Object.assign(or, { r: 67, T: 2.6, cam: 134, done: true });
-  Object.assign(op, { w: 66, assumed: true, done: true });
-  lab.S.unlocked = 5;
-}
-
-// A saved run as a returning player's browser holds it: the fixture goes into
+// Saved runs, as a returning player's browser holds them. A fixture goes into
 // storage before the game starts and loads through the normal startup path.
 // Fixtures leave out the source revision; the current one is stamped in, so a
 // source update doesn't invalidate them. A fixture that sets its own keeps it.
@@ -81,215 +80,298 @@ let currentRevision;
 function readSavedRun(name) {
   return JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', `${name}.json`), 'utf8'));
 }
+// A saved run open on `step`: earlier steps done as in ready-to-converge, this
+// step and later ones untouched.
+function savedRunOn(step, edit = () => {}) {
+  const ready = readSavedRun('ready-to-converge'), fresh = readSavedRun('fresh-run');
+  const saved = { ...ready, stage: step, stages: ready.stages.map((s, i) => i < step ? s : fresh.stages[i]) };
+  edit(saved); return saved;
+}
 function bootFromSavedRun(fixture, options = {}) {
   const saved = typeof fixture === 'string' ? readSavedRun(fixture) : fixture;
   currentRevision ??= boot().lab.SOURCE_REVISION;
-  return boot(new Map([['ipt-run-v2', JSON.stringify({ sourceRevision: currentRevision, ...saved })]]), options);
+  const storage = options.storage || new Map();
+  storage.set('ipt-run-v2', JSON.stringify({ sourceRevision: currentRevision, ...saved }));
+  return boot(storage, options);
+}
+const lastSave = game => JSON.parse(game.storage.get('ipt-run-v2'));
+
+// What the player does. A control's own handler runs first; then, for controls
+// inside the step panel, the event bubbles to the panel, as in a browser.
+function matches(el, selector) {
+  return selector.split(',').map(s => s.trim()).some(s =>
+    s.startsWith('#') ? el.attributes.id === s.slice(1)
+    : s.startsWith('[') ? s.slice(1, -1) in el.attributes
+    : s === '.ctl' ? el.attributes.type === 'range' // every slider sits in a .ctl block
+    : false);
+}
+function bubble(game, type, el, event) {
+  const panel = game.ids.get('panel');
+  if (panel.children.includes(el) && panel.listeners[type]) panel.listeners[type]({ ...event, target: { ...el, closest: s => matches(el, s) ? el : null } });
+}
+function click(game, id) {
+  const el = game.ids.get(id), event = { detail: 1, currentTarget: el };
+  const result = el.onclick(event); bubble(game, 'click', el, event); return result;
+}
+function slide(game, id, value) {
+  const el = game.ids.get(id); el.value = String(value);
+  if (el.oninput) el.oninput({ target: el });
+  bubble(game, 'input', el, {});
+}
+function press(game, id, key) {
+  let prevented = 0; const event = { key, preventDefault() { prevented++; } };
+  game.ids.get(id).onkeydown(event); bubble(game, 'keydown', game.ids.get(id), event); return prevented;
+}
+// Drag the Hold step's coil pad: up raises the field, sideways trims the coils.
+function pad(game, kind, { field, trim = 0 }) {
+  const el = game.ids.get('ho-pad'), event = { clientX: (trim + 1) / 2 * 390, clientY: (1 - field) * 292.5, pointerId: 1 };
+  el['onpointer' + kind](event); if (kind === 'down') bubble(game, 'pointerdown', el, event);
+}
+function readSource(game, open) {
+  const panel = game.ids.get('panel'), card = panel.children.find(n => n.attributes.class === 'source-card');
+  card.matches = selector => selector === '.source-card'; card.open = open;
+  panel.listeners.toggle({ target: card });
+}
+const leave = game => game.window.listeners.pagehide();
+const paint = game => game.frames.at(-1)(0);
+
+// What the player sees and hears.
+const text = (game, id) => game.ids.get(id).innerHTML;
+const currentStep = game => [0, 1, 2, 3, 4, 5, 6].find(i => game.ids.get(`step-${i}`).attributes['aria-current'] === 'step');
+const locked = (game, i) => game.ids.get(`step-${i}`).attributes['aria-disabled'] === 'true';
+const cues = game => game.sounds.filter(s => s.call === 'play').map(s => s.id);
+const soundMode = game => game.sounds.filter(s => s.call === 'mode').at(-1)?.id;
+const goalBar = game => Math.round(parseFloat(game.ids.get('goalbar').style.width) * 1e6) / 1e6;
+// The drawn scene, to a millionth of a pixel.
+const scene = game => { game.drawing.length = 0; paint(game); return JSON.stringify(game.drawing, (k, v) => typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v); };
+const ledgerScore = game => { click(game, 'step-6'); return text(game, 'panel').match(/<dt>Score<\/dt><dd>([^<]+)/)[1]; };
+
+// A player who reads the plasma pressure off the lesson keeps beta at 0.9 with
+// the coil pad, for `seconds` of play.
+function holdSteady(game, seconds, { trim = 0, from = 0 } = {}) {
+  let t = from;
+  for (let i = 0; i < Math.round(seconds / .02); i++) {
+    t += .02;
+    pad(game, t === .02 ? 'down' : 'move', { field: Math.sqrt(game.lab.plasmaPressure(t) * 1000 * 2 * 4e-7 * Math.PI / .9), trim });
+    game.lab.advance(.02);
+  }
+  return t;
+}
+// Converge: start closing in, then open the throat after `closing` seconds.
+function openAfter(game, closing) {
+  click(game, 'cv-go'); game.lab.advance(closing); click(game, 'cv-go');
 }
 
 test('sound settings restore without restoring autoplay or changing the experiment', () => {
   const storage = new Map([['ion-pumpy-audio-v1', JSON.stringify({ volume: .2, ambience: .7, pulse: false, on: true })]]);
-  const { lab, ids } = boot(storage);
-  assert.equal(lab.snd.on, false); assert.equal(lab.snd.ac, null);
-  assert.equal(lab.snd.volume, .2); assert.equal(lab.snd.ambience, .7); assert.equal(lab.snd.pulse, false);
-  ids.get('sound-volume').oninput({ target: { value: '31' } });
+  const game = boot(storage);
+  assert.equal(game.ids.get('snd').textContent, 'Sound: off');
+  assert.equal(game.ids.get('sound-volume').attributes['aria-valuetext'], '20 percent');
+  assert.equal(game.ids.get('sound-ambience').attributes['aria-valuetext'], '70 percent');
+  assert.equal(game.ids.get('sound-pulse').checked, false);
+  game.ids.get('sound-volume').oninput({ target: { value: '31' } });
   assert.equal(JSON.parse(storage.get('ion-pumpy-audio-v1')).volume, .31);
-  assert.equal(lab.S.mode, 'learn'); assert.equal(lab.S.stage, 0);
+  assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true'); assert.equal(currentStep(game), 0);
 });
 
 test('a missing audio script leaves the full game playable', () => {
-  const { lab } = boot(new Map(), { noAudioScript: true });
-  lab.advance(.1); assert.equal(lab.snd.on, false); prepare(lab); assert.equal(lab.missionReady(), true);
-  lab.show(5); lab.advance(.1); assert.equal(lab.S.stage, 5);
+  const game = bootFromSavedRun('ready-to-converge', { noAudioScript: true });
+  game.lab.advance(.1); assert.equal(currentStep(game), 5); assert.equal(game.ids.get('cv-go').disabled, false);
+  click(game, 'cv-go'); game.lab.advance(1); assert.equal(text(game, 'cv-k'), '95 %');
 });
 
 test('timing cue fires on entry into the opening window, not each frame or a zero-dt redraw', () => {
-  const { lab } = boot(); prepare(lab); lab.show(5);
-  const cv = lab.STAGES[5], calls = []; lab.snd.play = id => calls.push(id);
-  cv.phase = 'closing'; cv.k = .8; lab.seedAudioState(); lab.advance(.4);
-  assert.equal(calls.filter(id => id === 'timing-window').length, 1);
-  lab.advance(.01); assert.equal(calls.filter(id => id === 'timing-window').length, 1);
-  cv.k = .8; lab.seedAudioState(); cv.k = .78; lab.advance(0);
-  assert.equal(calls.filter(id => id === 'timing-window').length, 1);
+  const game = bootFromSavedRun('ready-to-converge');
+  const windowCues = () => cues(game).filter(id => id === 'timing-window').length;
+  click(game, 'cv-go'); game.lab.advance(4); assert.equal(windowCues(), 0);
+  game.lab.advance(.4); assert.equal(windowCues(), 1);
+  game.lab.advance(.01); assert.equal(windowCues(), 1);
+  game.lab.advance(0); assert.equal(windowCues(), 1);
 });
 
 test('opening, completion and replay keep the finale audio gate silent immediately', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.show(5);
-  const cv = lab.STAGES[5], calls = []; lab.snd.play = id => calls.push(id);
-  cv.phase = 'closing'; cv.k = .75; lab.syncAudioMode();
-  ids.get('cv-go').onclick(); assert.equal(cv.phase, 'flash'); assert.equal(lab.snd.mode, 'finale');
-  lab.advance(2); assert.equal(cv.phase, 'gone'); assert.equal(lab.snd.mode, 'finale');
-  assert.equal(calls.includes('lesson-complete'), false);
-  ids.get('cv-go').onclick(); assert.equal(lab.snd.mode, 'finale');
-  ids.get('cv-scrub').value = 25; ids.get('cv-scrub').oninput(); lab.advance(0);
-  assert.equal(lab.snd.mode, 'finale');
+  const game = bootFromSavedRun('ready-to-converge');
+  openAfter(game, 5); assert.equal(game.ids.get('cv-go').textContent, 'Opening…'); assert.equal(soundMode(game), 'finale');
+  game.lab.advance(2); assert.equal(game.ids.get('cv-go').textContent, 'Replay the sequence'); assert.equal(soundMode(game), 'finale');
+  assert.equal(cues(game).includes('lesson-complete'), false);
+  click(game, 'cv-go'); assert.equal(soundMode(game), 'finale');
+  slide(game, 'cv-scrub', 25); game.lab.advance(0);
+  assert.equal(soundMode(game), 'finale');
 });
 
 test('source toggles and explicit pause change the sound gate without waiting for a frame', () => {
-  const { lab, ids } = boot(); lab.syncAudioMode(); assert.equal(lab.snd.mode, 'active');
-  const panel = ids.get('panel'), card = panel.children.find(n => n.attributes.class === 'source-card');
-  card.matches = selector => selector === '.source-card'; card.open = true;
-  panel.listeners.toggle({ target: card }); assert.equal(lab.snd.mode, 'reading');
-  card.open = false; panel.listeners.toggle({ target: card }); assert.equal(lab.snd.mode, 'active');
-  ids.get('pause').onclick(); assert.equal(lab.snd.mode, 'paused');
+  const game = boot(); assert.equal(soundMode(game), 'active');
+  readSource(game, true); assert.equal(soundMode(game), 'reading');
+  readSource(game, false); assert.equal(soundMode(game), 'active');
+  click(game, 'pause'); assert.equal(soundMode(game), 'paused');
 });
 
 test('stage restore is quiet and deliberate ledger navigation gets its own cue', () => {
-  const { lab } = boot(); const calls = []; lab.snd.play = id => calls.push(id);
-  lab.show(0); assert.deepEqual(calls, []);
-  lab.show(0, { user: true }); assert.deepEqual(calls, ['stage-enter']);
-  prepare(lab); lab.S.unlocked = 6; lab.show(6, { user: true }); assert.equal(calls.at(-1), 'ledger');
+  const game = bootFromSavedRun('ready-to-converge'); assert.equal(currentStep(game), 5);
+  assert.deepEqual(cues(game).filter(id => ['stage-enter', 'ledger'].includes(id)), []);
+  click(game, 'step-0'); assert.equal(cues(game).at(-1), 'stage-enter');
+  const done = bootFromSavedRun('completed-run'); click(done, 'step-6'); assert.equal(cues(done).at(-1), 'ledger');
 });
 
 test('boots in untimed learning mode and source cards precede controls', () => {
-  const { lab, ids } = boot();
-  lab.advance(10);
-  assert.equal(lab.S.mode, 'learn'); assert.equal(lab.S.elapsed, 0);
-  assert.equal(lab.tally().score, null);
-  assert.match(ids.get('panel').innerHTML, /<details class="source-card">/);
-  assert.match(ids.get('panel').innerHTML, /Sources checked/);
+  const game = boot();
+  game.lab.advance(10);
+  assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
+  assert.equal(text(game, 'hud-time'), 'Untimed');
+  assert.match(text(game, 'panel'), /<details class="source-card">/);
+  assert.match(text(game, 'panel'), /Sources checked/);
 });
 
 test('timed practice stops both physics and timer while paused, reading, or hidden', () => {
-  const { lab, ids, document } = boot(); lab.restart('challenge');
-  lab.advance(.1); assert.equal(lab.S.elapsed, .1);
-  const p = lab.STAGES[0].p;
-  const card = ids.get('panel').children.find(n => n.attributes.class === 'source-card'); card.open = true;
-  lab.advance(12); assert.equal(lab.S.elapsed, .1); assert.equal(lab.STAGES[0].p, p);
-  card.open = false; document.hidden = true; lab.advance(12); assert.equal(lab.S.elapsed, .1);
-  document.hidden = false; lab.S.paused = true; lab.advance(12); assert.equal(lab.S.elapsed, .1);
-  lab.S.paused = false; lab.advance(.2); assert.ok(Math.abs(lab.S.elapsed - .3) < 1e-9);
+  const game = boot(); click(game, 'mode-challenge');
+  for (let i = 0; i < 3; i++) press(game, 'ig-pump', ' '); // pumped down, the gas leaks back while play runs
+  game.lab.advance(1.5); assert.equal(text(game, 'hud-time'), '0:01');
+  const pressure = text(game, 'ig-p');
+  readSource(game, true); game.lab.advance(12); assert.equal(text(game, 'hud-time'), '0:01'); assert.equal(text(game, 'ig-p'), pressure);
+  readSource(game, false); game.document.hidden = true; game.document.listeners.visibilitychange();
+  game.lab.advance(12); assert.equal(text(game, 'hud-time'), '0:01'); assert.equal(text(game, 'ig-p'), pressure);
+  game.document.hidden = false; click(game, 'pause'); game.lab.advance(12); assert.equal(text(game, 'hud-time'), '0:01');
+  click(game, 'pause'); game.lab.advance(1); assert.equal(text(game, 'hud-time'), '0:02');
+  game.lab.advance(12); assert.notEqual(text(game, 'ig-p'), pressure, 'the gas leaks back once play resumes');
 });
 
 test('timed practice measures active wall time independently of the physics step cap', () => {
-  const { lab } = boot(); lab.restart('challenge'); lab.advance(.05, .5);
-  assert.equal(lab.S.elapsed, .5);
-  assert.equal(lab.STAGES[0].t, .05);
+  const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = 'challenge'; }));
+  click(game, 'cv-go'); game.lab.advance(.05, 1.5);
+  assert.equal(text(game, 'hud-time'), '0:01');
+  assert.equal(text(game, 'cv-k'), '100 %', 'physics moved 0.05 s, not 1.5 s');
 });
 
 test('confinement resets for low beta, high beta, or an off-centre ball', () => {
-  const { lab } = boot(); prepare(lab); const h = lab.STAGES[1];
-  h.B = 1; h.lock = 4; h.update(0); assert.equal(h.lock, 0);
-  h.B = .01; h.lock = 4; h.update(0); assert.equal(h.lock, 0);
-  prepare(lab); h.x = .6; h.lock = 4; h.update(0); assert.equal(h.lock, 0);
+  const overBuilt = bootFromSavedRun(savedRunOn(1)); click(overBuilt, 'ho-assist');
+  holdSteady(overBuilt, 3); assert.equal(goalBar(overBuilt), 50);
+  pad(overBuilt, 'move', { field: 1 }); overBuilt.lab.advance(.02); assert.equal(goalBar(overBuilt), 0);
+  const leaking = bootFromSavedRun(savedRunOn(1)); click(leaking, 'ho-assist');
+  holdSteady(leaking, 3); pad(leaking, 'move', { field: .01 }); leaking.lab.advance(.02); assert.equal(goalBar(leaking), 0);
+  const drifting = bootFromSavedRun(savedRunOn(1)); click(drifting, 'ho-assist');
+  const t = holdSteady(drifting, 3); click(drifting, 'ho-assist');
+  holdSteady(drifting, 2, { trim: 1, from: t });
+  assert.equal(goalBar(drifting), 0); assert.match(text(drifting, 'ho-x'), /drifting right|hit the wall/);
 });
 
 test('six uninterrupted seconds complete confinement and capture a stable experiment', () => {
-  const { lab } = boot(); lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
-  for (let i = 0; i < 301; i++) {
-    h.B = Math.sqrt(lab.plasmaPressure(h.t + .02) * 1000 * 2 * 4e-7 * Math.PI / .9);
-    h.trim = -h.push(h.t + .02) / 1.2; h.update(.02);
-  }
-  assert.equal(h.done, true); assert.equal(h.lock, 6); assert.equal(lab.S.paused, true);
+  const game = bootFromSavedRun(savedRunOn(1)); click(game, 'ho-assist');
+  holdSteady(game, 6.02);
+  assert.equal(goalBar(game), 100); assert.match(text(game, 'goaltext'), /^Held near beta one/);
+  assert.equal(game.ids.get('next').disabled, false); assert.equal(game.ids.get('pause').textContent, 'Resume');
 });
 
 test('neutron exposure accumulates and does not heal when fuel changes', () => {
-  const { lab } = boot(); const f = lab.STAGES[2]; f.lt = Math.log10(64);
-  f.update(1); assert.ok(f.dose > 0); const dose = f.dose;
-  f.fuel = 'pb'; f.lt = 0;
-  for (let i = 0; i < 1500; i++) f.update(1 / 60);
-  assert.equal(f.dose, dose); lab.restart(); assert.equal(f.dose, 0);
+  const game = bootFromSavedRun(savedRunOn(2));
+  slide(game, 'fu-t', 1.85); game.lab.advance(1);
+  const dose = game.ids.get('fu-dose').style.width; assert.notEqual(dose, '0%');
+  click(game, 'fu-pb'); slide(game, 'fu-t', 0);
+  for (let i = 0; i < 1500; i++) game.lab.advance(1 / 60);
+  assert.equal(game.ids.get('fu-dose').style.width, dose);
+  click(game, 'restart'); click(game, 'confirm-yes'); leave(game);
+  assert.equal(lastSave(game).stages[2].values.dose, 0);
 });
 
 test('every current preparation condition gates the final mission', () => {
   const ready = bootFromSavedRun('ready-to-converge');
-  assert.equal(ready.ids.get('step-5').attributes['aria-current'], 'step');
+  assert.equal(currentStep(ready), 5);
   assert.equal(ready.ids.get('cv-go').disabled, false);
-  assert.doesNotMatch(ready.ids.get('mission-checks').innerHTML, /retune required/);
-  const slide = (id, value) => ids => { ids.get(id).value = String(value); ids.get(id).oninput(); };
+  assert.doesNotMatch(text(ready, 'mission-checks'), /retune required/);
   const retunes = [
-    [0, 'Plasma', slide('ig-power', 0)],
-    [1, 'Confinement', ids => { const pad = ids.get('ho-pad'); pad.onpointerdown({ clientX: 195, clientY: 292.5, pointerId: 1 }); pad.onpointerup(); }],
-    [2, 'Fuel', ids => ids.get('fu-dt').onclick()],
-    [3, 'Formation', slide('or-t', 8)],
-    [4, 'Throat', ids => ids.get('op-assume').onclick()],
-    [4, 'Throat', slide('op-w', 10)]
+    [0, 'Plasma', game => slide(game, 'ig-power', 0)],
+    [1, 'Confinement', game => { pad(game, 'down', { field: 0 }); pad(game, 'up', { field: 0 }); }],
+    [2, 'Fuel', game => click(game, 'fu-dt')],
+    [3, 'Formation', game => slide(game, 'or-t', 8)],
+    [4, 'Throat', game => click(game, 'op-assume')],
+    [4, 'Throat', game => slide(game, 'op-w', 10)]
   ];
   for (const [step, system, retune] of retunes) {
-    const { ids } = bootFromSavedRun('ready-to-converge');
-    ids.get(`step-${step}`).onclick(); retune(ids); ids.get('step-5').onclick();
-    assert.equal(ids.get('cv-go').disabled, true, system);
-    assert.match(ids.get('mission-checks').innerHTML, new RegExp(`${system}: retune required`), system);
+    const game = bootFromSavedRun('ready-to-converge');
+    click(game, `step-${step}`); retune(game); click(game, 'step-5');
+    assert.equal(game.ids.get('cv-go').disabled, true, system);
+    assert.match(text(game, 'mission-checks'), new RegExp(`${system}: retune required`), system);
   }
 });
 
-test('a saved run the game would reject starts a fresh run instead', () => {
-  const saved = readSavedRun('ready-to-converge');
-  saved.stages[3].values.T = 9; // the lap time slider stops at 8 s
-  const { ids } = bootFromSavedRun(saved);
-  assert.equal(ids.get('step-0').attributes['aria-current'], 'step');
-  assert.equal(ids.get('step-5').attributes['aria-disabled'], 'true');
-});
-
 test('a completed saved run reopens on its replay', () => {
-  const { ids } = bootFromSavedRun('completed-run');
-  assert.equal(ids.get('step-5').attributes['aria-current'], 'step');
-  assert.equal(ids.get('cv-go').textContent, 'Replay the sequence');
-  assert.equal(ids.get('cv-replay').hidden, false);
-  assert.equal(ids.get('cv-scrub').disabled, false);
+  const game = bootFromSavedRun('completed-run');
+  assert.equal(currentStep(game), 5);
+  assert.equal(game.ids.get('cv-go').textContent, 'Replay the sequence');
+  assert.equal(game.ids.get('cv-replay').hidden, false);
+  assert.equal(game.ids.get('cv-scrub').disabled, false);
 });
 
 test('past mastery cannot advance a currently invalid throat', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.show(4); const op = lab.STAGES[4];
-  op.assumed = false; op.w = 1; lab.advance(0);
-  assert.equal(op.done, true); assert.equal(lab.readyToAdvance(4), false); assert.equal(ids.get('next').disabled, true);
+  const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-4');
+  click(game, 'op-assume'); slide(game, 'op-w', 1); game.lab.advance(0);
+  assert.match(game.ids.get('step-4').attributes.class, /\bdone\b/); assert.equal(game.ids.get('next').disabled, true);
 });
 
 test('finale uses the selected period and aborts when a prerequisite is revoked', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
-  ids.get('cv-go').onclick(); assert.equal(c.phase, 'closing');
-  const angle = c.ang; c.update(.1); assert.ok(Math.abs(c.ang - angle - 2 * Math.PI / 2.6 * .1) < 1e-9);
-  lab.STAGES[4].assumed = false; c.update(.1);
-  assert.equal(c.phase, 'orbit'); assert.equal(c.done, false); assert.equal(ids.get('cv-go').disabled, true);
+  // A whole number of laps leaves the formation where it started, so two lap
+  // times that both fit 2.6 s draw the same scene and a third does not.
+  const sceneAfterLaps = lapTime => {
+    const game = bootFromSavedRun(savedRunOn(5, d => { d.stages[3].values.T = lapTime; }));
+    click(game, 'pause'); game.lab.advance(2.6); return scene(game);
+  };
+  assert.equal(sceneAfterLaps(2.6), sceneAfterLaps(1.3)); assert.notEqual(sceneAfterLaps(2.6), sceneAfterLaps(2.4));
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'cv-go'); game.lab.advance(1); assert.equal(game.ids.get('cv-go').textContent, 'Open it now');
+  click(game, 'step-4'); click(game, 'op-assume'); click(game, 'step-5'); game.lab.advance(.1);
+  assert.equal(game.ids.get('cv-go').textContent, 'Start closing in'); assert.equal(game.ids.get('cv-go').disabled, true);
+  assert.equal(game.ids.get('cv-replay').hidden, true);
 });
 
 test('completed result stays frozen through retuning and reload', () => {
-  const { lab, ids } = boot(); lab.restart('challenge'); prepare(lab); lab.S.elapsed = 20; lab.show(5);
-  const c = lab.STAGES[5]; ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); c.update(1.6);
-  assert.equal(c.done, true); const result = JSON.stringify(lab.tally());
-  lab.STAGES[4].w = 100; lab.advance(10); assert.equal(JSON.stringify(lab.tally()), result);
-  const second = boot(); assert.equal(second.lab.restore(JSON.parse(JSON.stringify(lab.snapshot()))), true);
-  assert.equal(JSON.stringify(second.lab.tally()), result);
+  const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = 'challenge'; d.elapsed = 20; }));
+  openAfter(game, 2.5); game.lab.advance(1.6);
+  const score = ledgerScore(game);
+  click(game, 'step-4'); slide(game, 'op-w', 100); game.lab.advance(10); assert.equal(ledgerScore(game), score);
+  leave(game); const reloaded = boot(game.storage); assert.equal(ledgerScore(reloaded), score);
 });
 
 test('ordinary reload restores settings, exposure, mode, elapsed time, and paused state', () => {
-  const { lab } = boot(); lab.restart('challenge'); prepare(lab); lab.S.elapsed = 80; lab.STAGES[2].dose = .4; lab.show(4);
-  const saved = JSON.parse(JSON.stringify(lab.snapshot())); const second = boot(); assert.equal(second.lab.restore(saved), true);
-  assert.equal(second.lab.S.mode, 'challenge'); assert.equal(second.lab.S.elapsed, 80); assert.equal(second.lab.S.paused, true);
-  assert.equal(second.lab.STAGES[2].dose, .4); assert.equal(second.lab.STAGES[3].r, 67); assert.equal(second.lab.STAGES[4].assumed, true);
-  assert.equal(second.lab.missionReady(), true);
+  const saved = { ...readSavedRun('ready-to-converge'), stage: 4, mode: 'challenge', elapsed: 80 }; saved.stages[2].values.dose = .4;
+  const game = bootFromSavedRun(saved);
+  assert.equal(currentStep(game), 4); assert.equal(text(game, 'hud-time'), '1:20');
+  assert.equal(game.ids.get('mode-challenge').attributes['aria-pressed'], 'true'); assert.equal(game.ids.get('pause').textContent, 'Resume');
+  assert.match(text(game, 'goaltext'), /^Open\. Negative energy from the orbs/);
+  click(game, 'step-2'); assert.equal(game.ids.get('fu-dose').style.width, '40%');
+  click(game, 'step-3'); assert.equal(String(game.ids.get('or-r').value), '67');
+  click(game, 'step-5'); assert.equal(game.ids.get('cv-go').disabled, false);
 });
 
 test('startup automatically loads local progress and resets transient closing state', () => {
-  const { lab, storage } = boot(); lab.restart('challenge'); prepare(lab); lab.show(5);
-  lab.STAGES[5].phase = 'closing'; lab.STAGES[5].k = .8;
-  storage.set('ipt-run-v2', JSON.stringify(lab.snapshot()));
-  const reloaded = boot(storage);
-  assert.equal(reloaded.lab.S.stage, 5); assert.equal(reloaded.lab.S.paused, true);
-  assert.equal(reloaded.lab.STAGES[5].phase, 'orbit'); assert.equal(reloaded.lab.STAGES[5].k, 1);
-  assert.equal(reloaded.lab.missionReady(), true);
+  const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = 'challenge'; }));
+  click(game, 'cv-go'); game.lab.advance(1); assert.equal(text(game, 'cv-k'), '90 %'); leave(game);
+  const reloaded = boot(game.storage);
+  assert.equal(currentStep(reloaded), 5); assert.equal(reloaded.ids.get('pause').textContent, 'Resume');
+  assert.equal(reloaded.ids.get('cv-go').textContent, 'Start closing in'); assert.equal(text(reloaded, 'cv-k'), '100 %');
+  assert.equal(reloaded.ids.get('cv-go').disabled, false);
 });
 
 test('corrupt or incompatible saves are rejected without partly applying them', () => {
-  const { lab } = boot(); const good = JSON.parse(JSON.stringify(lab.snapshot()));
-  for (const mutate of [d => d.version = 1, d => d.sourceRevision = 'old', d => d.stage = 6, d => d.stages[0].values.power = '80', d => d.stages[0].values.p = -1, d => d.stages[4].values.assumed = 'true', d => d.elapsed = Infinity, d => d.stages[4].done = true]) {
-    const d = JSON.parse(JSON.stringify(good)); mutate(d); assert.equal(lab.restore(d), false);
-    assert.equal(lab.S.stage, 0);
+  for (const mutate of [d => d.version = 1, d => d.sourceRevision = 'old', d => d.stage = 7, d => d.stages[0].values.power = '80', d => d.stages[0].values.p = -1, d => d.stages[4].values.assumed = 'true', d => d.elapsed = -1, d => d.stages[2].done = false, d => d.stages[3].values.T = 9]) {
+    const saved = readSavedRun('ready-to-converge'); mutate(saved);
+    const game = bootFromSavedRun(saved);
+    assert.equal(currentStep(game), 0, String(mutate)); assert.equal(locked(game, 1), true, String(mutate));
+    assert.equal(String(game.ids.get('ig-power').value), '15', 'the saved drive power of 60 is not applied');
   }
 });
 
 test('blocked browser storage leaves the game playable and reports save limits', () => {
-  const { lab, ids } = boot(new Map(), { noStorage: true }); lab.advance(.1);
-  assert.match(ids.get('save-status').innerHTML, /cannot save/); assert.equal(lab.S.stage, 0);
+  const game = boot(new Map(), { noStorage: true }); game.lab.advance(.1);
+  assert.match(text(game, 'save-status'), /cannot save/); assert.equal(currentStep(game), 0);
 });
 
-test('unknown save fields cannot replace stage methods, content, or prototypes', () => {
-  const { lab } = boot(); const d = JSON.parse(JSON.stringify(lab.snapshot()));
-  const original = lab.STAGES[0].html;
-  d.stages[0].values.update = 'invalid'; d.stages[0].values.html = '<img src=x onerror=alert(1)>';
-  Object.defineProperty(d.stages[0].values, '__proto__', { value: { poisoned: true }, enumerable: true });
-  assert.equal(lab.restore(d), true); assert.equal(typeof lab.STAGES[0].update, 'function');
-  assert.equal(lab.STAGES[0].html, original); assert.equal(lab.STAGES[0].poisoned, undefined);
+test('unknown save fields cannot replace stage methods or content', () => {
+  const saved = readSavedRun('ready-to-converge');
+  saved.stages[0].values.update = 'invalid'; saved.stages[0].values.html = '<img src=x onerror=alert(1)>';
+  Object.defineProperty(saved.stages[0].values, '__proto__', { value: { poisoned: true }, enumerable: true });
+  const game = bootFromSavedRun(saved); assert.equal(currentStep(game), 5);
+  click(game, 'step-0'); assert.doesNotMatch(text(game, 'panel'), /<img src=x/);
+  assert.equal(String(game.ids.get('ig-power').value), '60');
+  click(game, 'pause'); assert.doesNotThrow(() => game.lab.advance(.1));
 });
 
 test('formation is a rigid equilateral triangle and cameras project one shared scene', () => {
@@ -300,26 +382,99 @@ test('formation is a rigid equilateral triangle and cameras project one shared s
   assert.equal(JSON.stringify(points), before); assert.notEqual(side[0][1], points[0][1]);
 });
 
+// Fuel activity against published thermal (Maxwellian) reaction rates (#22). The model
+// takes a temperature as log10 of keV, the scale of the Fuel step's temperature slider.
+// Deuterium + tritium: <σv> peaks at about 65 keV (US patent 11,744,002, fig. 3); the
+// NRL Plasma Formulary's rates at 50 and 100 keV (8.7 and 8.5 × 10⁻¹⁶ cm³/s; UWFDM-1268,
+// table 1) bracket it. Hydrogen + boron-11: "peaks at several hundred keV" (Mehlhorn et
+// al., "Path to Increasing p-B11 Reactivity via ps and ns Lasers", Laser and Particle
+// Beams). Each band is as wide as its sources allow, and no wider.
+const DT_PEAK_KEV = 65, DT_PEAK_BAND = [55, 75], PB_PEAK_BAND = [300, 900], KELVIN_PER_KEV = 1.16045e7;
+// Every position of the Fuel step's temperature slider, read from the slider itself.
+let sliderPositions;
+function temperatureSlider() {
+  if (!sliderPositions) {
+    const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-2');
+    const { attributes: a } = game.ids.get('fu-t');
+    const min = +a.min, step = +a.step, count = Math.round((+a.max - min) / step) + 1;
+    sliderPositions = Array.from({ length: count }, (_, i) => +(min + i * step).toFixed(6));
+  }
+  return sliderPositions;
+}
+function peakKeV(lab, fuel) {
+  const lo = temperatureSlider()[0], hi = temperatureSlider().at(-1);
+  let best = -1, bestLt = lo;
+  for (let lt = lo; lt <= hi; lt += .001) { const a = lab.fuelActivity({ fuel, lt }); if (a > best) { best = a; bestLt = lt; } }
+  return 10 ** bestLt;
+}
+const within = (x, [lo, hi]) => x >= lo && x <= hi;
+
+test('fuel activity peaks where the published thermal reaction rates peak', () => {
+  const { lab } = boot();
+  const dt = peakKeV(lab, 'dt'), pb = peakKeV(lab, 'pb');
+  assert.ok(within(dt, DT_PEAK_BAND), `deuterium + tritium peaks at ${dt.toFixed(0)} keV; published about ${DT_PEAK_KEV} keV`);
+  assert.ok(within(pb, PB_PEAK_BAND), `hydrogen + boron-11 peaks at ${pb.toFixed(0)} keV; published several hundred keV`);
+});
+
+test('deuterium + tritium is the more active fuel at cool temperatures', () => {
+  // The Fuel lesson (Lab physics): deuterium + tritium "lights at the lowest temperature".
+  // 1 keV is the bottom of the Fuel step's temperature slider.
+  const { lab } = boot();
+  for (const keV of [1, 10, 30]) {
+    const lt = Math.log10(keV);
+    assert.ok(lab.fuelActivity({ fuel: 'dt', lt }) > lab.fuelActivity({ fuel: 'pb', lt }), `${keV} keV`);
+  }
+});
+
+test('hydrogen + boron-11 passes its readiness check only far above the deuterium + tritium peak', () => {
+  // The Fuel lesson (Lab physics): hydrogen + boron-11 "needs far higher temperatures to burn",
+  // taken here as at least twice the published deuterium + tritium peak. Through the page:
+  // choose the fuel, set each slider position, read the temperature the player sees after a
+  // frame, then read the Fuel readiness check on Converge.
+  const game = bootFromSavedRun('ready-to-converge');
+  let coolestReady = null;
+  for (const position of temperatureSlider()) {
+    click(game, 'step-2'); click(game, 'fu-pb'); slide(game, 'fu-t', position); game.lab.advance(0);
+    const shown = text(game, 'fu-t-o');
+    click(game, 'step-5');
+    if (!/Fuel: retune required/.test(text(game, 'mission-checks'))) { coolestReady = shown; break; }
+  }
+  assert.ok(coolestReady, 'hydrogen + boron-11 passes its readiness check somewhere on the slider');
+  const [, n, unit] = coolestReady.match(/([\d.,]+) (million|billion) K/);
+  const kelvin = parseFloat(n.replace(/,/g, '')) * (unit === 'billion' ? 1e9 : 1e6);
+  assert.ok(kelvin >= 2 * DT_PEAK_KEV * KELVIN_PER_KEV, `ready from ${coolestReady}`);
+});
+
 test('plate controls change drawn geometry and the ideal-model energy magnitude', () => {
-  const { lab, drawing, ids } = boot(); prepare(lab); lab.show(4); const op = lab.STAGES[4];
-  op.ld = 2; op.la = 0; op.update(0); op.draw(); const first = JSON.stringify(drawing); const energy = ids.get('op-have').innerHTML;
-  drawing.length = 0; op.ld = 3; op.la = 4; op.update(0); op.draw();
-  assert.notEqual(JSON.stringify(drawing), first); assert.notEqual(ids.get('op-have').innerHTML, energy);
-  assert.ok(drawing.some(c => c.includes('CASIMIR PLATE EXPERIMENT')));
+  const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-4');
+  slide(game, 'op-d', 2); slide(game, 'op-a', 0); game.lab.advance(0);
+  game.drawing.length = 0; paint(game); const first = JSON.stringify(game.drawing), energy = text(game, 'op-have');
+  slide(game, 'op-d', 3); slide(game, 'op-a', 4); game.lab.advance(0);
+  game.drawing.length = 0; paint(game);
+  assert.notEqual(JSON.stringify(game.drawing), first); assert.notEqual(text(game, 'op-have'), energy);
+  assert.ok(game.drawing.some(c => c.includes('CASIMIR PLATE EXPERIMENT')));
 });
 
 test('all stages render finite canvas commands including reduced-motion finale and ledger', () => {
-  const { lab, ids } = boot(new Map(), { reduced: true }); prepare(lab);
-  for (let i = 0; i < 6; i++) { lab.show(i); lab.STAGES[i].draw(); }
-  const c = lab.STAGES[5]; ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); c.update(.4); c.draw();
-  c.view = 'visible'; c.draw(); c.update(1.6); lab.show(6); lab.STAGES[6].draw();
-  assert.match(ids.get('panel').innerHTML, /6 experiments complete/);
+  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
+  for (let i = 0; i < 6; i++) { click(game, `step-${i}`); paint(game); }
+  openAfter(game, 5); game.lab.advance(.4); paint(game);
+  click(game, 'cv-visible'); paint(game); game.lab.advance(1.6);
+  click(game, 'step-6'); paint(game);
+  assert.match(text(game, 'panel'), /6 experiments complete/);
 });
 
 test('scientific source cards use only the approved corrected-source pages', () => {
-  const { lab } = boot(); assert.equal(lab.SOURCES.length, 6);
-  for (const source of lab.SOURCES) assert.ok(['https://4orbs.com/the-vanishing/part-3-the-science/', 'https://4orbs.com/research/satellite-videos/measurements/'].includes(source.url));
-  assert.match(lab.SOURCE_REVISION, /corrected/);
+  const game = bootFromSavedRun('completed-run'), approved = ['https://4orbs.com/the-vanishing/part-3-the-science/', 'https://4orbs.com/research/satellite-videos/measurements/'];
+  let cards = 0;
+  for (let i = 0; i < 6; i++) {
+    click(game, `step-${i}`);
+    const links = [...text(game, 'panel').matchAll(/href="([^"]+)"[^>]*>4orbs: /g)].map(m => m[1]);
+    assert.equal(links.length, 1, `step ${i + 1} has one 4orbs source`); cards++;
+    assert.ok(approved.includes(links[0]), links[0]);
+  }
+  assert.equal(cards, 6);
+  assert.match(game.lab.SOURCE_REVISION, /corrected/);
   assert.doesNotMatch(html, /% of the best D-T rate|under 1 %/);
 });
 
@@ -339,205 +494,202 @@ test('transit units and geometry describe passage past an entrance, not travel t
 });
 
 test('transit diagram clips the aircraft at the entrance and exposes changing clearance', () => {
-  const { lab, ids, drawing } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
-  ids.get('cv-transit').onclick(); assert.equal(c.view, 'transit');
-  c.draw(); assert.ok(drawing.some(call => call[0] === 'clip'));
-  assert.ok(drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
-  const before = JSON.stringify(drawing);
-  lab.STAGES[4].w = 70; drawing.length = 0; c.update(0); c.draw();
-  assert.notEqual(JSON.stringify(drawing), before);
-  assert.match(ids.get('cv-clear').innerHTML, /4.55/);
-  assert.match(ids.get('cv-x').innerHTML, /0.255/);
-  assert.match(ids.get('cv-view-note').innerHTML, /No destination/);
-  assert.equal(ids.get('scale').hidden, true);
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'cv-transit'); assert.match(text(game, 'cv-view-note'), /No destination/);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call[0] === 'clip'));
+  assert.ok(game.drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
+  const before = JSON.stringify(game.drawing);
+  click(game, 'step-4'); slide(game, 'op-w', 70); click(game, 'step-5');
+  game.drawing.length = 0; paint(game);
+  assert.notEqual(JSON.stringify(game.drawing), before);
+  assert.match(text(game, 'cv-clear'), /4.55/);
+  assert.match(text(game, 'cv-x'), /0.255/);
+  assert.match(text(game, 'cv-view-note'), /No destination/);
+  assert.equal(game.ids.get('scale').hidden, true);
 });
 
 test('replay cannot bypass the mission and scrub events keep completed playback paused', () => {
-  const { lab, ids } = boot(); lab.restart('challenge'); prepare(lab); lab.show(5); const c = lab.STAGES[5];
-  const slider = ids.get('cv-scrub');
-  slider.value = 100; slider.oninput();
-  assert.equal(c.done, false); assert.equal(c.phase, 'orbit');
-  assert.equal(slider.disabled, true); assert.equal(ids.get('cv-replay').hidden, true);
-  ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); lab.advance(1.6);
-  assert.equal(c.done, true); assert.equal(lab.S.paused, true);
-  const result = JSON.stringify(lab.tally()), elapsed = lab.S.elapsed;
-  assert.equal(ids.get('cv-replay').hidden, false);
+  const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = 'challenge'; }));
+  const slider = game.ids.get('cv-scrub');
+  slide(game, 'cv-scrub', 100);
+  assert.equal(game.ids.get('cv-go').textContent, 'Start closing in');
+  assert.equal(slider.disabled, true); assert.equal(game.ids.get('cv-replay').hidden, true);
+  openAfter(game, 2.5); game.lab.advance(1.6);
+  assert.equal(game.ids.get('pause').textContent, 'Resume'); assert.equal(game.ids.get('cv-replay').hidden, false);
+  const score = ledgerScore(game); click(game, 'step-5'); const time = text(game, 'hud-time');
   for (const q of [0, 25, 75, 100, 50]) {
-    slider.value = q; slider.oninput();
-    // Native input bubbles to the panel after the control's own handler.
-    ids.get('panel').listeners.input({ target: { closest: selector => ['.ctl', '#cv-scrub'].includes(selector) ? slider : null } });
-    lab.advance(5);
-    assert.equal(c.q, q / 100); assert.equal(lab.S.paused, true);
-    assert.equal(lab.S.elapsed, elapsed); assert.equal(JSON.stringify(lab.tally()), result);
+    slide(game, 'cv-scrub', q); game.lab.advance(5);
+    assert.equal(text(game, 'cv-scrub-o'), `${q} %`); assert.equal(game.ids.get('pause').textContent, 'Resume');
+    assert.equal(text(game, 'hud-time'), time);
   }
-  assert.equal(ids.get('cv-go').textContent, 'Play from here');
-  ids.get('cv-go').onclick(); assert.equal(lab.S.paused, false);
-  lab.advance(.8); assert.equal(c.phase, 'gone'); assert.equal(lab.S.paused, true);
-  assert.equal(JSON.stringify(lab.tally()), result);
-  ids.get('cv-go').onclick(); lab.advance(.4); assert.equal(c.q, .25);
-  assert.equal(lab.S.elapsed, elapsed);
+  assert.equal(game.ids.get('cv-go').textContent, 'Play from here');
+  click(game, 'cv-go'); game.lab.advance(0); assert.equal(game.ids.get('pause').textContent, 'Pause');
+  game.lab.advance(.8); assert.equal(game.ids.get('cv-go').textContent, 'Replay the sequence'); assert.equal(game.ids.get('pause').textContent, 'Resume');
+  click(game, 'cv-go'); game.lab.advance(.4); assert.equal(text(game, 'cv-scrub-o'), '25 %');
+  assert.equal(text(game, 'hud-time'), time); assert.equal(ledgerScore(game), score);
 });
 
 test('scrubbing retraces one formation and a mid-replay save restores a completed sequence', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.show(5); const c = lab.STAGES[5];
+  const game = bootFromSavedRun('ready-to-converge');
   // Learning runs close at half speed: five seconds brings the triangle to 75 %.
-  ids.get('cv-go').onclick(); c.update(5); ids.get('cv-go').onclick(); c.update(1.6);
-  const slider = ids.get('cv-scrub'); slider.value = 25; slider.oninput();
-  const angle = c.ang, tumble = c.tumble;
-  slider.value = 75; slider.oninput(); slider.value = 25; slider.oninput();
-  assert.equal(c.ang, angle); assert.equal(c.tumble, tumble);
-  c.view = 'transit'; const saved = JSON.parse(JSON.stringify(lab.snapshot()));
-  const second = boot(); assert.equal(second.lab.restore(saved), true);
-  const restored = second.lab.STAGES[5];
-  assert.equal(restored.phase, 'gone'); assert.equal(restored.q, 1); assert.equal(restored.view, 'transit');
-  const otherSlider = second.ids.get('cv-scrub'); otherSlider.value = 25; otherSlider.oninput();
-  assert.equal(restored.ang, angle); assert.equal(restored.tumble, tumble);
+  openAfter(game, 5); game.lab.advance(1.6);
+  const sceneAt = (g, q) => { slide(g, 'cv-scrub', q); return scene(g); };
+  const quarter = sceneAt(game, 25); sceneAt(game, 75);
+  assert.equal(sceneAt(game, 25), quarter);
+  click(game, 'cv-transit'); leave(game);
+  const reloaded = boot(game.storage);
+  assert.equal(reloaded.ids.get('cv-go').textContent, 'Replay the sequence'); assert.equal(text(reloaded, 'cv-scrub-o'), '100 %');
+  assert.match(text(reloaded, 'cv-view-note'), /No destination/);
+  click(reloaded, 'cv-thermal'); assert.equal(sceneAt(reloaded, 25), quarter);
 });
 
 test('reduced-motion finale draws a static aperture without a pulsing radial fill', () => {
-  const { lab, ids, drawing } = boot(new Map(), { reduced: true }); prepare(lab); lab.show(5); const c = lab.STAGES[5];
-  ids.get('cv-go').onclick(); c.k = .75; ids.get('cv-go').onclick(); c.update(.96);
-  c.view = 'visible'; drawing.length = 0; c.draw();
-  assert.ok(drawing.some(call => call.includes('wormhole aperture')));
-  assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
+  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
+  openAfter(game, 5); game.lab.advance(.96);
+  click(game, 'cv-visible'); game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
+  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
 });
 
 test('a prior source revision starts a fresh run with a visible explanation', () => {
-  const { lab } = boot(); prepare(lab); lab.show(4);
-  const prior = JSON.parse(JSON.stringify(lab.snapshot())); prior.sourceRevision = '4orbs-part3-corrected-2026-11-25m24s';
-  const storage = new Map([['ipt-run-v2', JSON.stringify(prior)], ['ipt-best-v2', '{"score":1234}']]);
-  const next = boot(storage);
-  assert.equal(next.lab.S.stage, 0); assert.equal(next.lab.S.mode, 'learn');
-  assert.equal(next.ids.get('restore-status').hidden, false);
-  assert.match(next.ids.get('restore-status').innerHTML, /Source assumptions have changed/);
+  const storage = new Map([['ipt-best-v2', '{"score":1234}']]);
+  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = '4orbs-part3-corrected-2026-11-25m24s'; }), { storage });
+  assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
+  assert.equal(game.ids.get('restore-status').hidden, false);
+  assert.match(text(game, 'restore-status'), /Source assumptions have changed/);
   assert.equal(storage.get('ipt-best-v2'), '{"score":1234}');
 });
 
 test('restart and mode switches ask before clearing progress, and keep it on cancel', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.show(3);
-  lab.askRestart('learn');
-  assert.equal(ids.get('confirm').hidden, false); assert.equal(lab.S.stage, 3);
-  assert.match(ids.get('confirm-text').innerHTML, /Restart this run\? Progress on steps 1–5 will be cleared\. Your timed best stays\./);
-  ids.get('confirm-no').onclick(); assert.equal(ids.get('confirm').hidden, true); assert.equal(lab.S.unlocked, 5);
-  ids.get('mode-challenge').onclick();
-  assert.match(ids.get('confirm-text').innerHTML, /Switch to timed practice\?/);
-  assert.equal(ids.get('confirm-yes').textContent, 'Start timed run');
-  ids.get('confirm-yes').onclick();
-  assert.equal(lab.S.mode, 'challenge'); assert.equal(lab.S.unlocked, 0); assert.equal(lab.S.stage, 0);
-  ids.get('mode-challenge').onclick(); assert.equal(ids.get('confirm').hidden, true, 'the current mode does nothing');
+  const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-3');
+  click(game, 'restart');
+  assert.equal(game.ids.get('confirm').hidden, false); assert.equal(currentStep(game), 3);
+  assert.match(text(game, 'confirm-text'), /Restart this run\? Progress on steps 1–5 will be cleared\. Your timed best stays\./);
+  click(game, 'confirm-no'); assert.equal(game.ids.get('confirm').hidden, true); assert.equal(locked(game, 5), false);
+  click(game, 'mode-challenge');
+  assert.match(text(game, 'confirm-text'), /Switch to timed practice\?/);
+  assert.equal(game.ids.get('confirm-yes').textContent, 'Start timed run');
+  click(game, 'confirm-yes'); game.lab.advance(0);
+  assert.equal(game.ids.get('mode-challenge').attributes['aria-pressed'], 'true'); assert.equal(currentStep(game), 0); assert.equal(locked(game, 1), true);
+  click(game, 'mode-challenge'); assert.equal(game.ids.get('confirm').hidden, true, 'the current mode does nothing');
 });
 
 test('a run with nothing to lose restarts without asking', () => {
-  const { lab, ids } = boot(); ids.get('confirm').hidden = true;
-  ids.get('mode-challenge').onclick();
-  assert.equal(lab.S.mode, 'challenge'); assert.equal(ids.get('confirm').hidden, true);
+  const game = boot(); game.ids.get('confirm').hidden = true;
+  click(game, 'mode-challenge'); game.lab.advance(0);
+  assert.equal(game.ids.get('mode-challenge').attributes['aria-pressed'], 'true'); assert.equal(game.ids.get('confirm').hidden, true);
 });
 
 test('sliders give assistive tech the displayed value with units spelled out', () => {
-  const { lab, ids } = boot(); prepare(lab);
-  lab.show(2); assert.match(ids.get('fu-t').attributes['aria-valuetext'], /^[\d.,]+ (billion|million) kelvin$/);
-  lab.show(4); assert.equal(ids.get('op-d').attributes['aria-valuetext'], '1.0 micrometres');
-  assert.equal(ids.get('op-w').attributes['aria-valuetext'], '66 metres');
-  lab.show(3); assert.equal(ids.get('or-c').attributes['aria-valuetext'], '134 degrees');
-  assert.equal(ids.get('or-t').attributes['aria-valuetext'], '2.6 seconds');
-  assert.equal(ids.get('fu-t-l'), undefined, 'labels belong to the current step only');
-  assert.equal(ids.get('or-c').attributes['aria-labelledby'], 'or-c-l');
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'step-2'); assert.match(game.ids.get('fu-t').attributes['aria-valuetext'], /^[\d.,]+ (billion|million) kelvin$/);
+  click(game, 'step-4'); assert.equal(game.ids.get('op-d').attributes['aria-valuetext'], '1.0 micrometres');
+  assert.equal(game.ids.get('op-w').attributes['aria-valuetext'], '66 metres');
+  click(game, 'step-3'); assert.equal(game.ids.get('or-c').attributes['aria-valuetext'], '134 degrees');
+  assert.equal(game.ids.get('or-t').attributes['aria-valuetext'], '2.6 seconds');
+  assert.equal(game.ids.get('fu-t-l'), undefined, 'labels belong to the current step only');
+  assert.equal(game.ids.get('or-c').attributes['aria-labelledby'], 'or-c-l');
 });
 
 test('a fresh hold waits for the player instead of opening already lost', () => {
-  const { lab } = boot(); lab.S.unlocked = 1; lab.show(1);
-  assert.equal(lab.S.paused, true);
-  lab.advance(5); assert.equal(lab.STAGES[1].t, 0);
+  const game = bootFromSavedRun(savedRunOn(1));
+  assert.equal(game.ids.get('pause').textContent, 'Resume');
+  const field = text(game, 'ho-b');
+  game.lab.advance(5); assert.equal(text(game, 'ho-b'), field); assert.doesNotMatch(text(game, 'ho-x'), /hit the wall/);
 });
 
 test('the hold assist centres the ball in learning runs and the ledger notes it', () => {
-  const { lab, ids } = boot(); lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
-  assert.equal(ids.get('ho-assist-row').hidden, false);
-  ids.get('ho-assist').onclick(); assert.equal(ids.get('ho-assist').attributes['aria-pressed'], 'true');
-  for (let i = 0; i < 400 && !h.done; i++) { h.B = Math.sqrt(lab.plasmaPressure(h.t + .02) * 1000 * 2 * 4e-7 * Math.PI / .9); h.update(.02); }
-  assert.equal(h.done, true); assert.equal(h.assisted, true);
-  prepare(lab); h.assisted = true; lab.S.unlocked = 6; lab.STAGES[5].done = true; lab.show(6);
-  assert.match(ids.get('panel').innerHTML, /centring assist/);
+  const game = bootFromSavedRun(savedRunOn(1));
+  assert.equal(game.ids.get('ho-assist-row').hidden, false);
+  click(game, 'ho-assist'); assert.equal(game.ids.get('ho-assist').attributes['aria-pressed'], 'true');
+  holdSteady(game, 8); assert.equal(goalBar(game), 100);
+  leave(game); assert.equal(lastSave(game).stages[1].values.assisted, true);
+  const done = readSavedRun('completed-run'); done.stages[1].values.assisted = true;
+  const ledger = bootFromSavedRun(done); click(ledger, 'step-6');
+  assert.match(text(ledger, 'panel'), /centring assist/);
 });
 
 test('the assist is learning-only and Show me appears after three misses', () => {
-  const timed = boot(); timed.lab.restart('challenge'); timed.lab.S.unlocked = 1; timed.lab.show(1);
+  const timed = bootFromSavedRun(savedRunOn(1, d => { d.mode = 'challenge'; }));
   assert.equal(timed.ids.get('ho-assist-row').hidden, true);
-  const { lab, ids } = boot(); lab.S.unlocked = 1; lab.show(1); const h = lab.STAGES[1];
-  assert.equal(ids.get('ho-show').hidden, true);
-  for (let n = 0; n < 3; n++) { h.x = .99; h.trim = 1; h.B = 1; h.update(.1); }
-  assert.equal(h.fails >= 3, true); assert.equal(ids.get('ho-show').hidden, false);
-  ids.get('ho-show').onclick(); h.B = 0;
-  for (let i = 0; i < 1000 && !h.done; i++) h.update(.02);
-  assert.equal(h.done, true); assert.equal(h.assisted, true); assert.equal(h.autopilot, false);
+  const game = bootFromSavedRun(savedRunOn(1));
+  assert.equal(game.ids.get('ho-show').hidden, true);
+  pad(game, 'down', { field: 1, trim: 1 });
+  for (let i = 0; i < 600 && game.ids.get('ho-show').hidden; i++) game.lab.advance(.1);
+  assert.equal(game.ids.get('ho-show').hidden, false, 'Show me is offered after three misses');
+  pad(game, 'up', { field: 1, trim: 1 }); click(game, 'ho-show');
+  const held = () => /^Held near beta one/.test(text(game, 'goaltext'));
+  for (let i = 0; i < 1000 && !held(); i++) game.lab.advance(.02);
+  assert.equal(held(), true, 'Show me runs the whole hold');
+  leave(game); assert.equal(lastSave(game).stages[1].values.assisted, true);
 });
 
 test('older saves without assist fields still restore', () => {
-  const { lab } = boot(); prepare(lab); lab.show(2);
-  const saved = JSON.parse(JSON.stringify(lab.snapshot()));
+  const saved = savedRunOn(2);
   delete saved.stages[1].values.assist; delete saved.stages[1].values.assisted;
-  const second = boot(); assert.equal(second.lab.restore(saved), true);
-  assert.equal(second.lab.STAGES[1].assist, false); assert.equal(second.lab.S.stage, 2);
-  saved.stages[1].values.assist = 'yes'; assert.equal(second.lab.validSnapshot(saved), false);
+  const game = bootFromSavedRun(saved); assert.equal(currentStep(game), 2);
+  click(game, 'step-1'); assert.equal(game.ids.get('ho-assist').attributes['aria-pressed'], 'false');
+  saved.stages[1].values.assist = 'yes'; assert.equal(currentStep(bootFromSavedRun(saved)), 0);
 });
 
 test('locked steps stay focusable, show a lock and explain themselves', () => {
-  const { lab, ids } = boot(); lab.advance(0);
-  const steps = ids.get('steps').innerHTML;
+  const game = boot(); game.lab.advance(0);
+  const steps = text(game, 'steps');
   assert.match(steps, /id="step-2" class="locked" aria-disabled="true"/);
   assert.doesNotMatch(steps, /\sdisabled[\s>]/);
-  ids.get('step-2').onclick();
-  assert.equal(lab.S.stage, 0); assert.match(ids.get('run-status').innerHTML, /Fuel unlocks after Hold\./);
-  lab.advance(5); assert.doesNotMatch(ids.get('run-status').innerHTML, /unlocks/);
+  click(game, 'step-2');
+  assert.equal(currentStep(game), 0); assert.match(text(game, 'run-status'), /Fuel unlocks after Hold\./);
+  game.lab.advance(5); assert.doesNotMatch(text(game, 'run-status'), /unlocks/);
 });
 
 test('Pause and Sound say what they do, without a pressed state', async () => {
-  const { lab, ids } = boot(); lab.S.paused = true; lab.advance(0);
-  assert.equal(ids.get('pause').textContent, 'Resume'); assert.equal(ids.get('pause').attributes['aria-pressed'], undefined);
-  const snd = ids.get('snd'); await snd.onclick({ currentTarget: snd });
-  assert.equal(snd.textContent, 'Sound: off'); assert.equal(snd.attributes['aria-pressed'], undefined);
+  const game = boot(); click(game, 'pause'); game.lab.advance(0);
+  assert.equal(game.ids.get('pause').textContent, 'Resume'); assert.equal(game.ids.get('pause').attributes['aria-pressed'], undefined);
+  await click(game, 'snd');
+  assert.equal(game.ids.get('snd').textContent, 'Sound: off'); assert.equal(game.ids.get('snd').attributes['aria-pressed'], undefined);
 });
 
 test('Space and Enter pump on every keydown, and a held key keeps pumping', () => {
-  const { lab, ids } = boot(); const ig = lab.STAGES[0], pump = ids.get('ig-pump');
-  const p0 = ig.p; let prevented = 0; const key = k => ({ key: k, preventDefault() { prevented++; } });
-  pump.onkeydown(key(' ')); pump.onkeydown(key(' ')); pump.onkeydown(key('Enter'));
-  assert.ok(Math.abs(ig.p - p0 * .8 ** 3) < 1e-9); assert.equal(prevented, 3);
-  pump.onkeyup(key(' ')); assert.equal(prevented, 4);
+  const game = boot(); assert.match(text(game, 'ig-p'), /^760 torr/);
+  let prevented = press(game, 'ig-pump', ' ') + press(game, 'ig-pump', ' ') + press(game, 'ig-pump', 'Enter');
+  game.lab.advance(0);
+  assert.match(text(game, 'ig-p'), /^389 torr/, 'three strokes each remove a fifth: 760 × 0.8³'); assert.equal(prevented, 3);
+  game.ids.get('ig-pump').onkeyup({ key: ' ', preventDefault() { prevented++; } }); assert.equal(prevented, 4);
 });
 
 test('retune buttons and the canvas say what they refer to', () => {
-  const { lab, ids } = boot(); prepare(lab);
-  lab.show(5); assert.match(ids.get('mission-checks').innerHTML, /aria-label="Retune plasma \(step 1\)"/);
-  assert.match(ids.get('mission-checks').innerHTML, /aria-label="Retune throat \(step 5\)"/);
-  assert.match(ids.get('cv').attributes['aria-label'], /three orbs around the airliner/);
-  lab.show(0); assert.match(ids.get('cv').attributes['aria-label'], /^Glass jar of hydrogen at [\d.,]+ torr: /);
+  const game = bootFromSavedRun('ready-to-converge');
+  assert.match(text(game, 'mission-checks'), /aria-label="Retune plasma \(step 1\)"/);
+  assert.match(text(game, 'mission-checks'), /aria-label="Retune throat \(step 5\)"/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /three orbs around the airliner/);
+  click(game, 'step-0'); assert.match(game.ids.get('cv').attributes['aria-label'], /^Glass jar of hydrogen at [\d.,]+ torr: /);
 });
 
 test('learning runs and reduced motion close the triangle at half speed; timed runs do not', () => {
-  const learn = boot(); prepare(learn.lab); learn.lab.show(5); learn.ids.get('cv-go').onclick(); learn.lab.STAGES[5].update(1);
-  assert.ok(Math.abs(learn.lab.STAGES[5].k - .95) < 1e-9);
-  const timed = boot(); timed.lab.restart('challenge'); prepare(timed.lab); timed.lab.show(5); timed.ids.get('cv-go').onclick(); timed.lab.STAGES[5].update(1);
-  assert.ok(Math.abs(timed.lab.STAGES[5].k - .9) < 1e-9);
-  const calm = boot(new Map(), { reduced: true }); calm.lab.restart('challenge'); prepare(calm.lab); calm.lab.show(5); calm.ids.get('cv-go').onclick(); calm.lab.STAGES[5].update(1);
-  assert.ok(Math.abs(calm.lab.STAGES[5].k - .95) < 1e-9);
+  for (const [mode, reduced, shown] of [['learn', false, '95 %'], ['challenge', false, '90 %'], ['challenge', true, '95 %']]) {
+    const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = mode; }), { reduced });
+    click(game, 'cv-go'); game.lab.advance(1);
+    assert.equal(text(game, 'cv-k'), shown, `${mode}${reduced ? ', reduced motion' : ''}`);
+  }
 });
 
 test('a met goal promotes the way forward', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.show(4); lab.advance(0);
-  assert.equal(ids.get('next').disabled, false);
-  lab.STAGES[4].assumed = false; lab.advance(0); assert.equal(ids.get('next').disabled, true);
+  const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-4'); game.lab.advance(0);
+  assert.equal(game.ids.get('next').disabled, false);
+  click(game, 'op-assume'); game.lab.advance(0); assert.equal(game.ids.get('next').disabled, true);
 });
 
 test('the game takes the 4orbs account as its premise and names no flight', () => {
-  const { lab, ids } = boot(); prepare(lab); lab.STAGES[5].done = true; lab.S.unlocked = 6; lab.show(6);
-  const all = html + ids.get('panel').innerHTML;
+  const game = bootFromSavedRun('completed-run'); let pages = '';
+  for (let i = 0; i < 7; i++) { click(game, `step-${i}`); pages += text(game, 'panel'); }
+  const all = html + pages;
   assert.doesNotMatch(all, /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i);
   assert.doesNotMatch(all, /Nobody knows|nobody knows how|visual effects|could not be proven|short by|source nobody has|not a mechanism|on paper/i);
   assert.match(html, /takes that account as its premise/);
   assert.match(html, /Boeing 777-200ER/);
   for (const tag of ['Lab physics', 'Theory', 'Measured', '4orbs account', 'Game rule']) assert.match(html, new RegExp(`class="tag [a-z]+">${tag}<`));
-  for (const source of lab.SOURCES) for (const ref of source.refs) assert.ok(typeof ref === 'string');
+  assert.doesNotMatch(pages, /\[object Object\]|>undefined</, 'every cited paper renders as text');
 });
 
 
@@ -555,259 +707,236 @@ function fieldRadii(drawing) {
 function fieldArcs(drawing) {
   return drawing.filter(call => call[0] === 'arc' && call[3] >= 16 && call[3] <= 40);
 }
-// Pump the animation frame queued at boot: it calls advance then draws the current
-// step. Passing 0 keeps last=0, so this paints without moving the clock.
-function paint(session) {
-  session.drawing.length = 0;
-  const frame = session.frames.shift();
-  assert.ok(frame, 'expected a queued animation frame');
-  frame(0);
+function holdBeta(game) {
+  return Number.parseFloat(text(game, 'ho-beta'));
 }
-function resume(ids) {
-  const pause = ids.get('pause');
-  if (pause && pause.textContent === 'Resume') pause.onclick();
+function resume(game) {
+  if (game.ids.get('pause').textContent === 'Resume') click(game, 'pause');
 }
-function setCoilPad(ids, clientY) {
-  const pad = ids.get('ho-pad');
-  pad.onpointerdown({ clientX: 195, clientY, pointerId: 1 });
-  pad.onpointerup();
+function setCoil(game, field) {
+  pad(game, 'down', { field });
+  pad(game, 'up', { field });
 }
-function openHold(fixture, options) {
-  const session = bootFromSavedRun(fixture, options);
-  session.ids.get('step-1').onclick();
-  resume(session.ids);
-  return session;
-}
-function holdBeta(ids) {
-  return Number.parseFloat(ids.get('ho-beta').innerHTML);
-}
-function tuneHold(session, pattern, targetBeta) {
-  const height = 292.5;
-  let bestY = null, bestScore = Infinity;
-  for (let y = 0; y <= height + 1e-9; y += 0.25) {
-    setCoilPad(session.ids, y);
-    session.lab.advance(0);
-    const readout = session.ids.get('ho-beta').innerHTML;
+function tuneHold(game, pattern, targetBeta) {
+  let bestField = null, bestScore = Infinity;
+  for (let field = 1; field >= -1e-9; field -= 0.002) {
+    setCoil(game, Math.max(0, field));
+    game.lab.advance(0);
+    const readout = text(game, 'ho-beta');
     if (!pattern.test(readout)) continue;
-    const score = targetBeta == null ? 0 : Math.abs(holdBeta(session.ids) - targetBeta);
-    if (score < bestScore) { bestScore = score; bestY = y; }
+    const score = targetBeta == null ? 0 : Math.abs(holdBeta(game) - targetBeta);
+    if (score < bestScore) { bestScore = score; bestField = Math.max(0, field); }
     if (targetBeta == null) break;
   }
-  assert.notEqual(bestY, null, `hold readout should match ${pattern}`);
-  setCoilPad(session.ids, bestY);
-  session.lab.advance(0, 1);
-  paint(session);
+  assert.notEqual(bestField, null, `hold readout should match ${pattern}`);
+  setCoil(game, bestField);
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
   return {
-    shape: mouthShape(session.drawing),
-    aria: session.ids.get('cv').attributes['aria-label'],
-    readout: session.ids.get('ho-beta').innerHTML
+    shape: mouthShape(game.drawing),
+    aria: game.ids.get('cv').attributes['aria-label'],
+    readout: text(game, 'ho-beta')
   };
 }
-function setOrbit(ids, r, period, cam) {
-  ids.get('or-r').value = String(r); ids.get('or-r').oninput();
-  ids.get('or-t').value = String(period); ids.get('or-t').oninput();
-  ids.get('or-c').value = String(cam); ids.get('or-c').oninput();
+function setOrbit(game, r, period, cam) {
+  slide(game, 'or-r', r);
+  slide(game, 'or-t', period);
+  slide(game, 'or-c', cam);
 }
-function openOrbit(options) {
-  const session = bootFromSavedRun('orbit-in-progress', options);
-  assert.equal(session.ids.get('step-3').attributes['aria-current'], 'step');
-  resume(session.ids);
-  return session;
-}
-function trianglePercent(ids) {
-  return Number.parseFloat(ids.get('cv-k').innerHTML);
+function trianglePercent(game) {
+  return Number.parseFloat(text(game, 'cv-k'));
 }
 
 test('hold cusp leaks close inside the beta band and open when beta leaves it', () => {
-  const session = openHold('ready-to-converge');
-  const closed = tuneHold(session, /balanced/, 0.88);
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'step-1'); resume(game);
+  const closed = tuneHold(game, /balanced/, 0.88);
   assert.match(closed.readout, /balanced/);
   assert.match(closed.aria, /Cusp leaks are closed/);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks closed')));
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
   assert.equal(closed.shape.count, 12);
   assert.ok(closed.shape.sweep < 0.3);
-  const leaking = tuneHold(session, /leaking/);
+  const leaking = tuneHold(game, /leaking/);
   assert.match(leaking.readout, /leaking/);
   assert.match(leaking.aria, /Cusp leaks are open/);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks open')));
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
   assert.equal(leaking.shape.count, 12);
   assert.ok(leaking.shape.mouth > closed.shape.mouth);
   assert.ok(leaking.shape.sweep > closed.shape.sweep);
-  const over = tuneHold(session, /over-built/);
+  const over = tuneHold(game, /over-built/);
   assert.match(over.readout, /over-built/);
   assert.match(over.aria, /Cusp leaks are open/);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks open')));
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
   assert.equal(over.shape.count, 12);
   assert.ok(over.shape.mouth > closed.shape.mouth);
   assert.ok(over.shape.sweep > closed.shape.sweep);
-  setCoilPad(session.ids, 292.5);
-  session.lab.advance(0, 1);
-  paint(session);
-  assert.match(session.ids.get('ho-beta').innerHTML, /coils off/);
-  assert.match(session.ids.get('cv').attributes['aria-label'], /coils off/);
-  assert.match(session.ids.get('cv').attributes['aria-label'], /Cusp leaks are open/);
-  const off = mouthShape(session.drawing);
+  setCoil(game, 0);
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.match(text(game, 'ho-beta'), /coils off/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /coils off/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /Cusp leaks are open/);
+  const off = mouthShape(game.drawing);
   assert.equal(off.count, 12);
   assert.ok(off.mouth > closed.shape.mouth);
   assert.ok(off.sweep > closed.shape.sweep);
 });
 
 test('hold cusp leaks keep a steady shape under reduced motion', () => {
-  const session = openHold('ready-to-converge', { reduced: true });
-  const closed = tuneHold(session, /balanced/, 0.88);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks closed')));
+  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
+  click(game, 'step-1'); resume(game);
+  const closed = tuneHold(game, /balanced/, 0.88);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
   assert.equal(closed.shape.count, 12);
-  paint(session);
-  assert.deepEqual(mouthShape(session.drawing), closed.shape);
-  session.ids.get('ho-assist').onclick();
-  session.lab.advance(4.2, 4.2);
-  const later = tuneHold(session, /balanced/, 0.88);
-  // Cusp angle depends only on beta, so it stays put after a long hold at
-  // the same readout. Mouth radius can follow the ball as it settles.
-  assert.ok(Math.abs(later.shape.sweep - closed.shape.sweep) < 1e-6);
+  game.drawing.length = 0; paint(game);
+  assert.deepEqual(mouthShape(game.drawing), closed.shape);
+  click(game, 'ho-assist');
+  game.lab.advance(4.2, 4.2);
+  const later = tuneHold(game, /balanced/, 0.88);
+  assert.ok(Math.abs(later.shape.sweep - closed.shape.sweep) < 1e-3);
   assert.equal(later.shape.count, closed.shape.count);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks closed')));
-  const open = tuneHold(session, /leaking/);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks open')));
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
+  const open = tuneHold(game, /leaking/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
   assert.equal(open.shape.count, 12);
   assert.ok(open.shape.mouth > later.shape.mouth + 5);
   assert.ok(open.shape.sweep > later.shape.sweep);
-  const over = tuneHold(session, /over-built/);
-  assert.ok(session.drawing.some(call => call.includes('cusp leaks open')));
+  const over = tuneHold(game, /over-built/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
   assert.ok(over.shape.mouth > later.shape.mouth + 5);
 });
 
 test('orbit field builds when the formation sits on the tracked rings', () => {
-  const session = openOrbit();
-  setOrbit(session.ids, 40, 6, 40);
-  session.lab.advance(0, 1);
-  paint(session);
-  assert.equal(fieldRadii(session.drawing).length, 0);
-  assert.match(session.ids.get('cv').attributes['aria-label'], /off the tracked rings/);
-  assert.doesNotMatch(session.ids.get('cv').attributes['aria-label'], /field/);
-  setOrbit(session.ids, 65, 2.5, 132);
-  session.lab.advance(0.3, 1);
-  paint(session);
-  const building = fieldRadii(session.drawing);
+  const game = bootFromSavedRun(savedRunOn(3));
+  assert.equal(currentStep(game), 3);
+  resume(game);
+  setOrbit(game, 40, 6, 40);
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.equal(fieldRadii(game.drawing).length, 0);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /off the tracked rings/);
+  assert.doesNotMatch(game.ids.get('cv').attributes['aria-label'], /field/);
+  setOrbit(game, 65, 2.5, 132);
+  game.lab.advance(0.3, 1);
+  game.drawing.length = 0; paint(game);
+  const building = fieldRadii(game.drawing);
   assert.equal(building.length, 6);
-  assert.match(session.ids.get('cv').attributes['aria-label'], /tracked rings/);
-  assert.match(session.ids.get('cv').attributes['aria-label'], /field is building/);
-  session.lab.advance(1.2, 1);
-  paint(session);
-  const settled = fieldRadii(session.drawing);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /tracked rings/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /field is building/);
+  game.lab.advance(1.2, 1);
+  game.drawing.length = 0; paint(game);
+  const settled = fieldRadii(game.drawing);
   assert.equal(settled.length, 6);
   assert.ok(Math.min(...settled) > Math.max(...building));
-  assert.match(session.ids.get('cv').attributes['aria-label'], /settled field/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /settled field/);
 });
 
 test('reduced-motion orbit shows a settled field without a grow cycle', () => {
-  const session = openOrbit({ reduced: true });
-  setOrbit(session.ids, 65, 2.5, 132);
-  session.lab.advance(0.15, 1);
-  paint(session);
-  const early = fieldRadii(session.drawing);
+  const game = bootFromSavedRun(savedRunOn(3), { reduced: true });
+  resume(game);
+  setOrbit(game, 65, 2.5, 132);
+  game.lab.advance(0.15, 1);
+  game.drawing.length = 0; paint(game);
+  const early = fieldRadii(game.drawing);
   assert.equal(early.length, 6);
-  assert.match(session.ids.get('cv').attributes['aria-label'], /settled field/);
-  const first = JSON.stringify(session.drawing);
-  paint(session);
-  assert.equal(JSON.stringify(session.drawing), first);
-  session.lab.advance(1.35, 1);
-  paint(session);
-  assert.deepEqual(fieldRadii(session.drawing), early);
-  const plain = openOrbit();
-  setOrbit(plain.ids, 65, 2.5, 132);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /settled field/);
+  const first = JSON.stringify(game.drawing);
+  game.drawing.length = 0; paint(game);
+  assert.equal(JSON.stringify(game.drawing), first);
+  game.lab.advance(1.35, 1);
+  game.drawing.length = 0; paint(game);
+  assert.deepEqual(fieldRadii(game.drawing), early);
+  const plain = bootFromSavedRun(savedRunOn(3));
+  resume(plain);
+  setOrbit(plain, 65, 2.5, 132);
   plain.lab.advance(0.15, 1);
-  paint(plain);
+  plain.drawing.length = 0; paint(plain);
   assert.ok(early[0] > Math.max(...fieldRadii(plain.drawing)));
 });
 
 test('converge field grows while closing and the flash shows a snap along the path', () => {
-  const session = bootFromSavedRun('ready-to-converge');
-  const { ids, drawing, lab } = session;
-  assert.equal(ids.get('cv-go').textContent, 'Start closing in');
-  ids.get('cv-go').onclick();
-  lab.advance(0, 1);
-  paint(session);
-  assert.equal(fieldArcs(drawing).length, 0);
-  assert.equal(ids.get('cv-go').textContent, 'Open it now');
-  lab.advance(2, 1);
-  paint(session);
-  const early = fieldArcs(drawing).map(call => call[3]);
+  const game = bootFromSavedRun('ready-to-converge');
+  assert.equal(game.ids.get('cv-go').textContent, 'Start closing in');
+  click(game, 'cv-go');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.equal(fieldArcs(game.drawing).length, 0);
+  assert.equal(game.ids.get('cv-go').textContent, 'Open it now');
+  game.lab.advance(2, 1);
+  game.drawing.length = 0; paint(game);
+  const early = fieldArcs(game.drawing).map(call => call[3]);
   assert.equal(early.length, 3);
-  assert.match(ids.get('cv').attributes['aria-label'], /field around them is growing/);
-  assert.ok(trianglePercent(ids) > 85 && trianglePercent(ids) < 95);
-  lab.advance(3, 1);
-  paint(session);
-  const late = fieldArcs(drawing).map(call => call[3]);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /field around them is growing/);
+  assert.ok(trianglePercent(game) > 85 && trianglePercent(game) < 95);
+  game.lab.advance(3, 1);
+  game.drawing.length = 0; paint(game);
+  const late = fieldArcs(game.drawing).map(call => call[3]);
   assert.equal(late.length, 3);
   assert.ok(Math.min(...late) > Math.max(...early));
-  assert.ok(trianglePercent(ids) >= 71 && trianglePercent(ids) <= 79);
-  ids.get('cv-visible').onclick();
-  lab.advance(0, 1);
-  paint(session);
-  assert.equal(fieldArcs(drawing).length, 3);
-  assert.ok(Math.min(...fieldArcs(drawing).map(call => call[3])) > Math.max(...early));
-  ids.get('cv-thermal').onclick();
-  ids.get('cv-go').onclick();
-  lab.advance(0, 1);
-  paint(session);
-  assert.ok(drawing.some(call => call.includes('snap along the path')));
-  assert.match(ids.get('cv').attributes['aria-label'], /snap runs along the path/);
-  ids.get('cv-visible').onclick();
-  lab.advance(0, 1);
-  paint(session);
-  assert.ok(drawing.some(call => call.includes('snap along the path')));
+  assert.ok(trianglePercent(game) >= 71 && trianglePercent(game) <= 79);
+  click(game, 'cv-visible');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.equal(fieldArcs(game.drawing).length, 3);
+  assert.ok(Math.min(...fieldArcs(game.drawing).map(call => call[3])) > Math.max(...early));
+  click(game, 'cv-thermal');
+  click(game, 'cv-go');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
+  assert.match(game.ids.get('cv').attributes['aria-label'], /snap runs along the path/);
+  click(game, 'cv-visible');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
 });
 
 test('reduced-motion flash keeps a static aperture and a static path snap', () => {
-  const session = bootFromSavedRun('ready-to-converge', { reduced: true });
-  const { ids, drawing, lab } = session;
-  ids.get('cv-go').onclick();
-  lab.advance(5, 5);
-  assert.ok(trianglePercent(ids) >= 71 && trianglePercent(ids) <= 79);
-  ids.get('cv-go').onclick();
-  lab.advance(0.8, 0.8);
-  ids.get('cv-visible').onclick();
-  lab.advance(0, 1);
-  paint(session);
-  assert.ok(drawing.some(call => call.includes('wormhole aperture')));
-  assert.ok(drawing.some(call => call.includes('snap along the path')));
-  assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
-  const first = JSON.stringify(drawing);
-  lab.advance(0.32, 0.32);
-  paint(session);
-  assert.equal(JSON.stringify(drawing), first);
-  assert.ok(drawing.some(call => call.includes('wormhole aperture')));
-  assert.equal(drawing.some(call => call[0] === 'createRadialGradient'), false);
+  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
+  click(game, 'cv-go');
+  game.lab.advance(5, 5);
+  assert.ok(trianglePercent(game) >= 71 && trianglePercent(game) <= 79);
+  click(game, 'cv-go');
+  game.lab.advance(0.8, 0.8);
+  click(game, 'cv-visible');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
+  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
+  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
+  const first = JSON.stringify(game.drawing);
+  game.lab.advance(0.32, 0.32);
+  game.drawing.length = 0; paint(game);
+  assert.equal(JSON.stringify(game.drawing), first);
+  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
+  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
 });
 
 test('transit diagram says the airliner keeps flying forward and only the path changes', () => {
-  const session = bootFromSavedRun('ready-to-converge');
-  const { ids, drawing, lab } = session;
-  ids.get('cv-transit').onclick();
-  lab.advance(0, 1);
-  paint(session);
-  const note = ids.get('cv-view-note').innerHTML;
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'cv-transit');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  const note = text(game, 'cv-view-note');
   assert.match(note, /No destination/);
   assert.match(note, /keeps flying forward/);
   assert.match(note, /only its path changes/);
   assert.match(note, /1\.6 seconds/);
-  assert.ok(drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
-  assert.ok(drawing.some(call => call.includes('Airliner keeps flying forward; only the path changes')));
-  assert.ok(drawing.some(call => call[0] === 'clip'));
-  assert.match(ids.get('cv').attributes['aria-label'], /keeps flying forward and only its path changes/);
-  assert.match(ids.get('cv').attributes['aria-label'], /No destination/);
-  assert.equal(lab.transitModel(0, 61).duration, 63.7 / 250);
-  assert.ok(Math.abs(lab.transitModel(0, 61).clearance - 0.05) < 1e-12);
-  assert.equal(lab.transitModel(1, 61).centreY + 63.7 / 2, 0);
+  assert.ok(game.drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
+  assert.ok(game.drawing.some(call => call.includes('Airliner keeps flying forward; only the path changes')));
+  assert.ok(game.drawing.some(call => call[0] === 'clip'));
+  assert.match(game.ids.get('cv').attributes['aria-label'], /keeps flying forward and only its path changes/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /No destination/);
+  assert.equal(game.lab.transitModel(0, 61).duration, 63.7 / 250);
+  assert.ok(Math.abs(game.lab.transitModel(0, 61).clearance - 0.05) < 1e-12);
+  assert.equal(game.lab.transitModel(1, 61).centreY + 63.7 / 2, 0);
 });
 
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
   for (const [mode, reduced, rate] of [['learn', false, .5], ['challenge', false, 1], ['challenge', true, .5]]) {
-    const { lab, ids } = boot(new Map(), { reduced }); lab.restart(mode); prepare(lab); lab.show(5);
-    const beds = []; lab.snd.bed = (id, options) => beds.push({ id, options });
-    ids.get('cv-go').onclick(); lab.advance(1);
-    const bed = beds.filter(b => b.id === 'convergence').at(-1);
+    const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = mode; }), { reduced });
+    click(game, 'cv-go'); game.lab.advance(1);
+    const bed = game.sounds.filter(s => s.call === 'bed' && s.id === 'convergence').at(-1);
     assert.equal(bed.options.rate, rate);
     assert.ok(Math.abs(bed.options.offset - rate) < 1e-9);
     assert.equal(bed.options.once, true);

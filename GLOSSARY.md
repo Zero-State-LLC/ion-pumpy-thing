@@ -4,6 +4,10 @@ A browser game in six steps that takes the 4orbs account as its premise and turn
 
 ## Structure of a run
 
+**Teleport**:
+The airliner's passage through the opened throat, out of the sky. The goal of a run.
+_Avoid_: vanish, disappearance
+
 **Step**:
 One of the six playable parts of a run, in order: Ignite, Hold, Fuel, Orbit, Open, Converge. The Ledger comes after them and is not a step.
 _Avoid_: stage, in player-facing text and docs
@@ -44,6 +48,10 @@ The optional shared list of timed-practice results. Client-reported, not a verif
 
 ## Source labels
 
+**Claim**:
+Anything the game tells the player about how the world works, in words or on screen. A view that only shows a state its lesson already teaches is not a new claim; it carries that lesson's label.
+_Avoid_: fact, statement
+
 Every claim carries exactly one of these, written with this exact capitalisation.
 
 **Lab physics**:
@@ -72,8 +80,13 @@ Plasma pressure divided by magnetic pressure. The Hold step targets beta near on
 **Cusp**:
 The simplified cusp trap of coils, after Bussard's Polywell, used in the Hold step.
 
+**Cusp leak**:
+A gap at a cusp through which plasma escapes. The leaks close as beta nears one.
+_Avoid_: hole, wiffle-ball hole
+
 **Formation**:
 The rigid triangle of orbs matched in the Orbit step and projected in both finale cameras.
+_Avoid_: lock-in
 
 **Throat**:
 The wormhole opening sized in the Open step and held open by negative energy from the orbs.

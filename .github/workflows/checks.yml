@@ -17,4 +17,5 @@ jobs:
       - run: npm ci
       - run: node --test tests/*.test.cjs
       - run: npm run typecheck
+      - run: npm run test:browser
 

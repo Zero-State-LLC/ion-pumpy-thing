@@ -382,6 +382,69 @@ test('formation is a rigid equilateral triangle and cameras project one shared s
   assert.equal(JSON.stringify(points), before); assert.notEqual(side[0][1], points[0][1]);
 });
 
+// Fuel activity against published thermal (Maxwellian) reaction rates (#22). The model
+// takes a temperature as log10 of keV, the scale of the Fuel step's temperature slider.
+// Deuterium + tritium: <σv> peaks at about 65 keV (US patent 11,744,002, fig. 3); the
+// NRL Plasma Formulary's rates at 50 and 100 keV (8.7 and 8.5 × 10⁻¹⁶ cm³/s; UWFDM-1268,
+// table 1) bracket it. Hydrogen + boron-11: "peaks at several hundred keV" (Mehlhorn et
+// al., "Path to Increasing p-B11 Reactivity via ps and ns Lasers", Laser and Particle
+// Beams). Each band is as wide as its sources allow, and no wider.
+const DT_PEAK_KEV = 65, DT_PEAK_BAND = [55, 75], PB_PEAK_BAND = [300, 900], KELVIN_PER_KEV = 1.16045e7;
+// Every position of the Fuel step's temperature slider, read from the slider itself.
+let sliderPositions;
+function temperatureSlider() {
+  if (!sliderPositions) {
+    const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-2');
+    const { attributes: a } = game.ids.get('fu-t');
+    const min = +a.min, step = +a.step, count = Math.round((+a.max - min) / step) + 1;
+    sliderPositions = Array.from({ length: count }, (_, i) => +(min + i * step).toFixed(6));
+  }
+  return sliderPositions;
+}
+function peakKeV(lab, fuel) {
+  const lo = temperatureSlider()[0], hi = temperatureSlider().at(-1);
+  let best = -1, bestLt = lo;
+  for (let lt = lo; lt <= hi; lt += .001) { const a = lab.fuelActivity({ fuel, lt }); if (a > best) { best = a; bestLt = lt; } }
+  return 10 ** bestLt;
+}
+const within = (x, [lo, hi]) => x >= lo && x <= hi;
+
+test('fuel activity peaks where the published thermal reaction rates peak', () => {
+  const { lab } = boot();
+  const dt = peakKeV(lab, 'dt'), pb = peakKeV(lab, 'pb');
+  assert.ok(within(dt, DT_PEAK_BAND), `deuterium + tritium peaks at ${dt.toFixed(0)} keV; published about ${DT_PEAK_KEV} keV`);
+  assert.ok(within(pb, PB_PEAK_BAND), `hydrogen + boron-11 peaks at ${pb.toFixed(0)} keV; published several hundred keV`);
+});
+
+test('deuterium + tritium is the more active fuel at cool temperatures', () => {
+  // The Fuel lesson (Lab physics): deuterium + tritium "lights at the lowest temperature".
+  // 1 keV is the bottom of the Fuel step's temperature slider.
+  const { lab } = boot();
+  for (const keV of [1, 10, 30]) {
+    const lt = Math.log10(keV);
+    assert.ok(lab.fuelActivity({ fuel: 'dt', lt }) > lab.fuelActivity({ fuel: 'pb', lt }), `${keV} keV`);
+  }
+});
+
+test('hydrogen + boron-11 passes its readiness check only far above the deuterium + tritium peak', () => {
+  // The Fuel lesson (Lab physics): hydrogen + boron-11 "needs far higher temperatures to burn",
+  // taken here as at least twice the published deuterium + tritium peak. Through the page:
+  // choose the fuel, set each slider position, read the temperature the player sees after a
+  // frame, then read the Fuel readiness check on Converge.
+  const game = bootFromSavedRun('ready-to-converge');
+  let coolestReady = null;
+  for (const position of temperatureSlider()) {
+    click(game, 'step-2'); click(game, 'fu-pb'); slide(game, 'fu-t', position); game.lab.advance(0);
+    const shown = text(game, 'fu-t-o');
+    click(game, 'step-5');
+    if (!/Fuel: retune required/.test(text(game, 'mission-checks'))) { coolestReady = shown; break; }
+  }
+  assert.ok(coolestReady, 'hydrogen + boron-11 passes its readiness check somewhere on the slider');
+  const [, n, unit] = coolestReady.match(/([\d.,]+) (million|billion) K/);
+  const kelvin = parseFloat(n.replace(/,/g, '')) * (unit === 'billion' ? 1e9 : 1e6);
+  assert.ok(kelvin >= 2 * DT_PEAK_KEV * KELVIN_PER_KEV, `ready from ${coolestReady}`);
+});
+
 test('plate controls change drawn geometry and the ideal-model energy magnitude', () => {
   const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-4');
   slide(game, 'op-d', 2); slide(game, 'op-a', 0); game.lab.advance(0);

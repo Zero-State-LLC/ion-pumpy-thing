@@ -38,6 +38,18 @@ Multi-context repo (presence of `GLOSSARY-MAP.md` at the root):
         └── docs/adr/
 ```
 
+## Glossary terms in code
+
+The game is the inline script in `index.html`; tests reach it through `window.__lab`. Where the code names a glossary term differently:
+
+- **Step**: a *stage* (`STAGES`, built with `stage()`). The seventh entry in `STAGES` is the Ledger. `stage` is fine in code.
+- **Source card**: `SOURCES` and `PAPERS`.
+- **Readiness**: `missionReadiness()` and `readyToAdvance()`.
+- **Learning run** / **Timed practice**: `mode === 'learn'` / `mode === 'challenge'`.
+- **Practice board**: stored under `scores-v2`; available only inside a Claude artifact with database access.
+- **Saved run**: stored under `RUN_KEY` (`ipt-run-v2`), written by `snapshot()` and checked by `validSnapshot()` before `restore()`.
+- **Source revision**: `SOURCE_REVISION`.
+
 ## Use the glossary's vocabulary
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `GLOSSARY.md`. Don't drift to synonyms the glossary explicitly avoids.

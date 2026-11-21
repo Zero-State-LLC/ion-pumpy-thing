@@ -11,4 +11,4 @@ Read during review (the Standards axis of `/code-review`), not while implementin
 
 ## Code
 
-- **New standalone scripts get type-checked.** Add each one to `include` in `jsconfig.json`.
+- **New scripts the site serves get type-checked.** Add each one to `include` in `jsconfig.json`. Node-only tooling, such as the browser check, is exempt: checking it would need Node's type definitions as a dependency.

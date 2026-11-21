@@ -63,10 +63,23 @@ The throat display uses the corrected episode's figure from the DIA report, abou
 
 ## Correction policy
 
-Use only concepts and papers present on 4orbs.com. Attribute each claim to its source and label it as above. A page being fetched recently does not prove its wording is corrected. The corrected episode takes precedence over older summaries where they conflict. Record the conflict; do not blend statements into a stronger claim.
+Use only concepts and papers present on 4orbs.com ([ADR 0002](adr/0002-4orbs-theory-pages-count-as-sources.md)). That covers:
+- the reviewed pages: the corrected Part Three, the measurement page, and `/research/` and `/science/101/`
+- the auto-generated `/library/theories/` pages
+- a stream, once it has a `/library/videos/` page
+
+Do not cite a page whose address or title names the flight.
+
+Attribute each claim to its source and label it as above. A theory page's reading is 4orbs account; published physics it relies on keeps its own label, cited to the paper. Mark unreviewed pages in this register, never in player-facing text. A page being fetched recently does not prove its wording is corrected.
+
+The corrected episode takes precedence over older summaries where they conflict. Where a reviewed page and a theory page disagree, use whichever makes the Teleport possible. Theory may be added to reviewed data where the reviewed data alone would stop short. Record each such choice under **Source choices** below: both pages, what each says, and why the game takes the one it does.
 
 Do not reinstate claims that beta one proves self-sustaining fusion, that FRCs need no external support, or that the p-B11 main reaction excludes all neutron-producing side reactions. Do not equate the observed Casimir force with a demonstrated macroscopic wormhole.
 
 The runtime `SOURCES` array maps these sources to six expandable lesson cards. Updating scientific content requires updating this register and its source revision. A changed source revision invalidates old in-progress saves rather than silently resuming an experiment under different assumptions.
+
+## Source choices
+
+Where a reviewed page and a theory page disagree, each choice is recorded here when its lesson changes. None is in the game yet; the choices decided for coming lessons are in spec #25.
 
 No full dataset has been imported. Any later import must preserve the attribution and reuse terms stated on the [open-data page](https://4orbs.com/data/), currently CC BY-NC-SA 4.0, and record original classifications separately from reviewed scientific status.

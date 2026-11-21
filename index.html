@@ -625,6 +625,40 @@ const ignite = stage({
 
 /* ───────── Step 2: Hold ───────── */
 const MU0 = 4e-7 * Math.PI;
+// Cusp-hole angle is a function of beta only, so reduced motion does not flicker.
+function cuspLeak(beta) {
+  const closed = beta >= 0.75 && beta <= 1;
+  if (closed) return { closed, gap: 0.09 + 0.03 * (1 - beta) };
+  if (!(beta > 0)) return { closed: false, gap: 0.42 };
+  const over = beta > 1 ? beta - 1 : 0.75 - beta;
+  return { closed: false, gap: Math.min(0.42, 0.28 + 0.05 * over) };
+}
+function drawCuspLeaks(bx, cy, rr, beta) {
+  const leak = cuspLeak(beta), edge = Math.max(rr * 1.02, 6), mouth = edge + rr * (leak.closed ? 0.16 : 0.68);
+  ctx.save();
+  ctx.strokeStyle = leak.closed ? COL.cold : COL.hot;
+  ctx.lineWidth = leak.closed ? 2 : 1.25;
+  ctx.globalAlpha = leak.closed ? 0.95 : 0.45;
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + i * TAU / 6;
+    ctx.beginPath(); ctx.arc(bx, cy, edge, a + leak.gap, a + TAU / 6 - leak.gap); ctx.stroke();
+  }
+  ctx.lineWidth = leak.closed ? 1.25 : 2.5;
+  ctx.globalAlpha = leak.closed ? 0.75 : 0.9;
+  ctx.fillStyle = leak.closed ? COL.cold : COL.hot;
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + i * TAU / 6;
+    ctx.beginPath();
+    ctx.moveTo(bx + Math.cos(a - leak.gap) * edge, cy + Math.sin(a - leak.gap) * edge);
+    ctx.lineTo(bx + Math.cos(a - leak.gap) * mouth, cy + Math.sin(a - leak.gap) * mouth);
+    ctx.arc(bx, cy, mouth, a - leak.gap, a + leak.gap);
+    ctx.lineTo(bx + Math.cos(a + leak.gap) * edge, cy + Math.sin(a + leak.gap) * edge);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  return leak.closed;
+}
 const hold = stage({
   name: 'Hold', title: 'Keep the ball together',
   html: `
@@ -748,12 +782,16 @@ const hold = stage({
     ctx.fillStyle = 'rgba(255,200,225,.9)';
     this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = clamp(1.2 - q.r / 3, 0.1, 1); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
     ctx.globalAlpha = 1;
+    const leaksClosed = drawCuspLeaks(bx, cy, rr, this.beta);
     viewTitle('PLASMA BALL BETWEEN COILS');
-    if (this.B === 0) label(this.t === 0 ? 'touch the pad or press an arrow key to switch the coils on' : 'coils off: the plasma spreads and is gone', cx, H - 18, this.t === 0 ? COL.ink : COL.hot, 'center', W < 420 ? 9.5 : 11);
+    // Bottom line, so the status does not cover the title on a narrow canvas.
+    label(leaksClosed ? 'cusp leaks closed' : 'cusp leaks open', cx, this.B === 0 ? H - 34 : H - 16, leaksClosed ? COL.cold : COL.hot, 'center', W < 420 ? 10 : 12);
+    if (this.B === 0) label(this.t === 0 ? 'touch the pad or press an arrow key to switch the coils on' : 'coils off: the plasma spreads and is gone', cx, H - 16, this.t === 0 ? COL.ink : COL.hot, 'center', W < 420 ? 9.5 : 11);
   },
   describe() {
     const pos = this.hit > 0 ? 'has hit the wall' : Math.abs(this.x) < 0.45 ? 'is centred' : this.x < 0 ? 'is drifting left' : 'is drifting right';
-    return this.B === 0 ? 'Plasma ball between coils, coils off.' : `Plasma ball between coils at ${this.B.toFixed(2)} tesla, beta ${isFinite(this.beta) ? this.beta.toFixed(2) : 'infinite'}. The ball ${pos}.`;
+    const leaks = this.beta >= 0.75 && this.beta <= 1 ? 'Cusp leaks are closed.' : 'Cusp leaks are open.';
+    return this.B === 0 ? `Plasma ball between coils, coils off. ${leaks}` : `Plasma ball between coils at ${this.B.toFixed(2)} tesla, beta ${isFinite(this.beta) ? this.beta.toFixed(2) : 'infinite'}. The ball ${pos}. ${leaks}`;
   }
 }, { B: 0, trim: 0, x: 0, lock: 0, t: 0, size: 1, hit: 0, drag: false, assist: false, assisted: false, autopilot: false, fails: 0, parts: [] });
 
@@ -867,6 +905,13 @@ function scaleBarDraw(sc) {
 
 /* ───────── Step 4: Orbit, seen by two cameras ───────── */
 const TILT = 24 * Math.PI / 180, TRUE_CAM = 132;
+function orbitLockStrength(st) {
+  const matched = st.r >= 60 && st.r <= 70 && st.T >= 2.3 && st.T <= 2.7 && st.cam >= 123 && st.cam <= 141;
+  if (!matched) return 0;
+  // Reduced motion shows the settled field at once, with no pulse or grow-cycle.
+  if (reduced || st.done || st.hold >= 1.5) return 1;
+  return clamp(st.hold / 1.5, 0, 1);
+}
 // The three objects in 3D (metres): a triangle in a tilted plane whose tilt axis slowly turns, so it tumbles.
 function formation(r, ang, tumble) {
   const ca = Math.cos(tumble), sa = Math.sin(tumble), ct = Math.cos(TILT), st = Math.sin(TILT);
@@ -916,7 +961,7 @@ const orbit = stage({
     goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
   },
   draw() {
-    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6;
+    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6, strength = orbitLockStrength(this);
     ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
@@ -929,13 +974,31 @@ const orbit = stage({
       mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
       ctx.closePath(); ctx.stroke();
       mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
+      if (strength > 0) {
+        const ringR = 12 + 18 * strength;
+        ctx.save();
+        ctx.globalAlpha = 0.28 + 0.67 * strength;
+        ctx.strokeStyle = COL.cold; ctx.lineWidth = 1.25 + 1.75 * strength;
+        ctx.beginPath();
+        mine.forEach((p, i) => {
+          const q = proj(p), mag = Math.hypot(q[0], q[1]), pad = 10 + 14 * strength;
+          const scale = mag > 0.5 ? (mag * sc + pad) / (mag * sc) : 1;
+          const x = cx + q[0] * sc * scale, y = cy + q[1] * sc * scale;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        });
+        ctx.closePath(); ctx.stroke();
+        mine.forEach(p => { const q = proj(p); ctx.beginPath(); ctx.arc(cx + q[0] * sc, cy + q[1] * sc, ringR, 0, TAU); ctx.stroke(); });
+        ctx.restore(); ctx.globalAlpha = 1;
+      }
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });
     scaleBarDraw(sc);
   },
   describe() {
     const match = this.r >= 60 && this.r <= 70 && this.T >= 2.3 && this.T <= 2.7 && this.cam >= 123 && this.cam <= 141;
-    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${match ? 'The orbs sit on the tracked rings in both views.' : 'The orbs are off the tracked rings.'}`;
+    const strength = orbitLockStrength(this);
+    const field = strength >= 1 ? ' A settled field surrounds the orbs.' : strength > 0 ? ' A field is building around the orbs.' : '';
+    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${match ? 'The orbs sit on the tracked rings in both views.' : 'The orbs are off the tracked rings.'}${field}`;
   }
 }, { r: 95, T: 6, cam: 40, ang: 0, ghost: 0, tumble: 0, hold: 0 });
 
@@ -1103,6 +1166,7 @@ function drawTransit(st) {
   label(`${open.w} m entrance`, cx, cy - 15, m.fits ? COL.cold : COL.hot, 'center');
   label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 48, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
   label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at 250 m/s cruise`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
+  label('Airliner keeps flying forward; only the path changes', cx, H - 66, COL.ink, 'center', W < 400 ? 9 : 11);
   viewTitle('TRANSIT DIAGRAM');
 }
 const conv = stage({
@@ -1190,7 +1254,7 @@ const conv = stage({
     const crossing = transitModel(this.q, open.w);
     set('cv-x', fmt(crossing.duration, 3) + ' s<small>63.7 m ÷ 250 m/s cruise speed</small>');
     set('cv-clear', fmt(crossing.clearance, 2) + ' m<small>each wing; centred 60.9 m span</small>');
-    set('cv-view-note', this.view === 'transit' ? 'Schematic: a centred aircraft passes into a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
+    set('cv-view-note', this.view === 'transit' ? 'Schematic: a centred airliner keeps flying forward and only its path changes, passing a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
     const checks = $('#mission-checks');
     if (checks) {
       const checkHTML = missionReadiness().map(r => `<li class="${r.ok ? 'ready' : 'blocked'}"><span>${r.ok ? '✓' : '○'} ${r.name}: ${r.ok ? r.detail : 'retune required'}</span><button type="button" class="btn small" data-retune="${r.stage}" aria-label="Retune ${r.name.toLowerCase()} (step ${r.stage + 1})">Retune</button></li>`).join('');
@@ -1229,6 +1293,25 @@ const conv = stage({
         } else orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
       }
     }
+    if (this.phase === 'closing') {
+      const grow = clamp((1 - this.k) / 0.25, 0, 1);
+      if (grow > 0) {
+        const ringR = 16 + 22 * grow;
+        ctx.save();
+        ctx.globalAlpha = 0.22 + 0.7 * grow;
+        ctx.strokeStyle = COL.cold; ctx.lineWidth = 1.25 + 2 * grow;
+        ctx.beginPath();
+        points.forEach((p, i) => {
+          const q = project(p), mag = Math.hypot(q[0], q[1]), pad = 8 + 16 * grow;
+          const scale = mag > 0.5 ? (mag * sc + pad) / (mag * sc) : 1;
+          const x = cx + q[0] * sc * scale, y = cy + q[1] * sc * scale;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        });
+        ctx.closePath(); ctx.stroke();
+        points.forEach(p => { const q = project(p); ctx.beginPath(); ctx.arc(cx + q[0] * sc, cy + q[1] * sc, ringR, 0, TAU); ctx.stroke(); });
+        ctx.restore(); ctx.globalAlpha = 1;
+      }
+    }
     if (flashing) {
       const s = Math.sin(Math.PI * this.q), R = (open.w / 2) * (0.4 + s) * sc;
       if (reduced) {
@@ -1243,6 +1326,28 @@ const conv = stage({
         g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, `rgba(255,255,255,${reduced ? 0.6 : 0.9})`); g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, TAU); ctx.fill();
       }
+      // Juice only: a mark along the formation path. Reduced motion keeps it static, and it is not the only cue.
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      if (reduced) {
+        for (let i = 0; i < 3; i++) {
+          const a = -Math.PI / 2 + i * TAU / 3;
+          ctx.moveTo(cx + Math.cos(a) * 50, cy + Math.sin(a) * 50);
+          ctx.lineTo(cx + Math.cos(a) * 82, cy + Math.sin(a) * 82);
+        }
+      } else {
+        const reach = 28 + 34 * Math.sin(Math.PI * this.q);
+        points.forEach(p => {
+          const q = project(p), mag = Math.hypot(q[0], q[1]) || 1;
+          ctx.moveTo(cx + q[0] / mag * 20, cy + q[1] / mag * 20);
+          ctx.lineTo(cx + q[0] / mag * (20 + reach), cy + q[1] / mag * (20 + reach));
+        });
+      }
+      ctx.lineWidth = reduced ? 4.5 : 6; ctx.strokeStyle = 'rgba(8,12,20,.8)'; ctx.stroke();
+      ctx.lineWidth = reduced ? 2 : 2.75; ctx.strokeStyle = COL.warm; ctx.stroke();
+      ctx.restore(); ctx.lineCap = 'butt';
+      label('snap along the path', cx, 44, th ? COL.ink : COL.warm, 'center', W < 420 ? 10 : 12);
       label('Slowed for viewing', cx, H - 40, th ? COL.muted : COL.ink, 'center', W < 400 ? 9 : 11);
     }
     if (gone) label('nothing warm is left where it was', cx, cy + 4, COL.muted, 'center');
@@ -1250,10 +1355,11 @@ const conv = stage({
     scaleBarDraw(sc);
   },
   describe() {
-    if (this.view === 'transit') return `Transit diagram: the airliner passing into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing.`;
+    if (this.view === 'transit') return `Transit diagram: the airliner keeps flying forward and only its path changes, passing into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing. No destination.`;
     const view = this.view === 'thermal' ? 'Thermal view from the side' : 'Visible view from above';
     if (this.phase === 'gone') return `${view}: the airliner is gone, leaving open sky.`;
-    if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner.`;
+    if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner. A snap runs along the path.`;
+    if (this.phase === 'closing' && this.k < 0.999) return `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size. The field around them is growing.`;
     return `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size.`;
   }
 }, { phase: 'orbit', k: 1, q: 0, ang: 0, tumble: 0, startAng: 0, startTumble: 0, view: 'thermal', msg: '' });

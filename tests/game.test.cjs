@@ -692,6 +692,246 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
   assert.doesNotMatch(pages, /\[object Object\]|>undefined</, 'every cited paper renders as text');
 });
 
+
+function cuspArcs(drawing) {
+  return drawing.filter(call => call[0] === 'arc' && call[5] - call[4] < Math.PI * 2 - 1e-6);
+}
+function mouthShape(drawing) {
+  const arcs = cuspArcs(drawing), mouth = Math.max(...arcs.map(call => call[3]));
+  const sweep = Math.max(...arcs.filter(call => Math.abs(call[3] - mouth) < 1e-6).map(call => call[5] - call[4]));
+  return { mouth, sweep, count: arcs.length };
+}
+function fieldRadii(drawing) {
+  return drawing.filter(call => call[0] === 'arc' && call[3] >= 12 && call[3] <= 32).map(call => call[3]);
+}
+function fieldArcs(drawing) {
+  return drawing.filter(call => call[0] === 'arc' && call[3] >= 16 && call[3] <= 40);
+}
+function holdBeta(game) {
+  return Number.parseFloat(text(game, 'ho-beta'));
+}
+function resume(game) {
+  if (game.ids.get('pause').textContent === 'Resume') click(game, 'pause');
+}
+function setCoil(game, field) {
+  pad(game, 'down', { field });
+  pad(game, 'up', { field });
+}
+function tuneHold(game, pattern, targetBeta) {
+  let bestField = null, bestScore = Infinity;
+  for (let field = 1; field >= -1e-9; field -= 0.002) {
+    setCoil(game, Math.max(0, field));
+    game.lab.advance(0);
+    const readout = text(game, 'ho-beta');
+    if (!pattern.test(readout)) continue;
+    const score = targetBeta == null ? 0 : Math.abs(holdBeta(game) - targetBeta);
+    if (score < bestScore) { bestScore = score; bestField = Math.max(0, field); }
+    if (targetBeta == null) break;
+  }
+  assert.notEqual(bestField, null, `hold readout should match ${pattern}`);
+  setCoil(game, bestField);
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  return {
+    shape: mouthShape(game.drawing),
+    aria: game.ids.get('cv').attributes['aria-label'],
+    readout: text(game, 'ho-beta')
+  };
+}
+function setOrbit(game, r, period, cam) {
+  slide(game, 'or-r', r);
+  slide(game, 'or-t', period);
+  slide(game, 'or-c', cam);
+}
+function trianglePercent(game) {
+  return Number.parseFloat(text(game, 'cv-k'));
+}
+
+test('hold cusp leaks close inside the beta band and open when beta leaves it', () => {
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'step-1'); resume(game);
+  const closed = tuneHold(game, /balanced/, 0.88);
+  assert.match(closed.readout, /balanced/);
+  assert.match(closed.aria, /Cusp leaks are closed/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
+  assert.equal(closed.shape.count, 12);
+  assert.ok(closed.shape.sweep < 0.3);
+  const leaking = tuneHold(game, /leaking/);
+  assert.match(leaking.readout, /leaking/);
+  assert.match(leaking.aria, /Cusp leaks are open/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
+  assert.equal(leaking.shape.count, 12);
+  assert.ok(leaking.shape.mouth > closed.shape.mouth);
+  assert.ok(leaking.shape.sweep > closed.shape.sweep);
+  const over = tuneHold(game, /over-built/);
+  assert.match(over.readout, /over-built/);
+  assert.match(over.aria, /Cusp leaks are open/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
+  assert.equal(over.shape.count, 12);
+  assert.ok(over.shape.mouth > closed.shape.mouth);
+  assert.ok(over.shape.sweep > closed.shape.sweep);
+  setCoil(game, 0);
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.match(text(game, 'ho-beta'), /coils off/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /coils off/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /Cusp leaks are open/);
+  const off = mouthShape(game.drawing);
+  assert.equal(off.count, 12);
+  assert.ok(off.mouth > closed.shape.mouth);
+  assert.ok(off.sweep > closed.shape.sweep);
+});
+
+test('hold cusp leaks keep a steady shape under reduced motion', () => {
+  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
+  click(game, 'step-1'); resume(game);
+  const closed = tuneHold(game, /balanced/, 0.88);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
+  assert.equal(closed.shape.count, 12);
+  game.drawing.length = 0; paint(game);
+  assert.deepEqual(mouthShape(game.drawing), closed.shape);
+  click(game, 'ho-assist');
+  game.lab.advance(4.2, 4.2);
+  const later = tuneHold(game, /balanced/, 0.88);
+  assert.ok(Math.abs(later.shape.sweep - closed.shape.sweep) < 1e-3);
+  assert.equal(later.shape.count, closed.shape.count);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks closed')));
+  const open = tuneHold(game, /leaking/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
+  assert.equal(open.shape.count, 12);
+  assert.ok(open.shape.mouth > later.shape.mouth + 5);
+  assert.ok(open.shape.sweep > later.shape.sweep);
+  const over = tuneHold(game, /over-built/);
+  assert.ok(game.drawing.some(call => call.includes('cusp leaks open')));
+  assert.ok(over.shape.mouth > later.shape.mouth + 5);
+});
+
+test('orbit field builds when the formation sits on the tracked rings', () => {
+  const game = bootFromSavedRun(savedRunOn(3));
+  assert.equal(currentStep(game), 3);
+  resume(game);
+  setOrbit(game, 40, 6, 40);
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.equal(fieldRadii(game.drawing).length, 0);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /off the tracked rings/);
+  assert.doesNotMatch(game.ids.get('cv').attributes['aria-label'], /field/);
+  setOrbit(game, 65, 2.5, 132);
+  game.lab.advance(0.3, 1);
+  game.drawing.length = 0; paint(game);
+  const building = fieldRadii(game.drawing);
+  assert.equal(building.length, 6);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /tracked rings/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /field is building/);
+  game.lab.advance(1.2, 1);
+  game.drawing.length = 0; paint(game);
+  const settled = fieldRadii(game.drawing);
+  assert.equal(settled.length, 6);
+  assert.ok(Math.min(...settled) > Math.max(...building));
+  assert.match(game.ids.get('cv').attributes['aria-label'], /settled field/);
+});
+
+test('reduced-motion orbit shows a settled field without a grow cycle', () => {
+  const game = bootFromSavedRun(savedRunOn(3), { reduced: true });
+  resume(game);
+  setOrbit(game, 65, 2.5, 132);
+  game.lab.advance(0.15, 1);
+  game.drawing.length = 0; paint(game);
+  const early = fieldRadii(game.drawing);
+  assert.equal(early.length, 6);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /settled field/);
+  const first = JSON.stringify(game.drawing);
+  game.drawing.length = 0; paint(game);
+  assert.equal(JSON.stringify(game.drawing), first);
+  game.lab.advance(1.35, 1);
+  game.drawing.length = 0; paint(game);
+  assert.deepEqual(fieldRadii(game.drawing), early);
+  const plain = bootFromSavedRun(savedRunOn(3));
+  resume(plain);
+  setOrbit(plain, 65, 2.5, 132);
+  plain.lab.advance(0.15, 1);
+  plain.drawing.length = 0; paint(plain);
+  assert.ok(early[0] > Math.max(...fieldRadii(plain.drawing)));
+});
+
+test('converge field grows while closing and the flash shows a snap along the path', () => {
+  const game = bootFromSavedRun('ready-to-converge');
+  assert.equal(game.ids.get('cv-go').textContent, 'Start closing in');
+  click(game, 'cv-go');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.equal(fieldArcs(game.drawing).length, 0);
+  assert.equal(game.ids.get('cv-go').textContent, 'Open it now');
+  game.lab.advance(2, 1);
+  game.drawing.length = 0; paint(game);
+  const early = fieldArcs(game.drawing).map(call => call[3]);
+  assert.equal(early.length, 3);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /field around them is growing/);
+  assert.ok(trianglePercent(game) > 85 && trianglePercent(game) < 95);
+  game.lab.advance(3, 1);
+  game.drawing.length = 0; paint(game);
+  const late = fieldArcs(game.drawing).map(call => call[3]);
+  assert.equal(late.length, 3);
+  assert.ok(Math.min(...late) > Math.max(...early));
+  assert.ok(trianglePercent(game) >= 71 && trianglePercent(game) <= 79);
+  click(game, 'cv-visible');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.equal(fieldArcs(game.drawing).length, 3);
+  assert.ok(Math.min(...fieldArcs(game.drawing).map(call => call[3])) > Math.max(...early));
+  click(game, 'cv-thermal');
+  click(game, 'cv-go');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
+  assert.match(game.ids.get('cv').attributes['aria-label'], /snap runs along the path/);
+  click(game, 'cv-visible');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
+});
+
+test('reduced-motion flash keeps a static aperture and a static path snap', () => {
+  const game = bootFromSavedRun('ready-to-converge', { reduced: true });
+  click(game, 'cv-go');
+  game.lab.advance(5, 5);
+  assert.ok(trianglePercent(game) >= 71 && trianglePercent(game) <= 79);
+  click(game, 'cv-go');
+  game.lab.advance(0.8, 0.8);
+  click(game, 'cv-visible');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
+  assert.ok(game.drawing.some(call => call.includes('snap along the path')));
+  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
+  const first = JSON.stringify(game.drawing);
+  game.lab.advance(0.32, 0.32);
+  game.drawing.length = 0; paint(game);
+  assert.equal(JSON.stringify(game.drawing), first);
+  assert.ok(game.drawing.some(call => call.includes('wormhole aperture')));
+  assert.equal(game.drawing.some(call => call[0] === 'createRadialGradient'), false);
+});
+
+test('transit diagram says the airliner keeps flying forward and only the path changes', () => {
+  const game = bootFromSavedRun('ready-to-converge');
+  click(game, 'cv-transit');
+  game.lab.advance(0, 1);
+  game.drawing.length = 0; paint(game);
+  const note = text(game, 'cv-view-note');
+  assert.match(note, /No destination/);
+  assert.match(note, /keeps flying forward/);
+  assert.match(note, /only its path changes/);
+  assert.match(note, /1\.6 seconds/);
+  assert.ok(game.drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
+  assert.ok(game.drawing.some(call => call.includes('Airliner keeps flying forward; only the path changes')));
+  assert.ok(game.drawing.some(call => call[0] === 'clip'));
+  assert.match(game.ids.get('cv').attributes['aria-label'], /keeps flying forward and only its path changes/);
+  assert.match(game.ids.get('cv').attributes['aria-label'], /No destination/);
+  assert.equal(game.lab.transitModel(0, 61).duration, 63.7 / 250);
+  assert.ok(Math.abs(game.lab.transitModel(0, 61).clearance - 0.05) < 1e-12);
+  assert.equal(game.lab.transitModel(1, 61).centreY + 63.7 / 2, 0);
+});
+
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
   for (const [mode, reduced, rate] of [['learn', false, .5], ['challenge', false, 1], ['challenge', true, .5]]) {
     const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = mode; }), { reduced });

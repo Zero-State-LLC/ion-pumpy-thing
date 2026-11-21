@@ -70,3 +70,7 @@ Do not reinstate claims that beta one proves self-sustaining fusion, that FRCs n
 The runtime `SOURCES` array maps these sources to six expandable lesson cards. Updating scientific content requires updating this register and its source revision. A changed source revision invalidates old in-progress saves rather than silently resuming an experiment under different assumptions.
 
 No full dataset has been imported. Any later import must preserve the attribution and reuse terms stated on the [open-data page](https://4orbs.com/data/), currently CC BY-NC-SA 4.0, and record original classifications separately from reviewed scientific status.
+
+## Candidate material
+
+A 21 November 2026 Ashton Forbes livestream, *Ion Pumpy Thing SOLVED — UFO Files 8*, reads the ion-pumpy schematic as a dense plasma focus. It is not on this register. Ideas that might later become game changes are recorded in [the UFO Files 8 proposal](proposals/ufo-files-8.md). Do not add its claims to lessons, source cards, or the ledger until a 4orbs.com page carries them and this revision is updated.

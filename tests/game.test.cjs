@@ -6,6 +6,10 @@ const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+// The source register (docs/SOURCES.md): the list of 4orbs pages the lessons cite.
+const register = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SOURCES.md'), 'utf8');
+// Common ways of naming the flight. The airliner is only ever its make and model.
+const FLIGHT_NAMES = /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i;
 
 // Minimal DOM and drawing boundary. This exercises actual game code, not a
 // second implementation of its models. It does not replace browser QA.
@@ -464,18 +468,33 @@ test('all stages render finite canvas commands including reduced-motion finale a
   assert.match(text(game, 'panel'), /6 experiments complete/);
 });
 
-test('scientific source cards use only the approved corrected-source pages', () => {
-  const game = bootFromSavedRun('completed-run'), approved = ['https://4orbs.com/the-vanishing/part-3-the-science/', 'https://4orbs.com/research/satellite-videos/measurements/'];
-  let cards = 0;
+// Every 4orbs page a text links, by address; a link into part of a page cites that page.
+const fourOrbsPages = markup => [...markup.matchAll(/(?:https?:)?\/\/(?:[\w-]+\.)*4orbs\.com(?![\w.-])[^\s"'<>)\]]*/gi)].map(m => m[0].split('#')[0]);
+// The 4orbs pages the source register lists.
+const listedPages = new Set(fourOrbsPages(register));
+
+test("every step's source card cites a 4orbs page, and only pages the source register lists", () => {
+  const game = bootFromSavedRun('completed-run');
   for (let i = 0; i < 6; i++) {
     click(game, `step-${i}`);
-    const links = [...text(game, 'panel').matchAll(/href="([^"]+)"[^>]*>4orbs: /g)].map(m => m[1]);
-    assert.equal(links.length, 1, `step ${i + 1} has one 4orbs source`); cards++;
-    assert.ok(approved.includes(links[0]), links[0]);
+    const card = text(game, 'panel').match(/<details class="source-card">[\s\S]*?<\/details>/);
+    assert.ok(card, `step ${i + 1} has a source card`);
+    const cited = fourOrbsPages(card[0]);
+    assert.ok(cited.length, `step ${i + 1}'s source card links a 4orbs page`);
+    for (const page of cited) assert.ok(listedPages.has(page), `step ${i + 1}'s source card links ${page}, which the source register doesn't list`);
   }
-  assert.equal(cards, 6);
   assert.match(game.lab.SOURCE_REVISION, /corrected/);
   assert.doesNotMatch(html, /% of the best D-T rate|under 1 %/);
+});
+
+test('the source register lists no 4orbs page whose address or title names the flight', () => {
+  assert.ok(listedPages.size, 'the source register lists 4orbs pages');
+  // An address names the flight in its words: mh370, malaysia-airlines-flight-370.
+  for (const page of listedPages) assert.doesNotMatch(decodeURIComponent(page).replace(/[-_/.+]+/g, ' '), FLIGHT_NAMES, page);
+  // A page's title means its link text in the register.
+  for (const [, title, url] of register.matchAll(/\[([^\]]+)\]\(([^)\s]+)\)/g)) {
+    if (listedPages.has(url.split('#')[0])) assert.doesNotMatch(title, FLIGHT_NAMES, `${title} (${url})`);
+  }
 });
 
 test('transit units and geometry describe passage past an entrance, not travel time', () => {
@@ -684,7 +703,7 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
   const game = bootFromSavedRun('completed-run'); let pages = '';
   for (let i = 0; i < 7; i++) { click(game, `step-${i}`); pages += text(game, 'panel'); }
   const all = html + pages;
-  assert.doesNotMatch(all, /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i);
+  assert.doesNotMatch(all, FLIGHT_NAMES);
   assert.doesNotMatch(all, /Nobody knows|nobody knows how|visual effects|could not be proven|short by|source nobody has|not a mechanism|on paper/i);
   assert.match(html, /takes that account as its premise/);
   assert.match(html, /Boeing 777-200ER/);

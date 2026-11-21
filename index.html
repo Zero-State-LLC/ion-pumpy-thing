@@ -1651,7 +1651,8 @@ function start(d) {
 const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(snapshot);
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__lab = { snd, syncAudioMode, audioTransitions, seedAudioState, S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, askRestart, notice, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
+// Test hook: the test clock, the physics models and the source revision, nothing else (docs/adr/0001).
+window.__lab = { advance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCE_REVISION };
 })();
 </script>
 <script src="ga4.js" defer></script>

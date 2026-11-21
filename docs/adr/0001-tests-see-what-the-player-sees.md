@@ -12,7 +12,8 @@ Game tests act only through the page's controls and the test clock (`advance`), 
 
 ## Consequences
 
-- `window.__lab` shrinks to `advance`, `snd` (tests swap `snd.play` to record which cues play), the five physics models and `SOURCE_REVISION`. With nothing else exposed, the rule enforces itself.
+- `window.__lab` shrinks to `advance`, the five physics models and `SOURCE_REVISION`. With nothing else exposed, the rule enforces itself.
+- Tests hear what the player would by recording what the game asks of the sound engine (cues, beds and the sound mode). The test harness wraps the engine before the game starts, so the hook doesn't expose it and requests made during startup are recorded too.
 - Saved-run fixtures depend on the save format, which already has to keep loading for players. The fixture helper stamps the current `SOURCE_REVISION`, so a source update doesn't invalidate every fixture.
 - Layout, which the node harness can't see, is checked in real Chrome by `npm run test:browser`.
 - `tests/audio.test.cjs` tests the sound engine through its own module interface with a stand-in for Web Audio, and is outside this decision.

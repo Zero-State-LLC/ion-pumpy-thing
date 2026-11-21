@@ -5,7 +5,7 @@
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
 //
-// Without Chrome it skips locally and fails in CI.
+// Without Chrome, or on a Node older than 22, it skips locally and fails in CI.
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
@@ -73,13 +73,16 @@ async function connect(browserUrl) {
   return { send, once, on, close: () => ws.close() };
 }
 
+// Missing what the check needs: skip locally, but fail in CI so a runner change can't pass silently.
+function skipOrFailInCI(message) {
+  if (process.env.CI) { console.error(`${message} CI needs it, so this fails.`); process.exit(1); }
+  console.log(`${message} Skipped.`);
+}
+
 async function main() {
+  if (typeof WebSocket === 'undefined') return skipOrFailInCI(`Browser check: needs Node 22 or later, for its built-in WebSocket, which isn't available in this Node (${process.version}).`);
   const chrome = findChrome();
-  if (!chrome) {
-    const message = 'Browser check: no Chrome found (set CHROME_PATH to choose one).';
-    if (process.env.CI) { console.error(`${message} CI needs it, so this fails.`); process.exit(1); }
-    console.log(`${message} Skipped.`); return;
-  }
+  if (!chrome) return skipOrFailInCI('Browser check: no Chrome found (set CHROME_PATH to choose one).');
   const server = await serve(), site = `http://127.0.0.1:${server.address().port}/`;
   const profile = mkdtempSync(join(tmpdir(), 'ipt-chrome-'));
   const { proc, browserUrl } = await launch(chrome, profile);

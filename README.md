@@ -33,11 +33,12 @@ The optional shared practice board only works in a Claude artifact with database
 
 ## Checks
 
-With Node 20 or later:
+With Node 22 or later:
 
-    node --test tests/*.test.cjs
+    npm test
+    npm run test:browser
 
-The suite checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. It does not replace a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
+`npm test` (the same as `node --test tests/*.test.cjs`) checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. `npm run test:browser` opens every step and the ledger in the installed Chrome in a 390 px phone window, and fails if the page scrolls sideways or throws. Without Chrome, or on an older Node, it skips locally and fails in CI. Neither replaces a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
 
 ## Sources and framing
 

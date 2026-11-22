@@ -10,6 +10,7 @@
 // docs/adr/0001, docs/adr/0003 and issues #15, #45, #56 and #57.
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
+//   node tests/browser-check.mjs --find-chrome    print the browser it would use
 //
 // Without Chrome, or on a Node older than 22, it skips locally and fails in CI.
 import { spawn, spawnSync } from 'node:child_process';
@@ -101,14 +102,23 @@ const CANVAS_TEXT_RECORDER = `(() => {
   }
 })();`;
 
+// CHROME_PATH, then Chrome or Chromium on PATH, then the usual macOS and Windows
+// installs. On Windows, Edge (which every Windows 10 and 11 machine has) is the
+// fallback; it speaks the same DevTools protocol. Linux doesn't set the Windows
+// variables, so CI finds what it always found. See #73.
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
   for (const name of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
     const found = spawnSync('which', [name], { encoding: 'utf8' });
     if (found.status === 0) return found.stdout.trim();
   }
-  const mac = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  return existsSync(mac) ? mac : null;
+  const windows = ['ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA'].map(name => process.env[name]).filter(Boolean);
+  const installs = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    ...windows.map(dir => join(dir, 'Google', 'Chrome', 'Application', 'chrome.exe')),
+    ...windows.map(dir => join(dir, 'Microsoft', 'Edge', 'Application', 'msedge.exe')),
+  ];
+  return installs.find(file => existsSync(file)) || null;
 }
 
 // Serve the site the way a host would, so storage and relative assets behave as on the web.
@@ -171,9 +181,10 @@ function skipOrFailInCI(message) {
 }
 
 async function main() {
+  if (process.argv.includes('--find-chrome')) return console.log(findChrome() || 'none');
   if (typeof WebSocket === 'undefined') return skipOrFailInCI(`Browser check: needs Node 22 or later, for its built-in WebSocket, which isn't available in this Node (${process.version}).`);
   const chrome = findChrome();
-  if (!chrome) return skipOrFailInCI('Browser check: no Chrome found (set CHROME_PATH to choose one).');
+  if (!chrome) return skipOrFailInCI('Browser check: no Chrome or Edge found (set CHROME_PATH to choose one).');
   const server = await serve(), site = `http://127.0.0.1:${server.address().port}/`;
   const profile = mkdtempSync(join(tmpdir(), 'ipt-chrome-'));
   const { proc, browserUrl } = await launch(chrome, profile);

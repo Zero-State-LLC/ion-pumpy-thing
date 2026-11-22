@@ -109,12 +109,22 @@ function savedRunOn(step, edit = () => {}) {
   const saved = { ...ready, stage: step, stages: ready.stages.map((s, i) => i < step ? s : fresh.stages[i]) };
   edit(saved); return saved;
 }
+// Fails unless the game opened the saved run, so a test can't pass on a fresh
+// run by accident. A test that expects the game to reject the save passes
+// { rejected: true }, and then fails if the save loads.
 function bootFromSavedRun(fixture, options = {}) {
   const saved = typeof fixture === 'string' ? readSavedRun(fixture) : fixture;
   currentRevision ??= boot().lab.SOURCE_REVISION;
   const storage = options.storage || new Map();
   storage.set('ipt-run-v2', JSON.stringify({ sourceRevision: currentRevision, ...saved }));
-  return boot(storage, options);
+  const game = boot(storage, options), name = typeof fixture === 'string' ? `"${fixture}"` : 'given';
+  const done = saved.stages?.filter(s => s.done).length ?? 0;
+  const opened = currentStep(game), open = [0, 1, 2, 3, 4, 5, 6].filter(i => !locked(game, i)).length - 1;
+  const loaded = opened === saved.stage && open === done;
+  // A rejected save and a save of an untouched run both open a fresh run on Ignite.
+  if (options.rejected) assert.ok(!loaded || (saved.stage === 0 && done === 0), `Saved run ${name} loaded, but this test expects the game to reject it.`);
+  else assert.ok(loaded, `Saved run ${name} did not load: the game opened ${STEPS[opened]} with ${open} steps done, not ${STEPS[saved.stage]} with ${done}. If this test expects the game to reject it, pass { rejected: true }.`);
+  return game;
 }
 const lastSave = game => JSON.parse(game.storage.get('ipt-run-v2'));
 // A Claude artifact host with database access, where the practice board works. It records
@@ -144,9 +154,22 @@ function bubble(game, type, el, event) {
   const panel = game.ids.get('panel');
   if (panel.children.includes(el) && panel.listeners[type]) panel.listeners[type]({ ...event, target: { ...el, closest: s => matches(el, s) ? el : null } });
 }
-function click(game, id) {
-  const el = game.ids.get(id), event = { detail: 1, currentTarget: el };
+// Clicking a step tab fails unless that step opens, so a test can't read one step
+// while it believes it is on another. clickLockedStep is for a tab that should refuse.
+function dispatchClick(game, el) {
+  const event = { detail: 1, currentTarget: el };
   const result = el.onclick(event); bubble(game, 'click', el, event); return result;
+}
+function click(game, id) {
+  const result = dispatchClick(game, game.ids.get(id)), tab = id.match(/^step-(\d)$/);
+  if (tab) assert.equal(currentStep(game), +tab[1], `Could not open ${STEPS[tab[1]]}: it is locked in this run.`);
+  return result;
+}
+function clickLockedStep(game, i) {
+  const before = currentStep(game);
+  assert.equal(locked(game, i), true, `${STEPS[i]} is not locked in this run.`);
+  dispatchClick(game, game.ids.get(`step-${i}`));
+  assert.equal(currentStep(game), before, `${STEPS[i]} opened while locked.`);
 }
 function slide(game, id, value) {
   const el = game.ids.get(id); el.value = String(value);
@@ -184,7 +207,12 @@ function readSource(game, open) {
 const leave = game => game.window.listeners.pagehide();
 const paint = game => game.frames.at(-1)(0);
 
-// What the player sees and hears.
+// What the player sees and hears. New readouts go here, beside the others.
+// - Labels, buttons and the HUD timer update on the next frame: after a click, run
+//   lab.advance(0) before reading one, unless the test's point is that the change is immediate.
+// - A step is complete when its goal text says so; the goal bar can show 100 % a frame early.
+// - The HUD timer shows whole seconds, so time a test in whole seconds to read it.
+const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'the Ledger'];
 const text = (game, id) => game.ids.get(id).innerHTML;
 const currentStep = game => [0, 1, 2, 3, 4, 5, 6].find(i => game.ids.get(`step-${i}`).attributes['aria-current'] === 'step');
 const locked = (game, i) => game.ids.get(`step-${i}`).attributes['aria-disabled'] === 'true';
@@ -743,7 +771,7 @@ test('startup automatically loads local progress and resets transient closing st
 test('corrupt or incompatible saves are rejected without partly applying them', () => {
   for (const mutate of [d => d.version = 1, d => d.sourceRevision = 'old', d => d.stage = 7, d => d.stages[0].values.power = '80', d => d.stages[0].values.p = -1, d => d.stages[4].values.assumed = 'true', d => d.elapsed = -1, d => d.stages[2].done = false, d => d.stages[3].values.T = 9]) {
     const saved = readSavedRun('ready-to-converge'); mutate(saved);
-    const game = bootFromSavedRun(saved);
+    const game = bootFromSavedRun(saved, { rejected: true });
     assert.equal(currentStep(game), 0, String(mutate)); assert.equal(locked(game, 1), true, String(mutate));
     assert.equal(String(game.ids.get('ig-power').value), '15', 'the saved drive power of 60 is not applied');
   }
@@ -962,7 +990,7 @@ test('electron screening saves with the run and reloads, and a saved run from be
   const reloaded = boot(game.storage);
   assert.equal(currentStep(reloaded), 2); assert.equal(pressed(reloaded, 'fu-screen'), true);
   saved.stages[2].values.screening = 'on';
-  assert.equal(currentStep(bootFromSavedRun(saved)), 0, 'a saved run with a malformed setting starts fresh');
+  assert.equal(currentStep(bootFromSavedRun(saved, { rejected: true })), 0, 'a saved run with a malformed setting starts fresh');
 });
 
 // The Fuel canvas, one frame: the electrons drawn, as the legend's electron dot marks them
@@ -1235,7 +1263,7 @@ test('the source register records the Ignite piston as a source choice: both rev
 });
 
 // The steps, by name, in order.
-const STEP_NAMES = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge'];
+const STEP_NAMES = STEPS.slice(0, 6);
 
 test("the register's 4orbs pages cited table names every step that links each page on its source card, and every step it is weighed for under Source choices", () => {
   const rows = citedPagesTable(), names = (page, step) => new RegExp(`\\b${step}\\b`).test(rows.find(r => r.page === page)?.usedIn || '');
@@ -1531,7 +1559,7 @@ test('a saved run from the previous source revision starts fresh with a visible 
   // The revision before the Fuel step gained its electron-screening control.
   const previous = '4orbs-part3-corrected-2026-11-21-ignite-piston';
   const storage = new Map([['ipt-best-v3', '{"score":1234}']]);
-  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
+  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage, rejected: true });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
   assert.equal(game.ids.get('restore-status').hidden, false);
   assert.match(text(game, 'restore-status'), /Source assumptions have changed/);
@@ -1608,7 +1636,7 @@ test('older saves without assist fields still restore', () => {
   delete saved.stages[1].values.assist; delete saved.stages[1].values.assisted;
   const game = bootFromSavedRun(saved); assert.equal(currentStep(game), 2);
   click(game, 'step-1'); assert.equal(game.ids.get('ho-assist').attributes['aria-pressed'], 'false');
-  saved.stages[1].values.assist = 'yes'; assert.equal(currentStep(bootFromSavedRun(saved)), 0);
+  saved.stages[1].values.assist = 'yes'; assert.equal(currentStep(bootFromSavedRun(saved, { rejected: true })), 0);
 });
 
 test('locked steps stay focusable, show a lock and explain themselves', () => {
@@ -1616,7 +1644,7 @@ test('locked steps stay focusable, show a lock and explain themselves', () => {
   const steps = text(game, 'steps');
   assert.match(steps, /id="step-2" class="locked" aria-disabled="true"/);
   assert.doesNotMatch(steps, /\sdisabled[\s>]/);
-  click(game, 'step-2');
+  clickLockedStep(game, 2);
   assert.equal(currentStep(game), 0); assert.match(text(game, 'run-status'), /Fuel unlocks after Hold\./);
   game.lab.advance(5); assert.doesNotMatch(text(game, 'run-status'), /unlocks/);
 });
@@ -1777,7 +1805,7 @@ test('a run saves whether its Fuel step was completed with electron screening on
   assert.equal(currentStep(older), 5, 'the older saved run resumes');
   assert.equal(ledgerRows(older).filter(row => SCREENING_ROW.test(row.said)).length, 0, 'no screening row');
   saved.stages[2].values.completedScreened = 'yes';
-  assert.equal(currentStep(bootFromSavedRun(saved)), 0, 'a saved run with a malformed value starts fresh');
+  assert.equal(currentStep(bootFromSavedRun(saved, { rejected: true })), 0, 'a saved run with a malformed value starts fresh');
 });
 
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
@@ -2361,7 +2389,7 @@ test('the 3D view switch starts on where the renderer starts, is remembered on t
   assert.equal(again.ids.get('view-3d').checked, false, 'remembered off');
   assert.equal(again.view3d.given, undefined, 'and the renderer never loads');
   // Where storage throws, the switch takes its default, and turning it changes nothing else.
-  const blocked = await bootIn3D('ready-to-converge', { noStorage: true });
+  const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
   assert.equal(blocked.ids.get('view-3d').checked, true);
   blocked.ids.get('view-3d').checked = false; assert.doesNotThrow(() => blocked.ids.get('view-3d').onchange());
 });

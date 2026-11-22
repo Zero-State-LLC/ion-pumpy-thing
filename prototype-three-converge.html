@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Converge in 3D prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: a thermal-camera viewport on the left, an instrument panel on the right; one visual world, the night sky as a heat camera draws it. */
+:root {
+  color-scheme: dark;
+  /* Colour */
+  --sky: #0b1330;      /* open sky on the thermal scale */
+  --deep: #070c20;     /* page ground, colder than sky */
+  --panel: #121b3d;
+  --line: #2a3768;
+  --ink: #ece6d6;
+  --muted: #9aa6c9;
+  --locked: #6e7896;   /* locked steps: 4.5:1 on --deep */
+  --hot: #ff5533;      /* engines and heat */
+  --warm: #ffae42;     /* airframe skin, measured values */
+  --cold: #62d2e8;     /* lab physics */
+  --read: #b9a2ff;     /* the 4orbs account */
+  --theory: #9fe28a;   /* a mathematical model */
+  --rule: #f49ac1;     /* a simplification made for play */
+  --flash: #ffffff;    /* the top of the thermal scale */
+  --dusk: #7a4a6a;     /* the middle of the thermal scale */
+  --void: #01030a;     /* the bottom of the scale */
+  --tag-lab: var(--cold);
+  --tag-theory: var(--theory);
+  --tag-measured: var(--warm);
+  --tag-account: var(--read);
+  --tag-rule: var(--rule);
+  /* Type */
+  --display: "Saira Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 22px;
+  --fs-2xl: 30px;
+  --fs-hero: clamp(34px, 6vw, 54px);
+  --track-label: .08em;
+  --track-display: .02em;
+  /* Space */
+  --sp-0: 2px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 28px;
+  --sp-7: 40px;
+  --radius: 2px;
+}
+html, body { background: var(--deep); }
+body { color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.55; }
+* { box-sizing: border-box; }
+.wrap {
+  max-width: 1180px; margin: 0 auto; padding-block: var(--sp-5) var(--sp-7);
+  padding-left: max(var(--sp-4), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sp-4), env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: var(--sp-4);
+}
+a { color: var(--cold); }
+:focus-visible { outline: 2px solid var(--warm); outline-offset: 2px; }
+/* Headings take focus on step changes for screen readers; no box around them. */
+[tabindex="-1"]:focus { outline: none; }
+.vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-3) var(--sp-6); }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: var(--fs-hero); line-height: .92; margin: 0; letter-spacing: var(--track-display); text-transform: uppercase; }
+.top h1 span { color: var(--cold); }
+.top p { margin: 0; max-width: 52ch; color: var(--muted); }
+
+.key { font-size: var(--fs-sm); color: var(--muted); }
+.key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; }
+.key ul { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+.key li { display: inline-flex; gap: var(--sp-2); align-items: center; white-space: nowrap; }
+.tag { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: var(--track-label); text-transform: uppercase; padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
+.tag.lab { color: var(--tag-lab); }
+.tag.model { color: var(--tag-theory); }
+.tag.meas { color: var(--tag-measured); }
+.tag.read { color: var(--tag-account); }
+.tag.scen { color: var(--tag-rule); }
+
+.rail { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-4); align-items: center; justify-content: space-between; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); counter-reset: s; }
+.steps button {
+  font-family: var(--display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: var(--track-display); text-transform: uppercase;
+  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3);
+  cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
+  position: relative;   /* keeps the hidden ", locked" text inside the button, even when the row scrolls */
+}
+.steps li:not(.end) button::before { counter-increment: s; content: counter(s); font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400; margin-right: var(--sp-1); }
+.steps button.locked { color: var(--locked); border-style: dashed; cursor: not-allowed; }
+.steps button .lock { fill: currentColor; }
+.steps button.done { color: var(--ink); border-color: var(--muted); }
+.steps button.done::after { content: "\2713"; content: "\2713" / ""; color: var(--cold); font-family: var(--body); font-size: var(--fs-sm); }
+.steps button[aria-current="step"] { color: var(--deep); background: var(--ink); border-color: var(--ink); }
+.steps button[aria-current="step"]::after { color: var(--deep); }
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font: 400 var(--fs-sm) var(--mono); letter-spacing: var(--track-label); color: var(--muted); text-transform: uppercase; }
+.hud b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 5.5em; }
+.hud .seg button { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; padding: var(--sp-1) var(--sp-2); }
+#pause { min-width: 7em; }
+
+.status { display: flex; flex-direction: column; gap: var(--sp-1); }
+.statusline { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+#run-status { min-height: 1.55em; }
+#save-status:empty { display: none; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warm); background: var(--panel); }
+.confirm p { margin: 0; flex: 1 1 28ch; }
+
+.deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
+.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
+.view canvas { display: block; width: 100%; height: 100%; }
+.view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
+.view::before { left: var(--sp-2); top: var(--sp-2); border-right: 0; border-bottom: 0; }
+.view::after { right: var(--sp-2); bottom: var(--sp-2); border-left: 0; border-top: 0; }
+.scale { position: absolute; right: var(--sp-3); top: 34px; bottom: 34px; width: 10px; border: 1px solid var(--muted);
+  background: linear-gradient(to bottom, var(--flash) 0%, var(--hot) 14%, var(--warm) 34%, var(--dusk) 55%, var(--sky) 76%, var(--void) 100%); }
+.scale b { position: absolute; right: var(--sp-4); font: 400 var(--fs-xs) var(--mono); color: var(--muted); letter-spacing: var(--track-label); }
+.scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.eyebrow { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; }
+.panel h3 { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel p { margin: 0; max-width: 62ch; }
+.lesson { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lesson .tag { margin-right: var(--sp-2); }
+.note { color: var(--muted); font-size: var(--fs-md); }
+.source-card { border: 1px solid var(--line); padding: var(--sp-2) var(--sp-3); }
+.source-card summary { cursor: pointer; color: var(--cold); min-height: 28px; }
+.source-card[open] summary { margin-bottom: var(--sp-3); }
+.source-card .source { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
+.source-card .refs { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); font-size: var(--fs-sm); color: var(--muted); }
+.brief { color: var(--ink); border-left: 3px solid var(--cold); padding-left: var(--sp-3); }
+.mission { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
+.mission li { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.mission .ready { color: var(--cold); }
+.mission .blocked { color: var(--warm); }
+
+.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.ctl label { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-0) var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
+.ctl label output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: var(--sp-0) 0 0; height: 24px; cursor: pointer; }
+.seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.seg button, .btn {
+  font: 500 var(--fs-sm) var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); cursor: pointer;
+}
+.seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--ink); color: var(--deep); border-color: var(--ink); }
+.btn.primary { background: var(--warm); border-color: var(--warm); color: var(--deep); font-weight: 600; }
+/* A step is done: its way forward becomes the biggest thing in the panel. */
+.btn.primary.ready { flex: 1 1 100%; font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3) var(--sp-3) var(--sp-2); }
+.btn.engage { border-color: var(--cold); color: var(--cold); }
+.btn.pump { font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3); background: var(--cold); border-color: var(--cold); color: var(--deep); touch-action: none; user-select: none; -webkit-user-select: none; }
+.btn.pump:active { transform: translateY(2px); }
+.panel.complete .btn.pump { background: transparent; color: var(--cold); }
+.btn.small { padding: var(--sp-1) var(--sp-2); font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.pad { position: relative; height: 150px; border: 1px solid var(--muted); background:
+  linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)), var(--deep);
+  touch-action: none; cursor: crosshair; }
+.pad i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
+.padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); letter-spacing: var(--track-label); }
+.assist { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+
+.reads { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: var(--sp-3) var(--sp-4); margin: 0; }
+.reads.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reads .wide { grid-column: 1 / -1; }
+.reads div { min-width: 0; }
+.reads dt { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); }
+.reads dd { margin: 0; font: 500 var(--fs-lg) var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.reads dd small { font: 400 var(--fs-sm)/1.4 var(--body); color: var(--muted); display: block; }
+
+.meter { position: relative; height: 16px; border: 1px solid var(--muted); background: var(--deep); }
+.meter .band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--cold) 35%, transparent); }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cold); }
+.meter .fill.bad { background: var(--hot); }
+.meter .fill.sourced { background: repeating-linear-gradient(135deg, var(--read) 0 6px, transparent 6px 12px); }
+.meter .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+.meter .need { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warm); }
+.mlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); letter-spacing: var(--track-label); }
+
+.goal { display: flex; flex-direction: column; gap: var(--sp-2); }
+.goal #goaltext { font-size: var(--fs-md); }
+.goal.ok #goaltext::before { content: "\2713  "; content: "\2713  " / ""; color: var(--cold); }
+.goal .bar { height: 4px; background: var(--deep); }
+.goal .bar i { display: block; height: 100%; width: 0; background: var(--warm); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.next-row { border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+
+.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ledger li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; font-size: var(--fs-md); }
+.ledger .tag { justify-self: start; }
+.tally { font-family: var(--display); font-size: var(--fs-xl); font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-display); line-height: 1.15; }
+.tally b { color: var(--warm); font-weight: 700; }
+.sect { border-top: 1px solid var(--line); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); counter-reset: b; font-family: var(--mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.board li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: baseline; padding: var(--sp-1) 0; }
+.board li::before { counter-increment: b; content: counter(b); color: var(--muted); }
+.board li .nm { font-family: var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board li .tm { color: var(--muted); }
+.board li.me { color: var(--warm); }
+
+footer { color: var(--muted); font-size: var(--fs-md); display: flex; flex-direction: column; gap: var(--sp-2); max-width: 86ch; }
+footer p { margin: 0; }
+
+@media (hover: hover) {
+  .btn:not(:disabled):hover, .seg button:hover, .steps button:not(.locked):not([aria-current]):hover { border-color: var(--ink); color: var(--ink); }
+  .btn.primary:not(:disabled):hover, .btn.pump:hover, .seg button[aria-pressed="true"]:hover, .btn[aria-pressed="true"]:hover { filter: brightness(1.1); color: var(--deep); }
+  .panel.complete .btn.pump:hover { color: var(--cold); }
+  .btn.engage:not(:disabled):hover { border-color: var(--cold); color: var(--cold); background: color-mix(in srgb, var(--cold) 12%, transparent); }
+  .source-card summary:hover, .key summary:hover, a:hover { color: var(--ink); }
+  .pad:hover { border-color: var(--ink); }
+}
+@media (pointer: coarse) {
+  .steps button, .btn, .seg button, .source-card summary, .key summary { min-height: 44px; }
+  .ctl input[type=range] { height: 44px; }
+}
+@media (max-width: 860px) {
+  .deck { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+  .view { position: relative; top: auto; }
+  .panel { padding: var(--sp-4); }
+  .hud { flex-wrap: wrap; }
+  /* One scrolling row of steps, so the experiment starts higher up the screen. */
+  .steps { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: var(--sp-1); }
+  .steps button { white-space: nowrap; }
+  .steps button, .btn, .seg button { min-height: 44px; }
+  .ledger li { grid-template-columns: 1fr; gap: var(--sp-1); }
+}
+/* On a tall phone the experiment stays in view while its controls scroll beneath it. */
+@media (max-width: 860px) and (min-height: 600px) {
+  .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; aspect-ratio: auto; height: min(75vw, 38vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
+}
+
+/* Prototype only: two stacked canvases, the look switcher, the scene list. */
+.view canvas { position: absolute; inset: 0; }
+#cv { pointer-events: none; }
+.proto-note { color: var(--warm); font: 400 var(--fs-xs)/1.5 var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; margin: 0; }
+.proto-list { font: 400 var(--fs-xs)/1.55 var(--mono); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--sp-2) 0 0; }
+.panel details summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+.proto-bar { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 10;
+  display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: var(--ink); color: var(--deep);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .55); font: 500 var(--fs-sm) var(--mono); white-space: nowrap; }
+.proto-bar button { width: 44px; height: 44px; border: 0; border-radius: 999px; background: transparent; color: var(--deep); font: 600 20px var(--mono); cursor: pointer; }
+.proto-bar button:hover { background: rgba(7, 12, 32, .08); }
+.proto-bar button:focus-visible { outline: 2px solid var(--deep); outline-offset: -4px; }
+.proto-bar span { min-width: 21ch; text-align: center; padding: 0 var(--sp-1); }
+body { padding-bottom: 88px; }
+body.frame-only { padding: 0; }
+body.frame-only .wrap { padding: 0; max-width: none; gap: 0; }
+body.frame-only .wrap > :not(main), body.frame-only .panel, body.frame-only .proto-bar { display: none; }
+body.frame-only .deck { display: block; }
+body.frame-only .view { position: relative; top: 0; }
+
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+</head>
+<body>
+<!-- PROTOTYPE, throwaway: three looks for Converge in 3D, switchable from the bar at the bottom (#look-a, #look-b, #look-c, or ?look=a locally), on the branch proto/three-converge. It never merges. -->
+<div class="wrap">
+  <header class="top">
+    <h1>Ion Pumpy <span>Thing</span></h1>
+    <p class="proto-note">Prototype: the Converge step drawn in 3D, in three looks. Throwaway; nothing here ships or saves.</p>
+  </header>
+  <div class="rail"><ol class="steps" aria-label="Steps"><li><button type="button" class="done" disabled>Ignite</button></li><li><button type="button" class="done" disabled>Hold</button></li><li><button type="button" class="done" disabled>Fuel</button></li><li><button type="button" class="done" disabled>Orbit</button></li><li><button type="button" class="done" disabled>Open</button></li><li><button type="button" aria-current="step" disabled>Converge</button></li><li class="end"><button type="button" class="locked" disabled>Ledger</button></li></ol></div>
+  <main class="deck" id="deck">
+    <section class="view" aria-label="Simulation view">
+      <canvas id="gl" aria-hidden="true"></canvas>
+      <canvas id="cv" role="img" aria-label="The Converge sequence drawn in 3D"></canvas>
+      <div class="scale" id="scale"><b>HOT</b><b>COLD</b></div>
+    </section>
+    <section class="panel" id="panel">
+      <h3>Step 6 · Converge</h3>
+      <h2>Close in, and open it</h2>
+      <div class="lesson">
+        <p id="look-note"></p>
+        <p class="note">Flip looks with the bar at the bottom or the arrow keys. The airliner is a placeholder built from simple shapes at 63.7 m long and 60.9 m across the wings; Meshy makes the real one once a look is picked.</p>
+      </div>
+      <div class="ctl">
+        <div class="seg" role="group" aria-label="Final sequence view">
+          <button type="button" id="v-thermal" data-view="thermal">Thermal, from the side</button>
+          <button type="button" id="v-visible" data-view="visible">Visible, from above</button>
+          <button type="button" id="v-transit" data-view="transit">Transit diagram</button>
+        </div>
+        <label for="scrub"><span>Moment in the sequence</span> <output id="scrub-o"></output><input id="scrub" type="range" min="0" max="600" step="1" value="260"></label>
+        <div class="actions"><button type="button" class="btn" id="play">Pause</button></div>
+        <p class="note">Camera views are reconstructions in synthetic colour, as in the game. The sequence runs on the game's clock: one second orbiting, closing in at a tenth of the triangle per second, opening at a quarter smaller, then the 1.6 s flash.</p>
+      </div>
+      <dl class="reads">
+        <div><dt>Triangle</dt><dd id="r-k"></dd></div>
+        <div><dt>Phase</dt><dd id="r-phase"></dd></div>
+        <div><dt>Past a fixed entrance</dt><dd id="r-x"></dd></div>
+        <div><dt>Wing clearance</dt><dd id="r-clear"></dd></div>
+      </dl>
+      <details><summary>Scene list: what the tests would read</summary><pre class="proto-list" id="list"></pre></details>
+    </section>
+  </main>
+</div>
+<nav class="proto-bar" aria-label="Prototype look">
+  <button type="button" id="look-prev" aria-label="Previous look">&lsaquo;</button>
+  <span id="look-label" aria-live="polite"></span>
+  <button type="button" id="look-next" aria-label="Next look">&rsaquo;</button>
+</nav>
+<script type="module" src="./prototype-three-converge.js"></script>
+</body>
+</html>

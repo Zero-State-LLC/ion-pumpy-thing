@@ -18,3 +18,10 @@ test('plain-English copy preserves science versus game model distinction', () =>
   assert.match(html, /Beta compares plasma pressure with magnetic pressure\./);
   assert.match(html, /This follows a simplified rule based on the report\./);
 });
+
+test('replay, radiation and scores have plain-English qualifications', () => {
+  assert.match(html, /not a real radiation dose/);
+  assert.match(html, /your saved result does not change/);
+  assert.match(html, /not independently verified/);
+  assert.match(html, /not a demonstrated result/);
+});

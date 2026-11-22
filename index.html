@@ -417,10 +417,11 @@ $('#snd').onclick = async e => {
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
-const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-transit-speed';
+const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-open-cavity';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
 const TELEPORTATION_URL = 'https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/';
+const DYNAMIC_CASIMIR_URL = 'https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/';
 // Papers the 4orbs pages cite, linked where the lesson uses them.
 const PAPERS = {
   park: { label: 'Park et al., High Energy Electron Confinement in a Magnetic Cusp Configuration (Physical Review X, 2015)', url: 'https://arxiv.org/abs/1406.0133' },
@@ -437,7 +438,7 @@ const SOURCES = [
   { url: SCIENCE_URL, section: '7:40 and 10:15, confinement and the Polywell', note: 'Beta is plasma pressure divided by magnetic pressure. The coils are a simplified cusp after Bussard’s Polywell. The drift and the six-second target are game rules.', refs: ['park'] },
   { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play.', refs: ['miley', 'knecht'] },
   { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Built from the reported ranges. The 24° tilt and the tumble period are simplified for play.', refs: [] },
-  { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
+  { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole. The plasma cavity is a schematic, not to scale.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
   { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence opens the throat, as in the 4orbs account. Thermal false colour and the flash are drawn for viewing. The transit uses a 63.7 m aircraft, its 60.9 m span and the measurement page’s 250 m/s cruise speed.', refs: ['davis'] }
 ];
 const BRIEFS = [
@@ -1021,6 +1022,8 @@ const orbit = stage({
 const JUPITERS_PER_M = 0.7; // Illustrative linear scaling of the corrected episode's approximate 70 per 100 m.
 const J_PER_M = JUPITERS_PER_M * 1.898e27 * 8.988e16;
 const HBARC = 1.0546e-34 * 2.998e8;
+// The Open step's views, in the order its view control offers them: button id, view, button label.
+const OPEN_VIEWS = [['op-plates', 'plates', 'Inspect plates'], ['op-throat', 'throat', 'Inspect throat'], ['op-cavity', 'cavity', 'Inspect plasma cavity']];
 const open = stage({
   name: 'Open', title: 'Prop a wormhole open',
   html: `
@@ -1029,11 +1032,12 @@ const open = stage({
       <p><span class="tag lab">Lab physics</span>Negative energy is real. Between two metal plates set very close together, the empty space holds less energy than the space outside, and the plates are pushed together. This is the Casimir effect, predicted in 1948. Steve Lamoreaux made the first precision measurement of its force in 1997. Halve the gap and the energy grows eightfold: it goes as one over the gap cubed.</p>
       <p><span class="tag model">Theory</span>In 2017 Ping Gao, Daniel Jafferis and Aron Wall showed that a pulse of negative energy makes an Einstein-Rosen bridge crossable. In 2022 a team ran a model of this on nine qubits of Google's quantum processor.</p>
       <p><span class="tag model">Theory</span>The 2010 report for the Defense Intelligence Agency, <cite>Traversable Wormholes, Stargates, and Negative Energy</cite>, sizes the job. By its table, a 100 m wide wormhole needs negative energy equal to about seventy times the mass of Jupiter.</p>
-      <p><span class="tag scen">Game rule</span>Here the orbs supply that energy, because in Forbes's account their convergence is what opens the wormhole.</p>
+      <p><span class="tag read">4orbs account</span>The orbs generate negative energy themselves, by the dynamic Casimir effect, as the 4orbs <a href="${DYNAMIC_CASIMIR_URL}" target="_blank" rel="noopener">dynamic Casimir page</a> has it. An orb collapses its plasma bubble fast, and the collapse turns vacuum fluctuations into real photons and negative energy. The bubble's plasma wall acts like a moving Casimir surface, in place of a pair of fixed metal plates.</p>
+      <p><span class="tag scen">Game rule</span>Here the orbs supply exactly the negative energy the throat needs, because in Forbes's account their convergence is what opens the wormhole.</p>
       <p class="note">The throat's need scales the report's figure in a straight line with width. Extra width costs points only in timed runs.</p>
     </div>
     <div class="ctl">
-      <div class="seg" role="group" aria-label="Experiment view"><button type="button" id="op-plates">Inspect plates</button><button type="button" id="op-throat">Inspect throat</button></div>
+      <div class="seg" role="group" aria-label="Experiment view">${OPEN_VIEWS.map(([id, , name]) => `<button type="button" id="${id}">${name}</button>`).join('')}</div>
       <label for="op-w"><span id="op-w-l">Throat width</span> <output id="op-w-o"></output><input id="op-w" aria-labelledby="op-w-l" type="range" min="1" max="200" step="1"></label>
       <label for="op-d"><span id="op-d-l">Gap between the plates</span> <output id="op-d-o"></output><input id="op-d" aria-labelledby="op-d-l" type="range" min="1" max="4" step="0.01"></label>
       <label for="op-a"><span id="op-a-l">Plate area</span> <output id="op-a-o"></output><input id="op-a" aria-labelledby="op-a-l" type="range" min="0" max="6" step="0.05"></label>
@@ -1051,9 +1055,9 @@ const open = stage({
   init() {
     for (const [id, k] of [['op-w', 'w'], ['op-d', 'ld'], ['op-a', 'la']]) { const el = $('#' + id); el.value = this[k]; el.oninput = () => { this[k] = +el.value; }; }
     $('#op-assume').onclick = () => { this.assumed = !this.assumed; S.paused = false; syncAudioMode(); snd.play(this.assumed ? 'assumption' : 'plasma-fade'); };
-    const paint = () => { $('#op-plates').setAttribute('aria-pressed', this.view === 'plates'); $('#op-throat').setAttribute('aria-pressed', this.view === 'throat'); };
-    $('#op-plates').onclick = () => { if (this.view !== 'plates') snd.play('ui-toggle', { kind: 'ui' }); this.view = 'plates'; paint(); };
-    $('#op-throat').onclick = () => { if (this.view !== 'throat') snd.play('ui-toggle', { kind: 'ui' }); this.view = 'throat'; paint(); };
+    // Switching views only changes what is drawn: never the throat, the orbs' energy or a completed result.
+    const paint = () => { for (const [id, view] of OPEN_VIEWS) $('#' + id).setAttribute('aria-pressed', this.view === view); };
+    for (const [id, view] of OPEN_VIEWS) $('#' + id).onclick = () => { if (this.view !== view) snd.play('ui-toggle', { kind: 'ui' }); this.view = view; paint(); };
     paint();
   },
   update(dt) {
@@ -1077,6 +1081,7 @@ const open = stage({
   },
   draw() {
     if (this.view === 'plates') return drawPlates(this);
+    if (this.view === 'cavity') return drawCavity(this);
     const cx = W / 2, cy = H / 2, sc = sceneScale();
     const openness = this.assumed ? 1 : Math.max(0, Math.sin(this.t * (reduced ? 0.5 : 1.3)));
     const rad = this.w / 2 * sc * openness;
@@ -1100,6 +1105,7 @@ const open = stage({
   },
   describe() {
     if (this.view === 'plates') return `Casimir plates ${fmt(10 ** this.ld)} nanometres apart, ${sci(10 ** this.la)} square metres in area, pushed together by negative energy.`;
+    if (this.view === 'cavity') return `${reduced ? 'Plasma cavity, held still part-way through the collapse.' : 'Plasma cavity.'} 4orbs account: an orb collapses its plasma bubble fast, turning vacuum fluctuations into real photons and negative energy.`;
     return `Looking down a ${this.w} metre wormhole throat at the airliner. ${this.assumed ? 'Held open by the orbs’ negative energy.' : 'No negative energy: it will not stay open.'} ${this.w >= 61 ? 'The wings clear the throat.' : 'The wingtips are outside the throat.'}`;
   }
 }, { w: 10, ld: 3, la: 0, assumed: false, t: 0, view: 'plates' });
@@ -1127,6 +1133,58 @@ function drawPlates(st) {
   label('Smaller gap → larger energy magnitude', cx, H - 42, COL.ink, 'center', W < 400 ? 10 : 11);
   label('Schematic · logarithmic controls · not to scale', cx, H - 22, COL.muted, 'center', W < 400 ? 9 : 10);
   viewTitle('CASIMIR PLATE EXPERIMENT');
+}
+// The plasma cavity, the game's name for this view of the 4orbs account (the dynamic Casimir
+// theory page): an orb collapses its plasma bubble fast, and the collapse turns vacuum
+// fluctuations into real photons and negative energy. The bubble's wall acts like a moving
+// Casimir surface. No undulator is drawn.
+// How far the bubble has collapsed, from 0 (whole) to 1 (smallest). It runs on the
+// step's clock, so it stops whenever the experiment pauses: each CAVITY_SECONDS it
+// collapses, faster and faster, then re-forms. Reduced motion holds it half collapsed.
+const CAVITY_SECONDS = 3;
+function cavityCollapse(st) {
+  if (reduced) return .5;
+  const u = (st.t % CAVITY_SECONDS) / CAVITY_SECONDS;
+  return u < .8 ? (u / .8) ** 2 : 1 - (u - .8) / .2;
+}
+function drawCavity(st) {
+  // The bubble and its arrows (17 px past the wall) sit below the title and above the two bottom lines.
+  const top = 30, bottom = H - 52, cx = W / 2, cy = (top + bottom) / 2, c = cavityCollapse(st), small = W < 400;
+  const R = Math.min(W * .3, H * .26, (bottom - top) / 2 - 17), r = R * (1 - .4 * c);
+  ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+  // The vacuum round the orb, its fluctuations drawn as faint fixed specks.
+  ctx.fillStyle = COL.line;
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 37 % 41) / 41 * W, y = 34 + (i * 23 % 43) / 43 * (H - 88);
+    if (Math.hypot(x - cx, y - cy) > R + 24) ctx.fillRect(x, y, 2, 2);
+  }
+  // Inside the collapsing bubble: negative energy, below that of the empty space outside.
+  const inside = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  inside.addColorStop(0, COL.void); inside.addColorStop(.72, COL.void); inside.addColorStop(1, 'rgba(185,162,255,.4)');
+  ctx.fillStyle = inside; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  // The plasma wall, acting like a moving Casimir surface.
+  ctx.strokeStyle = 'rgba(255,120,175,.95)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  // Arrows on the wall point in, the way it collapses; real photons leave between them.
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * TAU, ux = Math.cos(a), uy = Math.sin(a), tip = r + 5, tail = r + 17;
+    const barb = side => [cx + ux * (tip + 5) - side * uy * 3.5, cy + uy * (tip + 5) + side * ux * 3.5];
+    ctx.strokeStyle = COL.ink; ctx.beginPath();
+    ctx.moveTo(cx + ux * tail, cy + uy * tail); ctx.lineTo(cx + ux * tip, cy + uy * tip);
+    ctx.moveTo(...barb(-1)); ctx.lineTo(cx + ux * tip, cy + uy * tip); ctx.lineTo(...barb(1));
+    ctx.stroke();
+    const b = a + TAU / 16, vx = Math.cos(b), vy = Math.sin(b), from = r + 6 + 16 * c;
+    ctx.strokeStyle = COL.warm; ctx.globalAlpha = .35 + .65 * c; ctx.beginPath();
+    ctx.moveTo(cx + vx * from, cy + vy * from); ctx.lineTo(cx + vx * (from + 7), cy + vy * (from + 7)); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  label('negative energy', cx, cy + 4, COL.read, 'center', small ? 9 : 10);
+  label('real photons', cx + R + 18, cy - R * .55, COL.warm, 'left', small ? 9 : 10);
+  // The view's 4orbs account claim, in that label's colour. At 9 px it fits a 320 px phone's canvas.
+  label('4orbs account: real photons and negative energy', cx, H - 42, COL.read, 'center', small ? 9 : 11);
+  label(reduced ? 'Schematic · held mid-collapse · not to scale' : 'Schematic · not to scale', cx, H - 22, COL.muted, 'center', small ? 9 : 10);
+  viewTitle('PLASMA CAVITY · DYNAMIC CASIMIR');
 }
 
 function fuelActivity(st) {
@@ -1567,7 +1625,7 @@ const RUN_FIELDS = [
   { B: [0, 1], trim: [-1, 1], x: [-1, 1], lock: [0, 6], t: [0, 1e9], assist: 'boolean?', assisted: 'boolean?' },
   { fuel: ['dt', 'pb'], lt: [0, 3], hold: [0, 86400], dose: [0, 1] },
   { r: [30, 100], T: [1, 8], cam: [0, 180], ang: [-1e9, 1e9], ghost: [-1e9, 1e9], tumble: [-1e9, 1e9], hold: [0, 86400] },
-  { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: ['plates', 'throat'] },
+  { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: OPEN_VIEWS.map(([, view]) => view) },
   { k: [.5, 1], ang: [-1e9, 1e9], tumble: [-1e9, 1e9], startAng: [-1e9, 1e9], startTumble: [-1e9, 1e9], view: ['thermal', 'visible', 'transit'] }
 ];
 function snapshot() {

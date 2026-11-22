@@ -1,7 +1,8 @@
 // Layout check in real Chrome, with no dependencies: Node 22 drives the
-// installed headless Chrome over the DevTools protocol. For a fresh run and for
-// every step of a completed run, in a 390 x 844 phone window, the page must not
-// scroll sideways and must not throw. See docs/adr/0001 and issue #15.
+// installed headless Chrome over the DevTools protocol. For a fresh run, for
+// every step of a completed run, and for the views that open from a step's own
+// buttons (VIEWS), in a 390 x 844 phone window, the page must not scroll
+// sideways and must not throw. See docs/adr/0001 and issue #15.
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
 //
@@ -16,6 +17,8 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WIDTH = 390, HEIGHT = 844;
 const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'Ledger'];
+// Views a step opens on its own button: the step, the button's id and the view's name.
+const VIEWS = [[4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -88,6 +91,7 @@ async function main() {
   const { proc, browserUrl } = await launch(chrome, profile);
   const page = await connect(browserUrl);
   const failures = [], errors = [];
+  let views = 0;
   try {
     await page.send('Page.enable'); await page.send('Runtime.enable');
     page.on('Runtime.exceptionThrown', ({ exceptionDetails: e }) => errors.push(e.exception?.description || e.text));
@@ -97,7 +101,7 @@ async function main() {
     const load = async () => { const loaded = page.once('Page.loadEventFired'); await page.send('Page.navigate', { url: site }); await loaded; };
     const settle = () => evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))))');
     const check = async label => {
-      await settle();
+      views++; await settle();
       const m = await evaluate('({ scroll: document.documentElement.scrollWidth, layout: window.innerWidth })');
       if (m.scroll > WIDTH || m.layout > WIDTH) failures.push(`${label}: the page is ${Math.max(m.scroll, m.layout)} px wide in a ${WIDTH} px window, so it scrolls sideways`);
       failures.push(...pageErrors(label));
@@ -125,6 +129,15 @@ async function main() {
       }
       await check(i < 6 ? `Completed run, step ${i + 1} (${STEPS[i]})` : 'Completed run, the Ledger');
     }
+    for (const [step, button, name] of VIEWS) {
+      const label = `Completed run, step ${step + 1} (${STEPS[step]}), ${name}`;
+      await evaluate(`document.getElementById('step-${step}').click(); document.getElementById('${button}').click()`);
+      if (await evaluate(`document.getElementById('${button}').getAttribute('aria-pressed')`) !== 'true') {
+        failures.push(`${label}: could not open it`, ...pageErrors(label));
+        continue;
+      }
+      await check(label);
+    }
   } finally {
     page.close(); server.close();
     const exited = new Promise(resolve => proc.once('exit', resolve));
@@ -134,7 +147,7 @@ async function main() {
     catch { console.warn(`Browser check: could not remove the temporary Chrome profile at ${profile}.`); }
   }
   if (failures.length) { console.error(`Browser check failed:\n${failures.map(f => `  - ${f}`).join('\n')}`); process.exit(1); }
-  console.log(`Browser check: ${STEPS.length + 1} views fit a ${WIDTH} px phone window with no page errors.`);
+  console.log(`Browser check: ${views} views fit a ${WIDTH} px phone window with no page errors.`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

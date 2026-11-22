@@ -247,6 +247,23 @@ function holdView(game) {
   const leaks = arcs.map((arc, i) => norm(arcs[(i + 1) % arcs.length].start - arc.end));
   return { leaks, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
 }
+// The Open step's plasma-cavity view, one frame: the plasma bubble and the words drawn.
+// The negative energy is named at the bubble's centre, and the bubble's wall is the
+// widest whole circle stroked round those words. `bubble` is its radius in pixels, or
+// null with no bubble drawn.
+function cavityView(game) {
+  game.drawing.length = 0; paint(game);
+  const named = game.drawing.find(c => c[0] === 'fillText' && c[1] === 'negative energy');
+  let bubble = null, path = [];
+  for (const [call, x, y, r, from, to] of game.drawing) {
+    if (call === 'beginPath') path = [];
+    else if (call === 'arc') path.push({ x, y, r, whole: to - from >= 2 * Math.PI - 1e-9 });
+    else if (call === 'stroke' && named) {
+      for (const c of path) if (c.whole && Math.hypot(c.x - named[2], c.y - named[3]) < c.r && c.r > (bubble ?? 0)) bubble = c.r;
+    }
+  }
+  return { bubble, words: drawnWords(game) };
+}
 // Converge: start closing in, then open the throat after `closing` seconds.
 function openAfter(game, closing) {
   click(game, 'cv-go'); game.lab.advance(closing); click(game, 'cv-go');
@@ -712,6 +729,113 @@ test('the Converge source card cites the teleportation page for the constant-spe
   assert.equal(row.reviewed, 'No'); assert.match(row.usedIn, /\bConverge\b/);
 });
 
+// The Open step's views, in the order its view control offers them.
+const OPEN_VIEWS = ['op-plates', 'op-throat', 'op-cavity'];
+// The 4orbs theory page the plasma cavity comes from.
+const DYNAMIC_CASIMIR_PAGE = 'https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/';
+
+// The Open lesson, paragraph by paragraph: its source label, its markup after the label, and the words it says.
+function openLesson(card) {
+  return lessonParagraphs(card).map(p => {
+    const [, label = null, rest = p] = p.match(/^<span class="tag [a-z]+">([^<]+)<\/span>([\s\S]*)$/) || [];
+    return { label, markup: rest, said: words(rest) };
+  });
+}
+
+test('the Open source card gives the orbs generating negative energy as the 4orbs account, linking the dynamic Casimir page, and supplying what the throat needs as the Game rule', () => {
+  const game = bootFromSavedRun(savedRunOn(4)), card = sourceCard(game), lesson = openLesson(card);
+  // One claim, one label: the orbs generate negative energy by the dynamic Casimir effect (4orbs account), linked where it is said.
+  const reading = lesson.filter(p => fourOrbsPages(p.markup).includes(DYNAMIC_CASIMIR_PAGE));
+  assert.equal(reading.length, 1, 'one lesson paragraph links the dynamic Casimir page');
+  assert.equal(reading[0].label, '4orbs account');
+  for (const said of [/^The orbs generate negative energy themselves, by the dynamic Casimir effect\b/, /An orb collapses its plasma bubble fast, and the collapse turns vacuum fluctuations into real photons and negative energy\./, /plasma wall acts like a moving Casimir surface/]) assert.match(reading[0].said, said);
+  // The page has plasmoids act like Casimir surfaces; "plasma cavity" is the game's name for the view, not the page's.
+  assert.doesNotMatch(reading[0].said, /acts as a moving Casimir|plasma cavity/i);
+  assert.doesNotMatch(reading[0].said, /throat/, 'how much the throat gets is the Game rule, not this claim');
+  assert.deepEqual(lesson.filter(p => /dynamic Casimir|plasma bubble|plasma cavity/i.test(p.said)), reading, 'no other paragraph gives the dynamic Casimir reading');
+  // That they supply exactly what the throat needs is the Game rule.
+  assert.deepEqual(lesson.filter(p => /\borbs supply\b/.test(p.said)).map(p => [p.label, p.said]),
+    [['Game rule', "Here the orbs supply exactly the negative energy the throat needs, because in Forbes's account their convergence is what opens the wormhole."]]);
+  // The plates' lesson is unchanged.
+  assert.ok(lesson.some(p => p.label === 'Lab physics' && /This is the Casimir effect/.test(p.said) && /one over the gap cubed/.test(p.said)));
+  // The card cites further 4orbs pages one way: in the lesson, as the Fuel and Converge cards do.
+  const source = card.match(/<p class="source">([\s\S]*?)<\/p>/)[1];
+  assert.ok(!fourOrbsPages(source).includes(DYNAMIC_CASIMIR_PAGE), 'not again beside the main source');
+  // No sentence calls a plasma Casimir a demonstrated macroscopic wormhole.
+  click(game, 'op-cavity'); game.lab.advance(1);
+  const sentences = [...lesson.map(p => p.said), ...source.split('<br>').map(words), description(game), ...cavityView(game).words].flatMap(s => s.split(/(?<=[.!?])\s+/));
+  for (const sentence of sentences.filter(s => /Casimir|plasma (cavity|bubble)/i.test(s))) {
+    assert.doesNotMatch(sentence, /(demonstrat|macroscopic|proven)[^.]*wormhole|wormhole[^.]*(demonstrat|macroscopic|proven)/i, sentence);
+  }
+});
+
+test('the Open step offers a plasma-cavity view beside the plates and the throat, showing a collapsing plasma bubble and its negative energy, labelled 4orbs account', () => {
+  const game = bootFromSavedRun(savedRunOn(4)), button = id => game.ids.get(id);
+  assert.deepEqual(OPEN_VIEWS.map(id => [button(id).attributes.type, button(id).textContent]), [['button', 'Inspect plates'], ['button', 'Inspect throat'], ['button', 'Inspect plasma cavity']]);
+  const order = OPEN_VIEWS.map(id => game.ids.get('panel').children.indexOf(button(id)));
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the view control offers them in that order');
+  click(game, 'op-cavity'); game.lab.advance(1);
+  for (const id of OPEN_VIEWS) assert.equal(button(id).attributes['aria-pressed'], String(id === 'op-cavity'), id);
+  const view = cavityView(game);
+  assert.ok(view.bubble > 0, 'a plasma bubble, with its negative energy named inside it');
+  // The view's claim carries its 4orbs account label where the player sees it: on the canvas and in the description.
+  for (const said of ['PLASMA CAVITY · DYNAMIC CASIMIR', 'real photons', '4orbs account: real photons and negative energy', 'Schematic · not to scale']) assert.ok(view.words.includes(said), `${said}: ${view.words.join(' | ')}`);
+  assert.match(description(game), /^Plasma cavity\. 4orbs account: an orb collapses its plasma bubble fast, turning vacuum fluctuations into real photons and negative energy\.$/);
+  // The plate diagram and its logarithmic controls are still there.
+  click(game, 'op-plates'); game.lab.advance(1); scene(game);
+  assert.ok(drawnWords(game).includes('Schematic · logarithmic controls · not to scale'));
+  assert.match(description(game), /^Casimir plates /);
+});
+
+test('the plasma bubble collapses as play runs, and a source card holds it still and stops the timed-practice clock', () => {
+  const game = bootFromSavedRun(savedRunOn(4, d => { d.mode = 'challenge'; }));
+  click(game, 'op-cavity'); click(game, 'pause'); game.lab.advance(0); // a saved run reloads paused
+  assert.equal(game.ids.get('pause').textContent, 'Pause');
+  const sizes = [];
+  for (let i = 0; i < 4; i++) { game.lab.advance(.25); sizes.push(cavityView(game).bubble); }
+  assert.ok(sizes.every((size, i) => i === 0 || size < sizes[i - 1]), `the bubble narrows as it collapses: ${sizes}`);
+  const still = scene(game), time = text(game, 'hud-time');
+  readSource(game, true); game.lab.advance(5);
+  assert.equal(scene(game), still, 'reading a source card holds the plasma cavity still');
+  assert.equal(text(game, 'hud-time'), time, 'and stops the clock');
+  readSource(game, false); game.lab.advance(.25);
+  assert.ok(cavityView(game).bubble < sizes.at(-1), 'closing the card lets the collapse go on');
+});
+
+test('under reduced motion the plasma cavity holds still and still shows the bubble and the negative energy', () => {
+  const game = bootFromSavedRun(savedRunOn(4), { reduced: true });
+  click(game, 'op-cavity'); click(game, 'pause'); game.lab.advance(0);
+  assert.equal(game.ids.get('pause').textContent, 'Pause', 'play runs');
+  const first = scene(game), { bubble, words } = cavityView(game);
+  assert.ok(bubble > 0, 'the plasma bubble shows, with its negative energy named inside it');
+  for (const said of ['Schematic · held mid-collapse · not to scale', '4orbs account: real photons and negative energy']) assert.ok(words.includes(said), words.join(' | '));
+  for (let i = 0; i < 12; i++) { game.lab.advance(.25); assert.equal(scene(game), first, `nothing moves after ${(i + 1) / 4} s of play`); }
+  assert.match(description(game), /^Plasma cavity, held still part-way through the collapse\. 4orbs account: an orb collapses its plasma bubble fast, turning vacuum fluctuations into real photons and negative energy\.$/);
+});
+
+test('switching Open views keeps the throat readiness uses and a completed result, and a reload reopens the plasma cavity', () => {
+  const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = 'challenge'; d.elapsed = 20; }));
+  openAfter(game, 2.5); game.lab.advance(1.6);
+  const score = ledgerScore(game);
+  click(game, 'step-5'); const throat = text(game, 'mission-checks').match(/Throat: [^<]+/)[0];
+  assert.equal(throat, 'Throat: 66 m / held by the orbs');
+  click(game, 'step-4'); click(game, 'pause'); // the completed step opens paused; resume it
+  for (const id of [...OPEN_VIEWS, 'op-throat', 'op-cavity']) { click(game, id); game.lab.advance(1); }
+  assert.equal(game.ids.get('pause').textContent, 'Pause', 'the views were watched in play');
+  assert.match(text(game, 'goaltext'), /^Open\. Negative energy from the orbs holds a throat wide enough for the wings/);
+  assert.equal(game.ids.get('next').disabled, false, 'the Throat readiness check still passes');
+  click(game, 'step-5'); assert.equal(text(game, 'mission-checks').match(/Throat: [^<]+/)[0], throat);
+  assert.equal(ledgerScore(game), score, 'the completed result is unchanged');
+  click(game, 'step-4'); leave(game);
+  const saved = lastSave(game).stages[4];
+  assert.deepEqual(saved, { done: true, values: { w: 66, ld: 3, la: 0, assumed: true, view: 'cavity' } });
+  const reloaded = boot(game.storage);
+  assert.equal(currentStep(reloaded), 4, 'the saved run resumes');
+  assert.equal(reloaded.ids.get('op-cavity').attributes['aria-pressed'], 'true');
+  assert.ok(cavityView(reloaded).bubble > 0, 'on the plasma cavity');
+  assert.equal(ledgerScore(reloaded), score);
+});
+
 test('transit units and geometry describe passage past an entrance, not travel time', () => {
   const { lab } = boot();
   const start = lab.transitModel(0, 61), middle = lab.transitModel(.5, 61), end = lab.transitModel(1, 61);
@@ -886,8 +1010,8 @@ test('reduced motion holds the throat-forming glow still', () => {
 });
 
 test('a saved run from the previous source revision starts fresh with a visible explanation, and the register names the current one', () => {
-  // The revision before the transit view said the airliner crosses the throat at constant speed.
-  const previous = '4orbs-part3-corrected-2026-11-21-fuel-dpf';
+  // The revision before the Open step gained its plasma-cavity view.
+  const previous = '4orbs-part3-corrected-2026-11-21-transit-speed';
   const storage = new Map([['ipt-best-v2', '{"score":1234}']]);
   const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');

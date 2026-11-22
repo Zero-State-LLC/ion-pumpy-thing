@@ -1,8 +1,10 @@
 // Layout check in real Chrome, with no dependencies: Node 22 drives the
 // installed headless Chrome over the DevTools protocol. For a fresh run, for
-// every step of a completed run, and for what a step's own toggle buttons turn
-// on (TOGGLED: a view, or electron screening), in a 390 x 844 phone window, the
-// page must not scroll sideways and must not throw. See docs/adr/0001 and issue #15.
+// every step of a completed run, for what a step's own toggle buttons turn on
+// (TOGGLED: a view, or electron screening), and for the Ledger of a run whose
+// Fuel step was completed with electron screening on, in a 390 x 844 phone
+// window, the page must not scroll sideways and must not throw. See
+// docs/adr/0001 and issue #15.
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
 //
@@ -110,24 +112,29 @@ async function main() {
     const currentStep = () => evaluate(`[...document.querySelectorAll('#steps button')].findIndex(b => b.getAttribute('aria-current') === 'step')`);
     // The game saves its own run as a page unloads, so a saved run goes into
     // storage as the next page starts, before the game's script reads it.
-    const loadSavedRun = async name => {
+    // A saved run from tests/fixtures, changed first by `edit` when one is given.
+    const loadSavedRun = async (name, edit = () => {}) => {
       const run = JSON.parse(readFileSync(join(root, 'tests', 'fixtures', `${name}.json`), 'utf8'));
+      edit(run);
       const saved = JSON.stringify({ sourceRevision: await evaluate('window.__lab.SOURCE_REVISION'), ...run });
       const { identifier } = await page.send('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)})` });
       await load(); await page.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
       if (await currentStep() !== run.stage) throw new Error(`The ${name} saved run did not load.`);
     };
+    const ledgerRowCount = () => evaluate(`document.querySelectorAll('.ledger li').length`);
 
     await load(); await evaluate('localStorage.clear()'); await load();
     if (await currentStep() !== 0) throw new Error('A fresh run did not open on Ignite.');
     await check('Fresh run, step 1 (Ignite), later steps locked');
     await loadSavedRun('completed-run');
+    let ledgerRows = 0;
     for (let i = 0; i < STEPS.length; i++) {
       await evaluate(`document.getElementById('step-${i}').click()`);
       if (await currentStep() !== i) {
         failures.push(`Completed run: could not open ${STEPS[i]}`, ...pageErrors(`Completed run, opening ${STEPS[i]}`));
         continue;
       }
+      if (i === 6) ledgerRows = await ledgerRowCount();
       await check(i < 6 ? `Completed run, step ${i + 1} (${STEPS[i]})` : 'Completed run, the Ledger');
     }
     for (const [step, button, name] of TOGGLED) {
@@ -138,6 +145,17 @@ async function main() {
         continue;
       }
       await check(label);
+    }
+    // The same run with its Fuel step completed with electron screening on: the Ledger has one
+    // more row, the screening row, which a run completed without screening never shows.
+    const screened = 'Completed run with Fuel completed with electron screening on, the Ledger';
+    await loadSavedRun('completed-run', run => Object.assign(run.stages[2].values, { screening: true, completedScreened: true }));
+    await evaluate(`document.getElementById('step-6').click()`);
+    if (await currentStep() !== 6) failures.push(`${screened}: could not open it`, ...pageErrors(screened));
+    else {
+      const rows = await ledgerRowCount();
+      if (rows !== ledgerRows + 1) failures.push(`${screened}: the Ledger shows ${rows} rows, not the ${ledgerRows + 1} it has with the screening row`);
+      await check(screened);
     }
   } finally {
     page.close(); server.close();

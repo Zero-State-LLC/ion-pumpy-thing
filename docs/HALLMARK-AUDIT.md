@@ -20,3 +20,19 @@ A temporary GitHub Actions job executed the **static** Hallmark linter at [run 4
 Run `node .agents/skills/hallmark/scripts/sloplint.mjs index.html --scope app --genre playful --json` on the latest branch. Run `--render` on a machine with browser support. Attach rendered 1280x800, 390x844 and 320x640 captures, review all game stages, and confirm no canvas labels or touch targets regress. Record the rationale for any intentional departure from Hallmark rules without presenting it as a passing floor gate.
 
 No changes to game physics, 4orbs source labels, saved-run schema, or WebGL scene-list contracts are authorized by this audit.
+
+## Browser recheck after control sizing (22 November 2026)
+
+Hallmark v2.0 ran in **real Google Chrome** through [workflow #45067345892](https://github.com/Zero-State-LLC/ion-pumpy-thing/actions/runs/45067345892). [Full rendered findings and screenshots](https://github.com/Zero-State-LLC/ion-pumpy-thing/actions/runs/45067345892/artifacts/14772225423).
+
+Result: **0 rendered Floor FAIL, 6 Reflex, 1 Finish WARN**. Previous 24px controls are corrected. The only control-size reflex now concerns an intentionally prominent 61px primary game action on desktop. This is a purposeful large button in a hands-on experiment and should not be reduced to a compact admin-action size.
+
+The four link-wrap findings concern long science source links at 320px, 414px and 1024px. They wrap within the page without forcing document-level horizontal overflow. Keep exact attribution and meaningful link names instead of truncating or hiding words just to clear a generic visual linter heuristic.
+
+The edge-crowding reflex includes a four-pixel margin on a locked step button and an implausible negative measurement for the collapsed Sound settings details control. The recorded screenshots show no overlapping details box, but this needs real-device visual confirmation. Font-weight diversity (400, 500, 600 and 700) is a Finish warning, not a compliance failure.
+
+**Manual screenshot note:** At 375px the first interactive Pump button is well below the initial viewport because the learning text and visual scene precede controls. Keep the physics visual connected to the controls, but evaluate a safe first-action shortcut or a mobile onboarding/layout improvement separately before changing document order.
+
+**Unresolved static conflict:** Hallmark still marks the deliberately multi-colour thermal-camera scale as a Floor-2a purple/pink gradient. It represents a science-oriented intensity legend, not decoration. Keep the scale pending a reviewed palette decision. Do not misreport the static score as clean or change the colour semantics merely to silence Hallmark.
+
+Real iOS Safari, Android Chrome, VoiceOver and TalkBack sessions have not been completed by this automation. Mark those gates pending until real-device evidence exists.

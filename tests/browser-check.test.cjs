@@ -56,24 +56,31 @@ function findChromeWith(installs, extra = {}) {
 }
 const CHROME = 'Google/Chrome/Application/chrome.exe';
 const EDGE = 'Microsoft/Edge/Application/msedge.exe';
+// Windows gives every 64-bit process the real ProgramFiles, whatever its parent
+// passes, so on Windows that folder can't be faked and a browser in it is found.
+// Those cases skip there and run on Linux CI.
+const realProgramFiles = process.platform === 'win32' ? process.env.ProgramFiles : null;
+const pinned = realProgramFiles ? `Windows sets ProgramFiles to ${realProgramFiles} for child processes` : false;
+const realBrowser = realProgramFiles && [CHROME, EDGE].some(rel => fs.existsSync(path.join(realProgramFiles, rel)))
+  ? `a browser is installed under ${realProgramFiles}, which Windows won't let the test hide` : false;
 
-test('with no browser installed, the browser check finds none', () => {
+test('with no browser installed, the browser check finds none', { skip: realBrowser }, () => {
   assert.equal(findChromeWith([]).found, 'none');
 });
 
 for (const dir of WINDOWS_DIRS) {
-  test(`on Windows, the browser check finds Chrome under ${dir}`, () => {
+  test(`on Windows, the browser check finds Chrome under ${dir}`, { skip: dir === 'ProgramFiles' && pinned }, () => {
     const { found, placed } = findChromeWith([[dir, CHROME]]);
     assert.equal(found, placed[dir + '/' + CHROME]);
   });
 }
 
-test('on Windows without Chrome, the browser check falls back to Edge', () => {
+test('on Windows without Chrome, the browser check falls back to Edge', { skip: realBrowser }, () => {
   const { found, placed } = findChromeWith([['ProgramFiles(x86)', EDGE]]);
   assert.equal(found, placed['ProgramFiles(x86)/' + EDGE]);
 });
 
-test('on Windows, the browser check prefers Chrome to Edge', () => {
+test('on Windows, the browser check prefers Chrome to Edge', { skip: realBrowser }, () => {
   const { found, placed } = findChromeWith([['ProgramFiles(x86)', EDGE], ['LOCALAPPDATA', CHROME]]);
   assert.equal(found, placed['LOCALAPPDATA/' + CHROME]);
 });

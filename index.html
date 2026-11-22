@@ -389,7 +389,7 @@ function stop3D(state) { view3d.renderer = null; view3d.state = state; paintView
 function load3D() {
   view3d.state = 'loading';
   Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))
-    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb' }, onLost: () => stop3D('lost') }))
+    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb' }, onLost: () => stop3D('lost') }))
     .then(r => { if (view3d.state === 'loading') { view3d.renderer = r; view3d.state = 'ready'; paintViewSwitch(); } })
     .catch(() => { if (view3d.state === 'loading') stop3D('unavailable'); });
 }
@@ -767,22 +767,28 @@ function cuspLeaks(beta) {
 }
 // The field's edge round a ball of radius `ballR`, broken at six cusps; plasma plumes out
 // of each leak. Returns whether the cusp leaks are closed.
+// How the cusp leaks look round a ball of radius `ballR` px: the field's edge and how far the
+// plumes reach (px), the edge's and the plumes' stroke widths (px) and opacities, and the colour.
+// Each leak opens about one of six angles, measured as the canvas measures them.
+const CUSP_ANGLES = Array.from({ length: 6 }, (_, i) => -Math.PI / 2 + i * TAU / 6);
+function cuspLeakLook(ballR, beta) {
+  const { closed, halfAngle } = cuspLeaks(beta), edge = Math.max(ballR * 1.02, 6);
+  return { closed, halfAngle, edge, plume: edge + ballR * (closed ? 0.16 : 0.68), colour: closed ? COL.cold : COL.hot,
+    edgeWidth: closed ? 2 : 1.25, edgeOpacity: closed ? 0.95 : 0.45, plumeWidth: closed ? 1.25 : 2.5, plumeOpacity: closed ? 0.75 : 0.9 };
+}
 function drawCuspLeaks(bx, cy, ballR, beta) {
-  const { closed, halfAngle: half } = cuspLeaks(beta);
-  const edgeR = Math.max(ballR * 1.02, 6), plumeR = edgeR + ballR * (closed ? 0.16 : 0.68);
+  const { closed, halfAngle: half, edge: edgeR, plume: plumeR, colour, edgeWidth, edgeOpacity, plumeWidth, plumeOpacity } = cuspLeakLook(ballR, beta);
   ctx.save();
-  ctx.strokeStyle = closed ? COL.cold : COL.hot;
-  ctx.lineWidth = closed ? 2 : 1.25;
-  ctx.globalAlpha = closed ? 0.95 : 0.45;
-  for (let i = 0; i < 6; i++) {
-    const a = -Math.PI / 2 + i * TAU / 6;
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = edgeWidth;
+  ctx.globalAlpha = edgeOpacity;
+  for (const a of CUSP_ANGLES) {
     ctx.beginPath(); ctx.arc(bx, cy, edgeR, a + half, a + TAU / 6 - half); ctx.stroke();
   }
-  ctx.lineWidth = closed ? 1.25 : 2.5;
-  ctx.globalAlpha = closed ? 0.75 : 0.9;
-  ctx.fillStyle = closed ? COL.cold : COL.hot;
-  for (let i = 0; i < 6; i++) {
-    const a = -Math.PI / 2 + i * TAU / 6;
+  ctx.lineWidth = plumeWidth;
+  ctx.globalAlpha = plumeOpacity;
+  ctx.fillStyle = colour;
+  for (const a of CUSP_ANGLES) {
     ctx.beginPath();
     ctx.moveTo(bx + Math.cos(a - half) * edgeR, cy + Math.sin(a - half) * edgeR);
     ctx.lineTo(bx + Math.cos(a - half) * plumeR, cy + Math.sin(a - half) * plumeR);
@@ -793,6 +799,24 @@ function drawCuspLeaks(bx, cy, ballR, beta) {
   ctx.restore();
   return closed;
 }
+// The Hold view's layout on the canvas, in pixels: its middle, the unit R0 everything is sized by,
+// the ball's radius and centre, the walls' distance from the middle and half their height, each
+// coil's width and distance above or below the middle, and how strong the field looks, 0 to 1.
+function holdLayout(st) {
+  const cx = W / 2, cy = H / 2 + 4, R0 = Math.min(W * 0.11, H * 0.17);
+  return { cx, cy, R0, rr: R0 * st.size, bx: cx + st.x * R0 * 2.2, wall: R0 * 3.05, wallHalf: R0 * 2.6, coilW: R0 * 1.4, coilY: R0 * 2.25, f: clamp(st.B / 0.6, 0, 1) };
+}
+// Each coil half's fill opacity, the left half (sx -1) or the right (sx 1): brighter with the
+// field, and the trim moves current from one side to the other.
+const coilOpacity = (st, f, sx) => clamp((0.2 + 0.8 * f) * (1 - sx * st.trim * 0.6), 0.08, 1);
+// A plasma particle's opacity at `r` ball radii from the middle, before its colour's own alpha.
+const particleOpacity = r => clamp(1.2 - r / 3, 0.1, 1);
+// The ball's radius the cusp leaks hug. Under reduced motion they take the ball's settled size
+// for the current beta at once, so they never grow or shrink as the ball eases.
+const leakBallRadius = (st, L) => reduced ? L.R0 * settledBallSize(st.beta) : L.rr;
+// The vacuum chamber prop's colour in the 3D view: dim, so what is inside it reads, and darker
+// than the line colour, so the 2D canvas's middle line shows over it.
+const CHAMBER_COLOUR = '#141b38';
 const hold = stage({
   name: 'Hold', title: 'Keep the ball together',
   html: `
@@ -891,11 +915,31 @@ const hold = stage({
     const mk = $('#ho-mark'); if (mk) mk.style.left = clamp((isFinite(beta) ? beta : 2) / 2, 0, 1) * 100 + '%';
     goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
   },
-  draw() {
-    const cx = W / 2, cy = H / 2 + 4, R0 = Math.min(W * 0.11, H * 0.17), rr = R0 * this.size, f = clamp(this.B / 0.6, 0, 1);
-    const bx = cx + this.x * R0 * 2.2, wall = R0 * 3.05;
-    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
-    for (const s of [-1, 1]) { ctx.strokeStyle = this.hit > 0 ? COL.hot : COL.muted; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + s * wall, cy - R0 * 2.6); ctx.lineTo(cx + s * wall, cy + R0 * 2.6); ctx.stroke(); }
+  // The plasma ball between its coils in the vacuum chamber, in 3D where the flat view draws it:
+  // the ball and its cusp leaks, from the step's beta, each frame (docs/adr/0003).
+  scene() {
+    const sc = labScale(), L = holdLayout(this), m = px => px / sc, y = m(L.cy - H / 2), at = [m(L.bx - W / 2), y, 0];
+    const leak = cuspLeakLook(leakBallRadius(this, L), this.beta);
+    const list = [
+      { kind: 'sky', colour: COL.deep },
+      // Kind, place, size and colour only (docs/adr/0003): its walls where the flat view's are.
+      { kind: 'vacuum chamber', at: [0, y, 0], radius: m(L.wall), height: m(2 * L.wallHalf), colour: CHAMBER_COLOUR },
+      // Each coil a ring round the chamber's axis: side on, a bar as wide and thick as the flat view's.
+      ...[-1, 1].map(sy => ({ kind: 'coil', at: [0, m(L.cy + sy * L.coilY - H / 2), 0], radius: m(L.coilW - 6), tube: m(6),
+        opacity: [-1, 1].map(sx => coilOpacity(this, L.f, sx)), colour: COL.warm, edge: COL.muted })),
+      { kind: 'plasma ball', at, radius: m(L.rr * 1.5), opacity: this.beta > 1 ? 0.45 : 0.9, core: '#ffebf5', colour: '#ff78af' },
+      { kind: 'specks', points: this.parts.map(q => [m(L.bx + Math.cos(q.a) * q.r * L.rr - W / 2), m(L.cy + Math.sin(q.a) * q.r * L.rr - H / 2), 0]),
+        opacities: this.parts.map(q => 0.9 * particleOpacity(q.r)), size: m(3.2), colour: '#ffc8e1', round: true },
+      { kind: 'cusp leaks', at, edge: m(leak.edge), plume: m(leak.plume), halfAngle: leak.halfAngle, angles: CUSP_ANGLES, colour: leak.colour,
+        edgeWidth: m(leak.edgeWidth), edgeOpacity: leak.edgeOpacity, plumeWidth: m(leak.plumeWidth), plumeOpacity: leak.plumeOpacity }
+    ];
+    return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+  },
+  // The whole flat view, or over the 3D view (`flat` false) only its words and marks.
+  draw(flat = true) {
+    const L = holdLayout(this), { cx, cy, R0, rr, f, bx, wall, wallHalf, coilW, coilY } = L;
+    if (flat) { ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
+    for (const s of [-1, 1]) { ctx.strokeStyle = this.hit > 0 ? COL.hot : COL.muted; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + s * wall, cy - wallHalf); ctx.lineTo(cx + s * wall, cy + wallHalf); ctx.stroke(); }
     label('wall', cx + wall + 6, cy + 4);
     ctx.setLineDash([2, 5]); ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy - R0 * 1.9); ctx.lineTo(cx, cy + R0 * 1.9); ctx.stroke(); ctx.setLineDash([]);
     if (f > 0) {
@@ -903,22 +947,24 @@ const hold = stage({
       for (let k = 1; k <= 4; k++) { ctx.globalAlpha = f * (0.6 - k * 0.1); ctx.beginPath(); ctx.ellipse(cx, cy, R0 * (1.05 + 0.4 * k), R0 * (1.35 + 0.17 * k), 0, 0, TAU); ctx.stroke(); }
       ctx.globalAlpha = 1;
     }
-    for (const sy of [-1, 1]) for (const sx of [-1, 1]) {
-      const y = cy + sy * R0 * 2.25, w = R0 * 1.4, x = sx < 0 ? cx - w : cx;
-      ctx.fillStyle = `rgba(255,174,66,${clamp((0.2 + 0.8 * f) * (1 - sx * this.trim * 0.6), 0.08, 1)})`; ctx.fillRect(x, y - 6, w, 12);
+    if (flat) for (const sy of [-1, 1]) for (const sx of [-1, 1]) {
+      const y = cy + sy * coilY, w = coilW, x = sx < 0 ? cx - w : cx;
+      ctx.fillStyle = `rgba(255,174,66,${coilOpacity(this, f, sx)})`; ctx.fillRect(x, y - 6, w, 12);
       ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.strokeRect(x, y - 6, w, 12);
     }
-    label('coils', cx + R0 * 1.4 + 8, cy - R0 * 2.25 + 4);
-    const g = ctx.createRadialGradient(bx, cy, 0, bx, cy, rr * 1.5);
-    const a = this.beta > 1 ? 0.45 : 0.9;
-    g.addColorStop(0, `rgba(255,235,245,${a})`); g.addColorStop(0.45, `rgba(255,120,175,${a * 0.7})`); g.addColorStop(1, 'rgba(255,120,175,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, cy, rr * 1.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = 'rgba(255,200,225,.9)';
-    this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = clamp(1.2 - q.r / 3, 0.1, 1); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
-    ctx.globalAlpha = 1;
-    // The cusp leaks hug the ball. Under reduced motion they take the ball's settled size
-    // for the current beta at once, so they never grow or shrink as the ball eases.
-    const leaksClosed = drawCuspLeaks(bx, cy, reduced ? R0 * settledBallSize(this.beta) : rr, this.beta);
+    label('coils', cx + coilW + 8, cy - coilY + 4);
+    let leaksClosed = cuspLeaks(this.beta).closed;
+    if (flat) {
+      const g = ctx.createRadialGradient(bx, cy, 0, bx, cy, rr * 1.5);
+      const a = this.beta > 1 ? 0.45 : 0.9;
+      g.addColorStop(0, `rgba(255,235,245,${a})`); g.addColorStop(0.45, `rgba(255,120,175,${a * 0.7})`); g.addColorStop(1, 'rgba(255,120,175,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, cy, rr * 1.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,200,225,.9)';
+      this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = particleOpacity(q.r); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
+      ctx.globalAlpha = 1;
+      // The cusp leaks hug the ball.
+      leaksClosed = drawCuspLeaks(bx, cy, leakBallRadius(this, L), this.beta);
+    }
     viewTitle('PLASMA BALL BETWEEN COILS');
     // Bottom line, so the status does not cover the title on a narrow canvas.
     label(leaksClosed ? 'cusp leaks closed' : 'cusp leaks open', cx, this.B === 0 ? H - 34 : H - 16, leaksClosed ? COL.cold : COL.hot, 'center', W < 420 ? 10 : 12);

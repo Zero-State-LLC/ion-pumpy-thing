@@ -292,7 +292,9 @@ function holdView(game) {
   const [edge, plumes] = [...rings.values()].filter(ring => ring.arcs.length > 1).sort((a, b) => a.r - b.r);
   const arcs = (edge?.arcs || []).sort((a, b) => a.start - b.start);
   const leaks = arcs.map((arc, i) => norm(arcs[(i + 1) % arcs.length].start - arc.end));
-  return { leaks, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
+  // Each leak's middle, as an angle round the ring.
+  const centres = arcs.map((arc, i) => norm(arc.end + leaks[i] / 2));
+  return { leaks, centres, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
 }
 // The Ignite canvas, one frame: the glass jar and the compression in it, and the words drawn.
 // The jar is the widest whole circle stroked. The compression front is a whole circle stroked
@@ -1995,9 +1997,9 @@ async function openIn3D(view, settings = {}, options = {}) {
   return game;
 }
 
-test('Open in 3D loads the plate mount prop beside the airliner', async () => {
+test('the 3D view loads the airliner, the plate mount and the vacuum chamber props', async () => {
   const game = await openIn3D('plates');
-  assert.deepEqual({ ...game.view3d.given.props }, { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb' });
+  assert.deepEqual({ ...game.view3d.given.props }, { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb' });
 });
 
 test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the area the player sets, as the flat view draws them, each held by a plate mount prop at its real 100 mm', async () => {
@@ -2103,6 +2105,129 @@ test('over Open\'s 3D views the 2D canvas draws the flat view\'s words and marks
   const sc = Math.min(390, 292.5) / 2 / 122, marks = game => game.drawing.filter(c => c[0] === 'arc' && (c[3] === 7 || Math.abs(c[3] - 20 * sc) < 1e-9));
   assert.equal(marks(flat).length, 3, 'the width circle and two wingtip rings');
   assert.deepEqual(in3D.drawing.filter(c => c[0] === 'arc'), marks(flat));
+});
+
+// The Hold step of a run whose first step is done, with the stand-in renderer.
+const holdIn3D = (options = {}) => bootIn3D(savedRunOn(1), options);
+// Where a point in the Hold and Open schematics' frame falls on the canvas, in pixels: the
+// scene's origin is the canvas's middle, 390 by 292.5 px, at the lab's scale.
+const labPixels = ([x, y]) => [195 + x * LAB_SCALE, 292.5 / 2 + y * LAB_SCALE];
+// The flat Hold canvas's plasma ball, one frame: its glow's centre and radius, in pixels.
+function holdBall(game) {
+  game.drawing.length = 0; paint(game);
+  const glow = game.drawing.find(c => c[0] === 'createRadialGradient' && c[3] === 0);
+  return { at: [glow[4], glow[5]], radius: glow[6] };
+}
+// The flat Hold canvas's coils, one frame: each coil half's box, in pixels, its fill's opacity
+// and its outline's colour.
+function holdCoils(game) {
+  game.drawing.length = 0; paint(game);
+  return game.drawing.flatMap((c, i) => c[0] !== 'fillRect' || c[4] !== 12 ? [] : [{
+    box: c.slice(1), opacity: +settingAt(game.drawing, i, 'fillStyle').match(/,\s*([\d.]+)\)$/)[1],
+    edge: settingAt(game.drawing, game.drawing.findIndex((d, j) => j > i && d[0] === 'strokeRect'), 'strokeStyle')
+  }]);
+}
+// The flat Hold canvas's chamber walls, one frame: the straight up-and-down lines stroked away
+// from the canvas's middle, as [x, top, bottom] in pixels.
+function holdWalls(game) {
+  game.drawing.length = 0; paint(game);
+  const walls = [];
+  game.drawing.forEach((c, i) => {
+    const prev = game.drawing[i - 1];
+    if (c[0] === 'lineTo' && prev[0] === 'moveTo' && prev[1] === c[1] && c[1] !== 195) walls.push([c[1], Math.min(prev[2], c[2]), Math.max(prev[2], c[2])]);
+  });
+  return walls;
+}
+
+test('Hold in 3D: a diagram side on at the lab\'s scale, with the plasma ball and its cusp leaks where, as big and as open as the flat view draws them, inside and outside the beta band', async () => {
+  for (const reduced of [false, true]) {
+    const flat = bootFromSavedRun(savedRunOn(1), { reduced }), game = await holdIn3D({ reduced });
+    let t = 0;
+    for (const [name, beta] of [...IN_BAND, ...OUT_OF_BAND]) {
+      holdSteady(flat, .5, { beta, from: t }); t = holdSteady(game, .5, { beta, from: t });
+      const why = `${name}${reduced ? ', reduced motion' : ''}`, frame = nextScene(game);
+      assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)');
+      assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
+      const want = holdView(flat), ball = holdBall(flat), [drawn] = entries(frame, 'plasma ball'), [leaks] = entries(frame, 'cusp leaks');
+      labPixels(drawn.at).forEach((v, k) => near(v, ball.at[k], `the ball where the flat view draws it at ${why}`));
+      assert.equal(drawn.at[2], 0); near(drawn.radius * LAB_SCALE, ball.radius, `the ball as big at ${why}`);
+      assert.deepEqual(leaks.at, drawn.at, 'the leaks are round the ball');
+      // holdView gives the flat view's radii to the nearest millionth of a pixel.
+      const px = n => Math.round(n * LAB_SCALE * 1e6) / 1e6;
+      assert.equal(px(leaks.edge), want.radius, `the field's edge at ${why}`);
+      assert.equal(px(leaks.plume - leaks.edge), want.plume, `the plumes' reach at ${why}`);
+      assert.equal(leaks.angles.length, 6, 'six cusp leaks');
+      // holdView measures each gap between arcs it has rounded to the millionth of a radian.
+      want.leaks.forEach((gap, i) => assert.ok(Math.abs(2 * leaks.halfAngle - gap) < 3e-6, `leak ${i} as open at ${why}: ${2 * leaks.halfAngle} is not ${gap}`));
+      const turn = 2 * Math.PI, norm = a => Math.round(((a % turn) + turn) % turn * 1e6) / 1e6 % turn;
+      const centres = [...want.centres].sort((a, b) => a - b);
+      leaks.angles.map(norm).sort((a, b) => a - b).forEach((a, i) => assert.ok(Math.abs(a - centres[i]) < 3e-6, `the leaks point where the flat view's do at ${why}: ${a} is not ${centres[i]}`));
+      const edgeArc = flat.drawing.findIndex(c => c[0] === 'arc' && c[5] - c[4] < turn - 1e-9);
+      assert.equal(leaks.colour, settingAt(flat.drawing, edgeArc, 'strokeStyle'), `coloured as the flat view's at ${why}`);
+    }
+  }
+});
+
+test('Hold in 3D: the coils where the flat view draws them, each half as bright as the flat view\'s for the field and trim set', async () => {
+  for (const [beta, trim] of [[.9, 0], [.5, 1], [1.5, -1], [Infinity, .5]]) {
+    const flat = bootFromSavedRun(savedRunOn(1)), game = await holdIn3D();
+    holdSteady(flat, .3, { beta, trim }); holdSteady(game, .3, { beta, trim });
+    const halves = holdCoils(flat), coils = entries(nextScene(game), 'coil');
+    assert.equal(halves.length, 4, 'the flat view draws two coils, each in two halves'); assert.equal(coils.length, 2, `two coils at beta ${beta}, trim ${trim}`);
+    for (const { box: [x, y, w, h], opacity, edge } of halves) {
+      const coil = coils.find(c => Math.abs(labPixels(c.at)[1] - (y + h / 2)) < 1e-9);
+      assert.ok(coil, `a coil at y ${y + h / 2}`); assert.equal(coil.at[0], 0); assert.equal(coil.at[2], 0);
+      near((coil.radius + coil.tube) * LAB_SCALE, w, 'reaching as far out as the flat view\'s'); near(2 * coil.tube * LAB_SCALE, h, 'as thick');
+      near(coil.opacity[x < 195 ? 0 : 1], opacity, `the ${x < 195 ? 'left' : 'right'} half as bright at beta ${beta}, trim ${trim}`);
+      assert.equal(coil.edge, edge, 'outlined in the flat view\'s colour');
+    }
+  }
+});
+
+test('Hold in 3D: a vacuum chamber prop, its walls where the flat view draws them, listed by kind, place, size and colour only', async () => {
+  const flat = bootFromSavedRun(savedRunOn(1)), game = await holdIn3D();
+  holdSteady(flat, .3); holdSteady(game, .3);
+  const walls = holdWalls(flat), chambers = entries(nextScene(game), 'vacuum chamber');
+  assert.equal(walls.length, 2, 'the flat view draws two walls'); assert.equal(chambers.length, 1);
+  const [c] = chambers;
+  assert.deepEqual(Object.keys(c).sort(), ['at', 'colour', 'height', 'kind', 'radius'], 'kind, place, size and colour only (docs/adr/0003)');
+  for (const [x, top, bottom] of walls) {
+    near(c.radius * LAB_SCALE, Math.abs(x - 195), 'its wall where the flat view\'s is');
+    near(c.height * LAB_SCALE, bottom - top, 'as tall'); near(labPixels(c.at)[1], (top + bottom) / 2, 'at the same height');
+  }
+  assert.equal(c.at[0], 0); assert.equal(c.at[2], 0);
+});
+
+test('Hold in 3D: the plasma\'s particles where the flat view draws them, each as faint', async () => {
+  const game = await holdIn3D();
+  holdSteady(game, .5, { beta: 1.4 });
+  const [specks] = entries(nextScene(game), 'specks');
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  game.drawing.length = 0; paint(game);
+  const dots = game.drawing.flatMap((c, i) => c[0] === 'arc' && c[3] === 1.6 ? [{ at: [c[1], c[2]], opacity: settingAt(game.drawing, i, 'globalAlpha') }] : []);
+  const fill = settingAt(game.drawing, game.drawing.findIndex(c => c[0] === 'arc' && c[3] === 1.6), 'fillStyle');
+  assert.equal(dots.length, 80, 'the flat view draws 80 particles'); assert.equal(specks.points.length, 80);
+  dots.forEach((dot, i) => {
+    labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `particle ${i} where the flat view draws it`));
+    near(specks.opacities[i], dot.opacity * +fill.match(/,\s*([\d.]+)\)$/)[1], `particle ${i} as faint`);
+  });
+  near(specks.size * LAB_SCALE, 3.2, 'each as wide as the flat view\'s dots'); assert.equal(specks.round, true, 'round, as the flat view\'s dots');
+});
+
+test('over Hold\'s 3D view the 2D canvas draws the flat view\'s words and marks: the walls, the middle line and the field lines, and none of its shapes', async () => {
+  for (const beta of [.9, 1.5, Infinity]) {
+    const flat = bootFromSavedRun(savedRunOn(1)), in3D = await holdIn3D();
+    holdSteady(flat, .3, { beta }); holdSteady(in3D, .3, { beta });
+    scene(flat); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), `words at beta ${beta}`);
+    // The marks the flat view draws before the plasma ball; the cusp leaks round it are in 3D.
+    const ball = flat.drawing.findIndex(c => c[0] === 'createRadialGradient');
+    // As JSON: each game runs in its own context, so their arrays' prototypes differ.
+    const marks = drawing => JSON.stringify(drawing.filter(c => ['moveTo', 'lineTo', 'ellipse', 'setLineDash'].includes(c[0])));
+    assert.equal(marks(in3D.drawing), marks(flat.drawing.slice(0, ball)), `marks at beta ${beta}`);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+    for (const shape of ['fillRect', 'strokeRect', 'arc', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas at beta ${beta}`);
+  }
 });
 
 test('the 3D view switch starts on where the renderer starts, is remembered on this device apart from the saved run, and turning it off draws the flat view', async () => {

@@ -73,7 +73,7 @@ These are model and integration checks, not screenshot tests. `npm run test:brow
 
 ## Deploy
 
-The production host is the Cloudflare Pages project `ion-pumpy-thing`, served at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). `scripts/build-dist.sh` copies the 11 public site files into `dist/`. After the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets are set, merges to `main` (and manual `workflow_dispatch` runs) deploy that folder through GitHub Actions and smoke-check the live host. The workflow does not run a production deploy from pull requests.
+The production host is the Cloudflare Pages project `ion-pumpy-thing`, served at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). `scripts/build-dist.sh` copies the public site into `dist/`: the pages and their scripts, the 3D view (`view3d.js` and the three.js modules it imports under `vendor/three/`, with three.js's licence), the props (`assets/*.glb`) and the sound effects (`assets/audio/*.mp3`). It fails if any of those globs matches nothing, and tests, docs, tools and `.github` stay out. After the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets are set, merges to `main` (and manual `workflow_dispatch` runs) deploy that folder through GitHub Actions and smoke-check the live host: the home page, `/privacy`, the share image, the 3D view's scripts (served as JavaScript) and every prop `index.html` names (a binary glTF). The workflow does not run a production deploy from pull requests.
 
 ## Remaining work
 

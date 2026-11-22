@@ -77,3 +77,15 @@ A complete test report records: **tester, date/time PT, device, OS version, brow
 [4orbs' corrected measurement page](https://4orbs.com/research/satellite-videos/measurements/) describes the first view as looking down from above and the second as a side view through a **thermal camera**. This attribution is the 4orbs account of the footage, not independent proof the footage is authentic. In the current `index.html`, Orbit `scene()` explicitly returns `look: 'visible'` for **both** 3D camera views. Its flat `draw()` also uses shared visible-light object colours for both halves. The 3D angles and object placement have automated coverage, but this source-derived **sensor-look distinction is not represented**. ADR 0004 requires matching flat and 3D appearances and thermal treatment where a view represents a heat camera.
 
 **Status: genuine follow-up, not approved.** Ask the owner in the next Grill round whether Orbit camera 2 should use the thermal palette in both the flat and 3D views, with camera 1 staying visible. Do not repair one renderer in isolation or imply a speculative heat value is measured. Separately verify the reported thin Ignite handle on phone screens before making that presentation-only change.
+
+## Round 2 accepted execution roles (22 November 2026 PT)
+
+| Role | Responsibility | Assigned person | Evidence status |
+| --- | --- | --- | --- |
+| iOS device tester | Physical iPhone Safari, VoiceOver, portrait/landscape, touch, keyboard, saved-run and WebGL checks | **Unassigned** | **Pending** |
+| Android device tester | Physical Android Chrome, TalkBack, portrait/landscape, touch, keyboard, saved-run and WebGL checks | **Unassigned** | **Pending** |
+| Independent acceptance reviewer | Compare both device records against this matrix and sign the same tested SHA | **Unassigned** | **Pending** |
+| Original Meshy account operator | Supply private generation-time task/plan/right receipts for five GLBs | **Unassigned** | **Pending** |
+| Independent asset-rights reviewer | Validate task IDs, rights restrictions and output hashes; publish sanitized verdict | **Unassigned** | **Pending** |
+
+**Accepted design direction, not yet implemented:** Orbit Camera 2 becomes a labelled thermal reconstruction in both flat and 3D views, while Camera 1 remains the visible overhead view, under the ADR 0004 amendment. Implement and qualify separately. The thermal palette is an illustrative representation, not a calibrated temperature reading extracted from the source video.

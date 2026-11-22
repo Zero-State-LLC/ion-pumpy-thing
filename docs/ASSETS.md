@@ -43,3 +43,7 @@ Under [ADR 0005](adr/0005-meshy-rights-evidence-before-qualification.md), the ge
 | `assets/pump-handle.glb` | `01a2026a-b172-74d4-a272-96078fe17bb6` | **Pending** | **Pending** | **Pending** |
 
 Required evidence for each: exact task ID, date/time of generation, account's relevant plan/license at that time, rights in source prompts or uploaded references, Community-share/license status, applicable published terms/version, and matching final output SHA-256 from the table above. A qualified reviewer should examine private receipts and add **only a sanitized receipt pointer, review date, and explicit pass/blocker** here. No passwords, API keys, payment details or personally identifying invoices may be committed. Missing proof is not an infringement conclusion. Remediation, if needed, requires a separate owner choice.
+
+### Receipt ownership, accepted 22 November 2026 PT
+
+The authorized operator of the **original Meshy generating account** must provide receipts privately, and a **separate rights reviewer** must validate them before marking any row passed. The two people are **unassigned**; all five rows remain **Pending**. The reviewer records only a date, sanitized evidence pointer, applicable license/terms determination and a per-asset verdict. This is not permission to expose account, payment, device, or identity records in the repository. Escalate missing or conflicting rights evidence for an owner decision.

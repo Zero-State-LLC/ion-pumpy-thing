@@ -107,6 +107,7 @@ a { color: var(--cold); }
 .top h1 { font-family: var(--display); font-weight: 700; font-size: var(--fs-hero); line-height: 1; margin: 0; letter-spacing: var(--track-display); text-transform: uppercase; }
 .top h1 span { color: var(--cold); }
 .top p { margin: 0; max-width: 52ch; color: var(--muted); }
+.jump-to-controls { display: none; }
 
 .key { font-size: var(--fs-sm); color: var(--muted); }
 .key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; min-height: 32px; }
@@ -183,7 +184,7 @@ a { color: var(--cold); }
 .mission .ready { color: var(--cold); }
 .mission .blocked { color: var(--warm); }
 
-.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); scroll-margin-top: var(--sp-3); }
 .ctl label { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-0) var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
 .ctl label output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 .ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: var(--sp-0) 0 0; height: 24px; cursor: pointer; }
@@ -263,6 +264,7 @@ footer p { margin: 0; }
   .ctl input[type=range] { height: 44px; }
 }
 @media (max-width: 860px) {
+  .jump-to-controls:not([hidden]) { display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; max-width: 100%; padding: var(--sp-2) var(--sp-4); border: 1px solid var(--warm); background: var(--warm); color: var(--deep); font: 600 var(--fs-sm) var(--body); text-decoration: none; }
   .deck { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
   .view { position: relative; top: auto; }
   .panel { padding: var(--sp-4); }
@@ -275,6 +277,7 @@ footer p { margin: 0; }
 }
 /* On a tall phone the experiment stays in view while its controls scroll beneath it. */
 @media (max-width: 860px) and (min-height: 600px) {
+  .ctl { scroll-margin-top: calc(min(75vw, 38vh) + var(--sp-3)); }
   .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; aspect-ratio: auto; height: min(75vw, 38vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
 }
 </style>
@@ -286,6 +289,7 @@ footer p { margin: 0; }
   <header class="top">
     <h1>Ion Pumpy <span>Thing</span></h1>
     <p>Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the wormhole account set out at 4orbs.com from the physics it cites, and explains that physics as you go.</p>
+    <a id="jump-to-controls" class="jump-to-controls" href="#controls">Go to step controls</a>
   </header>
 
   <details class="key" id="key">
@@ -366,6 +370,9 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const cv = $('#cv'), ctx = cv.getContext('2d'), panel = $('#panel'), scaleBar = $('#scale');
+// Keep the active controls in the reading order. Fragment navigation scrolls to them,
+// and focusing the target lets keyboard users Tab into its first control.
+$('#jump-to-controls').addEventListener('click', () => { const target = $('#controls'); if (target) target.focus({ preventScroll: true }); });
 let W = 400, H = 300, DPR = 1;
 function fit() {
   const r = cv.getBoundingClientRect();
@@ -632,7 +639,7 @@ const ignite = stage({
       <p><span class="tag scen">Game rule</span>Your hand pump plays the piston. Keep a cold plasma with the pressure in its band for ${PLASMA_HOLD_SECONDS} seconds to pass the Plasma readiness check. Leave the band before then and the count starts over.</p>
       <p class="note">When gas pressure is high, collisions heat the whole gas and can create an electric arc. Lower the pressure to keep the electrons hot while the heavier particles stay cooler. The seal leaks, so pressure rises again. If you pump out too much gas, the glow stops.</p>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="controls" tabindex="-1">
       <div class="seg" role="group" aria-label="Gas">
         <button type="button" id="gas-h" data-gas="h">Hydrogen</button>
         <button type="button" id="gas-ar" data-gas="ar">Argon</button>
@@ -886,7 +893,7 @@ const hold = stage({
       <p><span class="tag lab">Lab physics</span>Robert Bussard's Polywell sets six coils on the faces of a cube. Their fields pinch together in cusps and trap electrons in a "wiffle ball" at the centre. Bussard reported reaching beta one in his sixth machine in 2006. In 2015 Park and colleagues tested Harold Grad's prediction that near beta one the plasma pushes the field into a sharp-edged boundary and the cusp leaks close. They found confinement is enhanced when beta is near one.</p>
       <p class="note">Use the pad in two directions. Move up or down to change magnetic field strength and keep beta in the marked range. Beta compares plasma pressure with magnetic pressure. Move left or right to adjust the coils and centre the plasma ball. Arrow keys work too. Above beta one, the plasma can push past the field and escape.</p>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="controls" tabindex="-1">
       <div>
         <div class="pad" id="ho-pad" tabindex="0" role="application" aria-label="Coil control pad. Up and down arrows set field strength, left and right arrows trim the coils."><i id="ho-knob"></i></div>
         <div class="padlabels"><span>← push left</span><span>↑ stronger field</span><span>push right →</span></div>
@@ -1076,7 +1083,7 @@ const fuel = stage({
       <p><span class="tag model">Theory</span>In a 2003 conference paper, George Miley's group at the University of Illinois and a colleague at the ENEA fusion centre in Frascati, Italy, calculated how the inner electrons of metal atoms screen the barrier, for deuterium fusion and for protons captured by metal nuclei. Both reactions came out significantly enhanced.</p>
       <p><span class="tag scen">Game rule</span>How much screening helps is set for play. Below a fuel's peak temperature, switching it on makes the fuel burn as it would at three times the temperature, capped at the peak temperature. At or above its peak, screening changes nothing.</p>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="controls" tabindex="-1">
       <div class="seg" role="group" aria-label="Fuel">
         <button type="button" id="fu-dt" data-fuel="dt">Deuterium + tritium</button>
         <button type="button" id="fu-pb" data-fuel="pb">Hydrogen + boron-11</button>
@@ -1250,7 +1257,7 @@ const orbit = stage({
       <p><span class="tag meas">Measured</span>Two cameras pin down one scene. 4orbs fitted the two lines of sight at 123 to 141 degrees apart, which is why the objects circle in opposite senses in the two videos.</p>
       <p class="note">The hollow rings mark the objects' reported positions. Move your orbs onto those rings in both camera views.</p>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="controls" tabindex="-1">
       <label for="or-r"><span id="or-r-l">Distance from the aircraft</span> <output id="or-r-o"></output><input id="or-r" aria-labelledby="or-r-l" type="range" min="30" max="100" step="1"></label>
       <label for="or-t"><span id="or-t-l">Time for one lap</span> <output id="or-t-o"></output><input id="or-t" aria-labelledby="or-t-l" type="range" min="1" max="8" step="0.1"></label>
       <label for="or-c"><span id="or-c-l">Angle between the two cameras</span> <output id="or-c-o"></output><input id="or-c" aria-labelledby="or-c-l" type="range" min="0" max="180" step="1"></label>
@@ -1344,7 +1351,7 @@ const open = stage({
       <p><span class="tag scen">Game rule</span>Here the orbs supply exactly the negative energy the throat needs, because in Forbes's account their convergence is what opens the wormhole.</p>
       <p class="note">The game increases the required negative energy as you widen the wormhole opening (the throat). This follows a simplified rule based on the report. A wider opening reduces your score only in Timed mode.</p>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="controls" tabindex="-1">
       <div class="seg" role="group" aria-label="Experiment view">${OPEN_VIEWS.map(([id, , name]) => `<button type="button" id="${id}">${name}</button>`).join('')}</div>
       <label for="op-w"><span id="op-w-l">Throat width</span> <output id="op-w-o"></output><input id="op-w" aria-labelledby="op-w-l" type="range" min="1" max="200" step="1"></label>
       <label for="op-d"><span id="op-d-l">Gap between the plates</span> <output id="op-d-o"></output><input id="op-d" aria-labelledby="op-d-l" type="range" min="1" max="4" step="0.01"></label>
@@ -1654,7 +1661,7 @@ const conv = stage({
       <p><span class="tag read">4orbs account</span>The airliner crosses the throat at constant speed relative to the field, as the 4orbs <a href="${TELEPORTATION_URL}" target="_blank" rel="noopener">teleportation page</a> has it. The transit diagram draws the crossing that way.</p>
       <p class="note">This final step uses the settings you chose earlier. Only Timed mode deducts points for taking longer.</p>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="controls" tabindex="-1">
       <div>
         <div class="meter" aria-hidden="true"><div class="band" style="left:42%;width:16%"></div><div class="mark" id="cv-mark"></div></div>
         <div class="mlabels"><span>50 %</span><span>triangle size</span><span>100 %</span></div>
@@ -2015,6 +2022,7 @@ function show(i, opts = {}) {
   snd.stopAll();
   ignite.pumping = false; hold.drag = false;
   S.stage = i; const st = STAGES[i];
+  const jump = $('#jump-to-controls'); if (jump) jump.hidden = !!st.end;
   // A fresh Hold waits for the player rather than opening with the plasma already lost.
   S.paused = st.done || (st === hold && hold.t === 0 && hold.B === 0);
   scaleBar.hidden = true;

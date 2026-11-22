@@ -30,4 +30,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .agents/skills/hallmark
           git diff --cached --quiet || git commit -m 'chore: vendor pinned Hallmark skill'
+          git pull --rebase origin chore/install-hallmark-skill-20261122
           git push origin HEAD:chore/install-hallmark-skill-20261122

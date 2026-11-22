@@ -945,7 +945,11 @@ const fuel = stage({
     this.spots = this.spots.filter(s => (s.l -= dt * 1.2) > 0).slice(-60);
     this.dose = clamp(this.dose + (lit && this.fuel === 'dt' ? dt * 0.22 : 0), 0, 1);
     this.hold = lit && this.fuel === 'pb' ? this.hold + dt : 0;
-    if (this.hold >= 3) complete(this);
+    if (this.hold >= 3) {
+      // Record how Fuel was completed, for the Ledger: it traces electron screening only if it was on.
+      if (!this.done) this.completedScreened = this.screening;
+      complete(this);
+    }
     snd.bed('fusion-bed', { level: .2 + rate * .6, brightness: 900 + this.lt * 800 });
     const K = keV * 11.6e6, shown = K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K';
     out('fu-t', shown);
@@ -990,7 +994,7 @@ const fuel = stage({
   describe() {
     return `Reactor core burning ${FUELS[this.fuel].name.toLowerCase()}${this.screening ? ', flooded with electrons that screen the Coulomb barrier' : ''}: ${this.lit ? 'burning, ' + (this.fuel === 'pb' ? 'charged helium nuclei curling in the field' : 'neutrons striking the wall') : 'low activity'}. Wall exposure ${fmt(this.dose * 100)} percent.`;
   }
-}, { fuel: 'dt', lt: 0.3, screening: false, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
+}, { fuel: 'dt', lt: 0.3, screening: false, completedScreened: false, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
 
 /* ───────── Shared scene helpers ───────── */
 function sceneScale() { return Math.min(W, H) / 2 / 122; }
@@ -1563,13 +1567,19 @@ const ledger = stage({
     if (!S.result) { S.result = tally(); S.result.best = localBest(S.result); submit(S.result); }
     const res = S.result, jup = fmt(res.width * JUPITERS_PER_M), passage = transitModel(1, res.width), rows = [
       ['lab', 'Lab physics', 'A plasma that glows while its ions stay cool. Neon signs do it.'],
+      ['read', '4orbs account', 'The piston compresses the plasma in full command of its pressure, so the reactor that powers the orbs can run continuously.'],
       ['lab', 'Lab physics', `Beta one: plasma pressure balanced by the field in a cusp trap like Bussard's Polywell, where confinement is enhanced near beta one (Park et al., 2015).${hold.assisted ? ' You held it with the centring assist.' : ''}`],
+      ['read', '4orbs account', 'Forbes reads the ion pumpy schematic, an anonymous drawing of a compact fusion reactor, as the dense plasma focus George Miley studied. It breathes air and burns boron-11, and it powers the orbs.'],
       ['lab', 'Lab physics', 'Hydrogen-boron fusion: three helium nuclei, with the energy on charged particles a field can catch.'],
+      // Electron screening is a link only in a run whose Fuel step was completed with it on.
+      ...(fuel.completedScreened ? [['read', '4orbs account', 'Flooding the fuel with electrons lets fusion go at lower temperatures: the electrons screen the Coulomb barrier, the electric push that keeps two nuclei apart.']] : []),
       ['meas', 'Measured', 'Three objects in a rigid, tumbling triangle, 60 to 70 m out, one lap in about 2.5 s: roughly 600 km/h and forty g. Two cameras 123 to 141° apart agree on it.'],
       ['model', 'Theory', 'A crossable wormhole held open by negative energy (Morris and Thorne, 1988). Negative energy itself is measured between Casimir plates.'],
       ['model', 'Theory', `Your ${res.width} m throat, scaled from the DIA report's table: about ${jup} Jupiter masses of negative energy.`],
+      ['read', '4orbs account', 'The orbs generate negative energy themselves, by the dynamic Casimir effect.'],
       ['read', '4orbs account', 'Fusion-powered plasma orbs that open the wormhole by converging, and supply the energy that holds it.'],
       ['meas', 'Measured', 'In the last frames the triangle shrinks by about a quarter. The flash reads bright from above and colder than the sky on the heat camera.'],
+      ['read', '4orbs account', 'The airliner crosses the throat at constant speed relative to the field.'],
       ['scen', 'Game rule', `A centred 60.9 m wingspan has ${fmt(passage.clearance, 2)} m clearance per wing. At 250 m/s, the 63.7 m aircraft passes the entrance in ${fmt(passage.duration, 3)} s.`]
     ];
     return `
@@ -1705,7 +1715,7 @@ const RUN_KEY = 'ipt-run-v2';
 const RUN_FIELDS = [
   { gas: ['h', 'ar'], power: [0, 100], p: [.05, 760], hold: [0, 86400], t: [0, 1e9] },
   { B: [0, 1], trim: [-1, 1], x: [-1, 1], lock: [0, 6], t: [0, 1e9], assist: 'boolean?', assisted: 'boolean?' },
-  { fuel: ['dt', 'pb'], lt: [0, 3], screening: 'boolean?', hold: [0, 86400], dose: [0, 1] },
+  { fuel: ['dt', 'pb'], lt: [0, 3], screening: 'boolean?', completedScreened: 'boolean?', hold: [0, 86400], dose: [0, 1] },
   { r: [30, 100], T: [1, 8], cam: [0, 180], ang: [-1e9, 1e9], ghost: [-1e9, 1e9], tumble: [-1e9, 1e9], hold: [0, 86400] },
   { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: OPEN_VIEWS.map(([, view]) => view) },
   { k: [.5, 1], ang: [-1e9, 1e9], tumble: [-1e9, 1e9], startAng: [-1e9, 1e9], startTumble: [-1e9, 1e9], view: ['thermal', 'visible', 'transit'] }

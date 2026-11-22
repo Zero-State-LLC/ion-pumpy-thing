@@ -1685,6 +1685,88 @@ test('the transit view says the airliner crosses the throat at constant speed re
   });
 });
 
+// The Ledger's rows, as the player reads them: each row's source labels and the words it says.
+function ledgerRows(game) {
+  click(game, 'step-6');
+  const list = text(game, 'panel').match(/<ul class="ledger">([\s\S]*?)<\/ul>/)[1], tag = /<span class="tag [a-z]+">([^<]+)<\/span>/g;
+  return [...list.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, row]) => ({ labels: [...row.matchAll(tag)].map(m => m[1]), said: words(row.replace(tag, '')) }));
+}
+const sentencesOf = said => said.split(/(?<=[.!?])\s+/);
+// A lesson sentence can end by crediting its 4orbs page ("…, as the 4orbs teleportation page has
+// it."), which links there. The claim is the sentence without that credit.
+const PAGE_CREDIT = /,\s+as the 4orbs\b[^.!?]*\bpage has it(?=[.!?]$)/;
+const claimOf = sentence => sentence.replace(PAGE_CREDIT, '');
+// A completed run whose Fuel step the player burned boron in to completion, with electron
+// screening on or off, and then set screening to `after`. Fuel is played from a saved run open
+// on it, at the temperature the completed run burned boron at; the other steps are the completed run's.
+function completedRunFuelled({ screening, after = screening }) {
+  const game = bootFromSavedRun(savedRunOn(2)), done = readSavedRun('completed-run');
+  click(game, 'fu-pb'); if (pressed(game, 'fu-screen') !== screening) click(game, 'fu-screen');
+  slide(game, 'fu-t', done.stages[2].values.lt); playFor(game, 4);
+  assert.match(game.ids.get('step-2').attributes.class, /\bdone\b/, 'the Fuel step is complete');
+  if (pressed(game, 'fu-screen') !== after) click(game, 'fu-screen');
+  leave(game); done.stages[2] = lastSave(game).stages[2];
+  return bootFromSavedRun(done);
+}
+// What the electron-screening row, and no other row, is about: electrons screening the Coulomb barrier.
+const SCREENING_ROW = /\bscreens? the Coulomb barrier\b/;
+// The links spec #25 added to the chain, in the order the steps come: the step whose lesson
+// makes each claim, and what its Ledger row is about.
+const NEW_LINKS = [['Ignite', /\bpiston\b/], ['Fuel', /\bdense plasma focus\b/], ['Fuel', SCREENING_ROW], ['Open', /\bdynamic Casimir effect\b/], ['Converge', /\bconstant speed\b/]];
+// The Ledger's rows from before spec #25, in order: the step each traces and its source label.
+const EARLIER_LINKS = [['Ignite', 'Lab physics'], ['Hold', 'Lab physics'], ['Fuel', 'Lab physics'], ['Orbit', 'Measured'], ['Open', 'Theory'], ['Open', 'Theory'], ['Converge', '4orbs account'], ['Converge', 'Measured'], ['Converge', 'Game rule']];
+
+test("the Ledger keeps all its rows from before and traces the piston, the dense plasma focus, electron screening, the dynamic Casimir effect and the constant-speed crossing among them in step order, each in its lesson's words under its lesson's one source label", () => {
+  const game = completedRunFuelled({ screening: true }), rows = ledgerRows(game);
+  for (const row of rows) assert.equal(row.labels.length, 1, `one source label: ${row.said}`);
+  const traced = NEW_LINKS.map(([step, about]) => {
+    const found = rows.filter(row => about.test(row.said));
+    assert.equal(found.length, 1, `one row for ${step}'s ${about}: ${found.map(row => row.said).join(' | ')}`);
+    const [row] = found;
+    assert.deepEqual(row.labels, ['4orbs account'], row.said);
+    // The claim is the lesson's: each sentence of the row is a claim its step's lesson makes, under
+    // the same label. The row's label already says whose account it is, and the row has no link,
+    // so it leaves out the lesson's credit to a 4orbs page.
+    click(game, `step-${STEP_NAMES.indexOf(step)}`);
+    const claims = lessonByParagraph(sourceCard(game)).filter(p => p.label === row.labels[0]).flatMap(p => sentencesOf(p.said)).map(claimOf);
+    for (const sentence of sentencesOf(row.said)) {
+      assert.equal(claimOf(sentence), sentence, `the row, labelled ${row.labels[0]}, credits no 4orbs page: ${sentence}`);
+      assert.ok(claims.includes(sentence), `${step}'s lesson says, as ${row.labels[0]}: ${sentence}`);
+    }
+    return row;
+  });
+  // The rows from before are all still there, in their order and with their labels.
+  const earlier = rows.filter(row => !traced.includes(row));
+  assert.deepEqual(earlier.map(row => row.labels[0]), EARLIER_LINKS.map(([, label]) => label), `the rows from before: ${earlier.map(row => row.said).join(' | ')}`);
+  // Each row comes after the rows of earlier steps and before the rows of later steps.
+  const stepOf = row => traced.includes(row) ? NEW_LINKS[traced.indexOf(row)][0] : EARLIER_LINKS[earlier.indexOf(row)][0];
+  const order = rows.map(row => STEP_NAMES.indexOf(stepOf(row)));
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), `in the order the steps come: ${rows.map(row => `${stepOf(row)}: ${row.said}`).join(' | ')}`);
+});
+
+test('the Ledger traces electron screening only when the run completed its Fuel step with screening on, whatever screening is set to afterwards', () => {
+  const screened = ({ screening, after }) => ledgerRows(completedRunFuelled({ screening, after })).filter(row => SCREENING_ROW.test(row.said)).length;
+  assert.equal(screened({ screening: true, after: true }), 1, 'completed with screening on');
+  assert.equal(screened({ screening: true, after: false }), 1, 'completed with screening on, then turned off');
+  assert.equal(screened({ screening: false, after: false }), 0, 'completed with screening off');
+  assert.equal(screened({ screening: false, after: true }), 0, 'completed with screening off, then turned on');
+  // It changes nothing else in the Ledger.
+  const withIt = ledgerRows(completedRunFuelled({ screening: true })), without = ledgerRows(completedRunFuelled({ screening: false }));
+  assert.deepEqual(withIt.filter(row => !SCREENING_ROW.test(row.said)), without);
+});
+
+test('a run saves whether its Fuel step was completed with electron screening on, and a saved run without that restores with it off, so its Ledger leaves the screening row out', () => {
+  const game = completedRunFuelled({ screening: true }); leave(game);
+  const saved = lastSave(game);
+  assert.equal(saved.stages[2].values.completedScreened, true, 'Fuel was completed with screening on');
+  delete saved.stages[2].values.completedScreened;
+  const older = bootFromSavedRun(saved);
+  assert.equal(currentStep(older), 5, 'the older saved run resumes');
+  assert.equal(ledgerRows(older).filter(row => SCREENING_ROW.test(row.said)).length, 0, 'no screening row');
+  saved.stages[2].values.completedScreened = 'yes';
+  assert.equal(currentStep(bootFromSavedRun(saved)), 0, 'a saved run with a malformed value starts fresh');
+});
+
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
   for (const [mode, reduced, rate] of [['learn', false, .5], ['challenge', false, 1], ['challenge', true, .5]]) {
     const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = mode; }), { reduced });

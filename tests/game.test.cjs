@@ -2541,6 +2541,14 @@ test('where the renderer cannot start, or loses WebGL, the flat view draws and t
   assert.equal(nextScene(lost), null, 'no 3D frame after WebGL is lost'); assert.equal(lost.ids.get('gl').hidden, true);
   assert.match(text(lost, 'view-3d-status'), /lost WebGL, so the flat view is showing/);
   assert.equal(lost.ids.get('view-3d').checked, false);
+  assert.equal(lost.ids.get('view-3d').disabled, true, 'disabled until browser restores WebGL');
+  lost.ids.get('gl').listeners.webglcontextrestored();
+  assert.equal(lost.ids.get('view-3d').disabled, false, 'restoration unlocks the switch');
+  assert.equal(lost.ids.get('view-3d').checked, true, 'original preference is preserved');
+  assert.equal(lost.storage.get('ipt-run-v2'), savedRunBeforeLoss, 'restoration does not rewrite the saved run');
+  assert.equal(lost.storage.get('ion-pumpy-view-v1'), savedViewBeforeLoss, 'restoration does not rewrite preference');
+  lost.lab.advance(0.016); await settle();
+  assert.ok(nextScene(lost), 'a fresh 3D renderer draws after context restoration');
 });
 
 test('the 3D view draws nothing while the tab is hidden, and steps without a scene list draw flat', async () => {

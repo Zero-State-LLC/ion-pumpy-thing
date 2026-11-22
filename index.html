@@ -387,8 +387,8 @@ try { const prefs = JSON.parse(localStorage.getItem(VIEW_PREFS) || 'null'); if (
 function paintViewSwitch() {
   const failed = view3d.state === 'unavailable' || view3d.state === 'lost';
   view3dSwitch.checked = view3d.on && !failed; view3dSwitch.disabled = failed;
-  set('view-3d-status', view3d.state === 'unavailable' ? 'The 3D view could not start in this browser, so the flat view is showing.'
-    : view3d.state === 'lost' ? 'The 3D view stopped when this browser lost WebGL, so the flat view is showing.' : '');
+  set('view-3d-status', view3d.state === 'unavailable' ? '3D graphics could not start in this browser. The flat view is available, and your progress is unchanged.'
+    : view3d.state === 'lost' ? 'The browser lost its 3D graphics connection. The flat view is available while 3D recovers. Your progress is unchanged.' : '');
 }
 function stop3D(state) { view3d.renderer = null; view3d.state = state; paintViewSwitch(); }
 // After the browser restores WebGL, allow a fresh renderer to start on the next frame.
@@ -720,7 +720,7 @@ const ignite = stage({
     const mk = $('#ig-mark'); if (mk) mk.style.left = clamp(this.pos(m.p), 0, 100) + '%';
     const held = this.done && plasmaHeld(this);
     goal(held ? 1 : this.hold / PLASMA_HOLD_SECONDS, held ? 'Cold plasma held in the pressure band: electrons at tens of thousands of kelvin, ions at room temperature.'
-      : `Goal: a glowing plasma whose ions stay below 47 °C, with the pressure in its band for ${PLASMA_HOLD_SECONDS} seconds. Leaving the band starts the count over.`);
+      : `Keep the gas glowing, the ions below 47 °C, and the pressure in the marked range for ${PLASMA_HOLD_SECONDS} seconds. If pressure leaves the range, the timer restarts.`);
   },
   // The glass jar and the hand pump in 3D where the flat view draws them: the piston's travel
   // with each stroke and, while the pressure is in its band, the plasma pressed in to its front,
@@ -972,7 +972,7 @@ const hold = stage({
     set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (inBetaBand(beta) ? 'balanced' : overpowered ? 'leaking' : 'held, over-built') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
     set('ho-x', this.hit > 0 ? 'hit the wall<small>cooled and lost</small>' : centred ? 'centred' : this.x < 0 ? 'drifting left<small>push right</small>' : 'drifting right<small>push left</small>');
     const mk = $('#ho-mark'); if (mk) mk.style.left = clamp((isFinite(beta) ? beta : 2) / 2, 0, 1) * 100 + '%';
-    goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
+    goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Keep beta between 0.75 and 1 and the plasma ball centred for 6 seconds.');
   },
   // The plasma ball between its coils in the vacuum chamber, in 3D where the flat view draws it:
   // the ball and its cusp leaks, from the step's beta, each frame (docs/adr/0003).
@@ -1143,7 +1143,7 @@ const fuel = stage({
     set('fu-n', this.fuel === 'dt' ? 'Most<small>neutrons carry much of the energy</small>' : 'Almost none<small>the main reaction makes none; side reactions make a few</small>');
     const d = $('#fu-dose'); if (d) d.style.width = this.dose * 100 + '%';
     const burned = 'Burning boron: the energy stays on charged particles the field can catch. ' + (this.screening ? `With the barrier screened, it burns at ${shown}.` : 'It took billions of kelvin.');
-    goal(this.hold / 3, this.hold >= 3 ? burned : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: sustain the hydrogen-boron demonstration for three seconds.');
+    goal(this.hold / 3, this.hold >= 3 ? burned : this.dose > 0.5 && this.fuel === 'dt' ? 'This fuel makes neutrons that hit the chamber wall. Try Hydrogen + boron-11 to reduce neutron exposure.' : 'Choose Hydrogen + boron-11 and keep the fusion reaction active for 3 seconds.');
   },
   // The reactor core in 3D where the flat view draws it: what burns and how much, from the fuel's
   // activity, each frame (docs/adr/0003). End on, at the lab's scale, as a diagram (docs/adr/0004).
@@ -1277,7 +1277,7 @@ const orbit = stage({
     set('or-g', fmt(g, 1) + ' g<small>a 75 kg person would weigh ' + fmt(75 * g / 1000, 1) + ' t</small>');
     set('or-air', fmt(2 * v * v / (9.81 * Math.sqrt(2.5 * 2.5 - 1))) + ' m<small>circle width at its 2.5 g limit</small>');
     set('or-ftr', fmt(2 * v * v / (9.81 * Math.sqrt(80))) + ' m<small>circle width at 9 g</small>');
-    goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
+    goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Adjust the sliders: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart. Match the hollow rings in both views.');
   },
   // The scene list for the 3D view (docs/adr/0003): a view for each camera, each drawing the
   // airliner, the player's orbs and their triangle, and the matched Formation's glow, in metres.
@@ -1384,7 +1384,7 @@ const open = stage({
     if (fits && this.assumed) complete(this);
     if (this.assumed && this.view === 'throat') snd.bed('throat-bed', { level: .6 });
     if (this.view === 'plates' && performance.now() - plateInputAt < 140) snd.bed('plate-adjust', { level: .7 });
-    goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open. Negative energy from the orbs holds a throat wide enough for the wings, as Morris and Thorne require.' : !fits ? 'Goal: a throat wide enough for a 60.9 m wingspan, held open.' : 'Wide enough. Now draw negative energy from the orbs to hold it open.');
+    goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open. Negative energy from the orbs holds a throat wide enough for the wings, as Morris and Thorne require.' : !fits ? 'Make the throat wider than the 60.9 m wingspan. Then select Draw negative energy from the orbs to hold it open.' : 'Wide enough. Now draw negative energy from the orbs to hold it open.');
   },
   // The scene list for the 3D view (docs/adr/0003). The throat view draws the airliner and the
   // throat below it, in metres at the flat view's scale; the plates and the plasma cavity are
@@ -1695,7 +1695,7 @@ const conv = stage({
       if (this.phase === 'orbit') { this.phase = 'closing'; this.msg = 'Closing in'; }
       else if (this.phase === 'closing') {
         if (Math.abs(this.k - 0.75) <= 0.04) { this.phase = 'flash'; this.q = 0; this.startAng = this.ang; this.startTumble = this.tumble; this.msg = 'Flash'; }
-        else { this.msg = this.k > 0.75 ? 'Too early: reset' : 'Too late: reset'; this.miss(); }
+        else { this.msg = this.k > 0.75 ? 'Too early. Wait until the marker reads 71 to 79 %, then try again.' : 'Too late. The marker passed 71 to 79 %. Try again.'; this.miss(); }
       } else if (this.phase === 'gone') { this.phase = 'flash'; this.q = 0; this.msg = 'Replaying the completed sequence'; }
       else if (this.phase === 'flash' && this.done) this.msg = 'Replaying the completed sequence';
       syncAudioMode(); this.update(0);
@@ -1707,9 +1707,9 @@ const conv = stage({
       this.ang += TAU / orbit.T * dt;
       this.tumble += TAU / 11 * dt;
     }
-    if (!missionReady() && ['closing', 'flash'].includes(this.phase)) { this.phase = 'orbit'; this.k = 1; this.q = 0; this.msg = 'System changed: retune before opening'; snd.stopAll(); syncAudioMode(); if (dt > 0) snd.play('caution'); }
+    if (!missionReady() && ['closing', 'flash'].includes(this.phase)) { this.phase = 'orbit'; this.k = 1; this.q = 0; this.msg = 'A previous setting changed. Retune the highlighted steps before opening.'; snd.stopAll(); syncAudioMode(); if (dt > 0) snd.play('caution'); }
     // Learning runs and reduced motion close at half speed, so the band stays open for 1.6 s instead of 0.8 s.
-    if (this.phase === 'closing') { this.k -= dt * (S.mode === 'learn' || reduced ? 0.05 : 0.1); if (this.k <= 0.5) { this.msg = 'Missed it: reset'; this.miss(dt > 0); } }
+    if (this.phase === 'closing') { this.k -= dt * (S.mode === 'learn' || reduced ? 0.05 : 0.1); if (this.k <= 0.5) { this.msg = 'Missed the opening window. Press Start closing in to try again.'; this.miss(dt > 0); } }
     if (this.phase === 'flash') {
       this.q = Math.min(1, this.q + dt / FINALE_SECONDS);
       this.ang = this.startAng + TAU / orbit.T * this.q * FINALE_SECONDS;
@@ -1736,7 +1736,7 @@ const conv = stage({
     }
     const mk = $('#cv-mark'); if (mk) mk.style.left = clamp((this.k - 0.5) / 0.5, 0, 1) * 100 + '%';
     set('cv-k', fmt(this.k * 100) + ' %'); set('cv-msg', this.msg || 'Orbiting');
-    goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Sequence complete. Switch views or scrub the replay to inspect each moment.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
+    goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Sequence complete. Switch views or scrub the replay to inspect each moment.' : 'Press Start closing in, then press Open it now when the formation marker reads 71 to 79 %.');
   },
   // The scene list for the 3D view (docs/adr/0003): everything the flat view draws but its text
   // and diagram marks, in metres, with the flat view's camera. Sizes the flat view sets in
@@ -2244,7 +2244,7 @@ function start(d) {
   const key = $('#key'); if (key) key.open = matchMedia('(min-width: 861px)').matches;
   fit(); if (!restore(saved)) show(0);
   if (saved && saved.sourceRevision !== SOURCE_REVISION) {
-    set('restore-status', 'Source assumptions have changed in this edition. The previous in-progress run could not resume, so a new learning run has started. Your timed best is kept.');
+    set('restore-status', 'Source assumptions have changed in this edition. Your previous run cannot resume. A new Learning run has started, but your best Timed score is kept.');
     $('#restore-status').hidden = false;
   }
   advance(0);

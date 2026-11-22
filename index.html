@@ -1,4 +1,7 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>
+/* Hallmark · source-audit polish · preserve the thermal instrument design and all game behavior */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: execution; fix document overflow and label tracking without changing the experiment */
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
 .sound-settings summary { cursor: pointer; min-height: 32px; }
 .sound-controls { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding: 8px 0; }
 .sound-controls label { display: flex; gap: 10px; align-items: center; font-size: 13px; }
@@ -34,6 +37,8 @@
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap">
 <style>
+/* Hallmark · source-audit polish · preserve the existing thermal camera and scientific labels */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: execution; address overflow and label typography while retaining controls */
 /* Layout: a thermal-camera viewport on the left, an instrument panel on the right; one visual world, the night sky as a heat camera draws it. */
 :root {
   color-scheme: dark;
@@ -83,7 +88,7 @@
   --sp-7: 40px;
   --radius: 2px;
 }
-html, body { background: var(--deep); }
+html, body { background: var(--deep); overflow-x: clip; }
 body { color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.55; }
 * { box-sizing: border-box; }
 .wrap {
@@ -107,7 +112,7 @@ a { color: var(--cold); }
 .key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; }
 .key ul { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
 .key li { display: inline-flex; gap: var(--sp-2); align-items: center; white-space: nowrap; }
-.tag { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: var(--track-label); text-transform: uppercase; padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
+.tag { font-family: var(--mono); font-size: var(--fs-xs); padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
 .tag.lab { color: var(--tag-lab); }
 .tag.model { color: var(--tag-theory); }
 .tag.meas { color: var(--tag-measured); }
@@ -129,9 +134,9 @@ a { color: var(--cold); }
 .steps button.done::after { content: "\2713"; content: "\2713" / ""; color: var(--cold); font-family: var(--body); font-size: var(--fs-sm); }
 .steps button[aria-current="step"] { color: var(--deep); background: var(--ink); border-color: var(--ink); }
 .steps button[aria-current="step"]::after { color: var(--deep); }
-.hud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font: 400 var(--fs-sm) var(--mono); letter-spacing: var(--track-label); color: var(--muted); text-transform: uppercase; }
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font: 400 var(--fs-sm) var(--mono); color: var(--muted); }
 .hud b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 5.5em; }
-.hud .seg button { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; padding: var(--sp-1) var(--sp-2); }
+.hud .seg button { font: 400 var(--fs-xs) var(--mono); padding: var(--sp-1) var(--sp-2); }
 #pause { min-width: 7em; }
 
 .status { display: flex; flex-direction: column; gap: var(--sp-1); }
@@ -159,9 +164,9 @@ a { color: var(--cold); }
 .scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
-.eyebrow { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin: 0; }
+.eyebrow { font: 400 var(--fs-xs) var(--mono); color: var(--muted); margin: 0; }
 .panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; }
-.panel h3 { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin: 0; }
+.panel h3 { font: 400 var(--fs-xs) var(--mono); color: var(--muted); margin: 0; }
 .panel p { margin: 0; max-width: 62ch; }
 .lesson { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lesson .tag { margin-right: var(--sp-2); }
@@ -193,7 +198,7 @@ a { color: var(--cold); }
 .btn.pump { font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3); background: var(--cold); border-color: var(--cold); color: var(--deep); touch-action: none; user-select: none; -webkit-user-select: none; }
 .btn.pump:active { transform: translateY(2px); }
 .panel.complete .btn.pump { background: transparent; color: var(--cold); }
-.btn.small { padding: var(--sp-1) var(--sp-2); font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; }
+.btn.small { padding: var(--sp-1) var(--sp-2); font: 400 var(--fs-xs) var(--mono); }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
 
 .pad { position: relative; height: 150px; border: 1px solid var(--muted); background:
@@ -207,7 +212,7 @@ a { color: var(--cold); }
 .reads.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .reads .wide { grid-column: 1 / -1; }
 .reads div { min-width: 0; }
-.reads dt { font: 400 var(--fs-xs) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); }
+.reads dt { font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
 .reads dd { margin: 0; font: 500 var(--fs-lg) var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .reads dd small { font: 400 var(--fs-sm)/1.4 var(--body); color: var(--muted); display: block; }
 

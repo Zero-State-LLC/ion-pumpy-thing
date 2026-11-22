@@ -60,11 +60,13 @@ The new run and personal-best keys are `ipt-run-v2` and `ipt-best-v2`. Legacy be
 
 The optional Claude artifact board uses `scores-v2` so the new timing policy does not mix with legacy scores. Its availability depends on the host's database rules. An unavailable or rejected board leaves the standalone game and local best usable.
 
+Later, the Ignite step's 3 seconds in the pressure band (#32) changed timed-practice timing again, so by the same policy the personal best and the board moved on to `ipt-best-v3` and `scores-v3`. Scores under the `-v2` keys stay stored but no longer show. The saved run keeps `ipt-run-v2`, since a changed source revision already starts it fresh.
+
 ## Verification
 
-Run `node --test tests/game.test.cjs tests/seo.test.cjs` with Node 20 or later. The 39 game tests execute the shipped inline JavaScript in a minimal DOM and canvas boundary. They cover lesson state, score isolation, pause behaviour, continuous confinement, persistent exposure, readiness, final-sequence aborts, frozen results, local reload, malformed saves, blocked storage, projection geometry, transit units, clipping, replay gating, event bubbling, deterministic scrubbing, reduced-motion drawing and source-revision migration.
+Run `node --test tests/game.test.cjs tests/seo.test.cjs` with Node 22 or later. The game tests execute the shipped inline JavaScript in a minimal DOM and canvas boundary. They cover lesson state, score isolation, pause behaviour, continuous confinement, persistent exposure, readiness, final-sequence aborts, frozen results, local reload, malformed saves, blocked storage, projection geometry, transit units, clipping, replay gating, event bubbling, deterministic scrubbing, reduced-motion drawing and source-revision migration.
 
-These are model and integration checks, not screenshot or full-browser tests. Browser launch and local-file preview were unavailable in the review environment. Before release, perform an actual desktop and phone playthrough, keyboard and touch checks, audio checks, reduced-motion checks, and a visual inspection of both camera views and the plate diagram. Suggested phone baseline: 390 px width, no horizontal overflow, all controls reachable without a sticky scene covering them.
+These are model and integration checks, not screenshot tests. `npm run test:browser` covers one browser baseline automatically: every step and the ledger in a 390 px phone window in real Chrome, with no sideways scrolling and no page errors. Before release, perform an actual desktop and phone playthrough, keyboard and touch checks, audio checks, reduced-motion checks, and a visual inspection of both camera views and the plate diagram. Suggested phone baseline: 390 px width, no horizontal overflow, all controls reachable without a sticky scene covering them.
 
 
 ## Deploy

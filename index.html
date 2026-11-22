@@ -417,13 +417,21 @@ $('#snd').onclick = async e => {
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
-const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-25m24s-transit1';
+const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-fuel-screening';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
+const ION_PUMPY_DPF_URL = 'https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/';
+const ION_PUMPY_REACTOR_URL = 'https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/';
+const DPF_101_URL = 'https://4orbs.com/science/101/dense-plasma-focus/';
+const TELEPORTATION_URL = 'https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/';
+const DYNAMIC_CASIMIR_URL = 'https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/';
+const ELECTRON_SCREENING_URL = 'https://4orbs.com/library/theories/electron-screening-for-low-temperature-fusion/';
 // Papers the 4orbs pages cite, linked where the lesson uses them.
 const PAPERS = {
   park: { label: 'Park et al., High Energy Electron Confinement in a Magnetic Cusp Configuration (Physical Review X, 2015)', url: 'https://arxiv.org/abs/1406.0133' },
   miley: { label: 'Miley, Inertial Electrostatic Confinement Fusion (DIA report, March 2010)', url: 'https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D125_AAWSA-DIRD-Inertial-Electrostatic-Confinement-Fusion-March-10-2010.pdf' },
+  knecht: { label: 'Knecht, Thomas, Mead, Miley and Froning, Propulsion and Power Generation Capabilities of a Dense Plasma Focus (DPF) Fusion System for Future Military Aerospace Vehicles (AIP Conference Proceedings, 2006)', url: 'https://doi.org/10.1063/1.2169306' },
+  luo: { label: 'Luo, Shrestha, Miley and Violante, Enhancement of Nuclear Reactions Due to Screening Effects of Core Electrons (Condensed Matter Nuclear Science, World Scientific, 2005)', url: 'https://doi.org/10.1142/9789812701510_0061' },
   morris: { label: 'Morris and Thorne, Wormholes in spacetime and their use for interstellar travel: A tool for teaching general relativity (American Journal of Physics, 1988)', url: 'https://doi.org/10.1119/1.15620' },
   lamoreaux: { label: 'Lamoreaux, Demonstration of the Casimir Force in the 0.6 to 6 μm Range (Physical Review Letters, 1997)', url: 'https://doi.org/10.1103/PhysRevLett.78.5' },
   gjw: { label: 'Gao, Jafferis and Wall, Traversable Wormholes via a Double Trace Deformation (JHEP, 2017)', url: 'https://arxiv.org/abs/1608.05687' },
@@ -431,15 +439,15 @@ const PAPERS = {
   davis: { label: 'Davis, Traversable Wormholes, Stargates, and Negative Energy (DIA report, April 2010)', url: 'https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D139_AAWSAP-DIRD-Traversable-Wormholes-Stargates-and-Negative-Energy-April-6-2010.pdf' }
 };
 const SOURCES = [
-  { url: SCIENCE_URL, section: '6:07, What are they made of?', note: 'Pressure, temperature response and glow thresholds are simplified for play.', refs: [] },
+  { url: SCIENCE_URL, section: '6:07, What are they made of?', note: 'Pressure, temperature response and glow thresholds are simplified for play. The compression toward the middle of the jar is a schematic.', refs: [] },
   { url: SCIENCE_URL, section: '7:40 and 10:15, confinement and the Polywell', note: 'Beta is plasma pressure divided by magnetic pressure. The coils are a simplified cusp after Bussard’s Polywell. The drift and the six-second target are game rules.', refs: ['park'] },
-  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play.', refs: ['miley'] },
+  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play. How much electron screening helps is a game rule.', refs: ['miley', 'knecht', 'luo'] },
   { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Built from the reported ranges. The 24° tilt and the tumble period are simplified for play.', refs: [] },
-  { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
+  { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole. The plasma cavity is a schematic, not to scale.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
   { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence opens the throat, as in the 4orbs account. Thermal false colour and the flash are drawn for viewing. The transit uses a 63.7 m aircraft, its 60.9 m span and the measurement page’s 250 m/s cruise speed.', refs: ['davis'] }
 ];
 const BRIEFS = [
-  'Hold the pump and raise the drive power. Keep the glow while the ions stay cool.',
+  'Hold the pump and raise the drive power. Keep the glow while the ions stay cool, with the pressure in its band for 3 seconds.',
   'Balance the field and centre the ball for six uninterrupted seconds.',
   'Compare the fuels. Tune hydrogen-boron until the charged reaction products appear.',
   'Match the formation in both views. Radius, lap time and camera angle each matter.',
@@ -452,7 +460,7 @@ function lessonContent(st, i, after = '') {
   const refs = source.refs.length ? `<ul class="refs">${source.refs.map(k => `<li><a href="${PAPERS[k].url}" target="_blank" rel="noopener">${PAPERS[k].label}</a></li>`).join('')}</ul>` : '';
   return st.html.replace(/<div class="lesson">([\s\S]*?)<\/div>/, (_, content) =>
     `<p class="brief">${BRIEFS[i]}</p>${after}<details class="source-card"><summary>Why it works · source and model</summary>
-    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Sources checked 20 Nov 2026.<br>${source.note}<br>The experiment and timer pause while this card is open.</p>${refs}</details>`);
+    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Sources checked 21 Nov 2026.<br>${source.note}<br>The experiment and timer pause while this card is open.</p>${refs}</details>`);
 }
 // Read a displayed value aloud with its unit spelled out, for sliders.
 function spoken(text) {
@@ -487,15 +495,49 @@ function orb(x, y, r, core, halo) {
   ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
 }
 function ring(x, y, r, color) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); }
+// A glow round three orbs: a ring round each and an outline round their triangle.
+// `pts` are the orbs' projected positions in metres from (cx, cy); `look` sizes and colours it.
+function orbGlow(cx, cy, sc, pts, look) {
+  ctx.save();
+  ctx.globalAlpha = look.alpha; ctx.strokeStyle = look.colour; ctx.lineWidth = look.width;
+  ctx.beginPath();
+  pts.forEach((q, i) => {
+    const m = Math.hypot(q[0], q[1]), s = m > 0.5 ? (m * sc + look.pad) / (m * sc) : 1;
+    const x = cx + q[0] * sc * s, y = cy + q[1] * sc * s;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.closePath(); ctx.stroke();
+  pts.forEach(q => { ctx.beginPath(); ctx.arc(cx + q[0] * sc, cy + q[1] * sc, look.ring, 0, TAU); ctx.stroke(); });
+  ctx.restore();
+}
 
 /* ───────── Step 1: Ignite ───────── */
 const GASES = { h: ['Hydrogen', [255, 120, 175]], ar: ['Argon', [168, 118, 255]] };
+// The pressure band, in torr, marked on the step's meter. A cold plasma kept inside it for
+// PLASMA_HOLD_SECONDS of play meets the goal and passes Plasma readiness; leaving the band,
+// or losing the cold plasma, before then starts the count over. Both are game rules.
+const PRESSURE_BAND = { low: 0.3, high: 2.5 };
+// Where a pressure stands against the band: 'above', 'in' or 'below'. The readout, the
+// canvas label and the description all say this.
+const pressureBand = p => p > PRESSURE_BAND.high ? 'above' : p < PRESSURE_BAND.low ? 'below' : 'in';
+const inPressureBand = p => pressureBand(p) === 'in';
+const PLASMA_HOLD_SECONDS = 3;
+function plasmaHeld(st) {
+  const m = st.model();
+  return m.ok && inPressureBand(m.p) && st.hold >= PLASMA_HOLD_SECONDS;
+}
+// The piston's command of the pressure (the lesson's 4orbs account): while the pressure is
+// in its band, a front stands pressed in from the jar's wall toward its middle, at this
+// fraction of the jar's radius. The pump empties the jar, so its strokes never move it.
+const FRONT_RADIUS = 0.45;
 const ignite = stage({
   name: 'Ignite', title: 'Pump it down, light it up',
   html: `
     <div class="lesson">
       <p><span class="tag lab">Lab physics</span>Heat a gas far enough and electrons break away from their atoms. What's left is plasma, the fourth state of matter. It glows because collisions lift electrons to higher energy and they give it back as light, in a colour set by the gas.</p>
       <p><span class="tag read">4orbs account</span>Ashton Forbes reads the three objects in the videos as "cold plasma". That is a real term: the electrons are hot while the heavy ions stay cool. A neon sign works this way. Hydrogen glows pink and argon violet.</p>
+      <p><span class="tag read">4orbs account</span>On the ion pumpy schematic, an anonymous drawing of a compact fusion reactor, Forbes reads <a href="${ION_PUMPY_DPF_URL}" target="_blank" rel="noopener">a piston with "full command of adiabatic pressure"</a>. The piston compresses the plasma in full command of its pressure, so the reactor that <a href="${ION_PUMPY_REACTOR_URL}" target="_blank" rel="noopener">powers the orbs</a> can run continuously. It does not fire once, as <a href="${DPF_101_URL}" target="_blank" rel="noopener">a laboratory dense plasma focus</a> does.</p>
+      <p><span class="tag scen">Game rule</span>Your hand pump plays the piston. Keep a cold plasma with the pressure in its band for ${PLASMA_HOLD_SECONDS} seconds to pass the Plasma readiness check. Leave the band before then and the count starts over.</p>
       <p class="note">At full pressure, electrons hit atoms so often that everything heats together and you get an arc. Pump most of the gas out and the electrons run hot on their own. The seal leaks, so the pressure creeps back up. Pump too far and there's too little gas left to glow.</p>
     </div>
     <div class="ctl">
@@ -520,7 +562,7 @@ const ignite = stage({
   model() {
     const p = this.p, Te = this.power / 100 * 8 / (1 + p / 400), c = p / (p + 30);
     const Ti = 300 + c ** 3 * Te * 11600 * 0.9;
-    const thin = p < 0.3, ionised = Te >= 2;
+    const thin = p < PRESSURE_BAND.low, ionised = Te >= 2;
     let state = 'Neutral gas', ok = false;
     if (ionised && thin) state = 'Too thin to glow';
     else if (ionised && Ti > 320) state = Ti > 3000 ? 'Arc: hot plasma' : 'Plasma, too warm';
@@ -551,7 +593,7 @@ const ignite = stage({
     // Other activations, such as a screen reader's, still pump once.
     b.onclick = e => { if (e.detail === 0 && performance.now() - keyed > 150) this.stroke(); };
     b.oncontextmenu = e => e.preventDefault();
-    const band = $('#ig-band'); band.style.left = this.pos(0.3) + '%'; band.style.width = this.pos(2.5) - this.pos(0.3) + '%';
+    const band = $('#ig-band'); band.style.left = this.pos(PRESSURE_BAND.low) + '%'; band.style.width = this.pos(PRESSURE_BAND.high) - this.pos(PRESSURE_BAND.low) + '%';
   },
   pos(x) { return (Math.log10(x) - Math.log10(0.05)) / (Math.log10(760) - Math.log10(0.05)) * 100; },
   move(q, sp, dt) {
@@ -575,16 +617,19 @@ const ignite = stage({
       else { const a = this.t * 7 + i; e.x = q.x + Math.cos(a) * 0.045; e.y = q.y + Math.sin(a) * 0.045; }
       e.free = free;
     });
-    this.hold = m.ok ? this.hold + dt : 0;
-    if (this.hold >= 1.5) complete(this);
+    this.hold = m.ok && inPressureBand(m.p) ? this.hold + dt : 0;
+    if (this.hold >= PLASMA_HOLD_SECONDS) complete(this);
     snd.bed('plasma-bed', { level: 0.2 + m.glow * .6, brightness: 900 + this.power * 28 });
     out('ig-power', this.power + ' %');
-    set('ig-p', (m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)) + ' torr<small>' + (m.p > 2.5 ? 'keep pumping' : m.p < 0.3 ? 'too thin: let it leak back' : 'in the band') + '</small>');
+    const note = { above: 'keep pumping', in: 'in the band', below: 'too thin: let it leak back' }[pressureBand(m.p)];
+    set('ig-p', (m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)) + ' torr<small>' + note + '</small>');
     set('ig-te', kelvin(m.Te * 11600) + '<small>' + fmt(m.Te, 1) + ' eV</small>');
     set('ig-ti', (m.Ti < 1000 ? fmt(m.Ti - 273) + ' °C' : kelvin(m.Ti)) + '<small>' + (m.Ti <= 320 ? 'cool ions' : 'would burn') + '</small>');
     set('ig-state', m.state);
     const mk = $('#ig-mark'); if (mk) mk.style.left = clamp(this.pos(m.p), 0, 100) + '%';
-    goal(this.done && m.ok ? 1 : this.hold / 1.5, this.done && m.ok ? 'Cold plasma: electrons at tens of thousands of kelvin, ions at room temperature.' : 'Goal: a glowing plasma whose ions stay below 47 °C.');
+    const held = this.done && plasmaHeld(this);
+    goal(held ? 1 : this.hold / PLASMA_HOLD_SECONDS, held ? 'Cold plasma held in the pressure band: electrons at tens of thousands of kelvin, ions at room temperature.'
+      : `Goal: a glowing plasma whose ions stay below 47 °C, with the pressure in its band for ${PLASMA_HOLD_SECONDS} seconds. Leaving the band starts the count over.`);
   },
   draw() {
     const m = this.m, cx = W * 0.42, cy = H / 2 + 6, R = Math.min(W * 0.36, H * 0.37), rgb = GASES[this.gas][1];
@@ -597,7 +642,7 @@ const ignite = stage({
     const py = top + 8 + (1 - this.anim) * (ph - 26);
     ctx.fillStyle = COL.cold; ctx.fillRect(px - pw / 2 + 2, py, pw - 4, 8);
     ctx.fillRect(px - 2, top - 14, 4, py - top + 14); ctx.fillRect(px - 9, top - 18, 18, 5);
-    label('pump', px, top + ph + 16, COL.muted, 'center');
+    label('pump · piston', px, top + ph + 16, COL.muted, 'center', W < 420 ? 10 : 11);
     if (m.glow > 0.01) {
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
       const hot = clamp((m.Ti - 2000) / 15000, 0, 1);
@@ -613,18 +658,82 @@ const ignite = stage({
       ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, 4, 0, TAU); ctx.fill();
       const e = this.els[i]; ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(cx + e.x * R, cy + e.y * R, 1.8, 0, TAU); ctx.fill();
     });
+    // The piston's command of the pressure: while it is in its band, a front pressed in toward
+    // the middle, with arrows pressing on it from the wall all round.
+    const band = pressureBand(m.p);
+    if (band === 'in') {
+      const rf = R * FRONT_RADIUS;
+      ctx.save(); ctx.strokeStyle = COL.cold; ctx.fillStyle = COL.cold; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.9;
+      ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cx, cy, rf, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      for (let i = 0; i < 8; i++) {
+        const c = Math.cos(i * TAU / 8), s = Math.sin(i * TAU / 8), tail = R * 0.96, tip = rf + 3, neck = tip + 7;
+        if (neck < tail - 2) { ctx.beginPath(); ctx.moveTo(cx + c * tail, cy + s * tail); ctx.lineTo(cx + c * neck, cy + s * neck); ctx.stroke(); }
+        ctx.beginPath(); ctx.moveTo(cx + c * tip, cy + s * tip);
+        ctx.lineTo(cx + c * neck - s * 4, cy + s * neck + c * 4); ctx.lineTo(cx + c * neck + s * 4, cy + s * neck - c * 4); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    label(`pressure ${band} the band`, W - 12, H - 14, { above: COL.muted, in: COL.cold, below: COL.hot }[band], 'right', W < 420 ? 10 : 11);
     viewTitle('GLASS JAR · ' + GASES[this.gas][0].toUpperCase());
     ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(38, H - 34, 4, 0, TAU); ctx.fill(); label('ion', 48, H - 30);
     ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 18, 1.8, 0, TAU); ctx.fill(); label('electron', 48, H - 14);
   },
   describe() {
     const m = this.m || this.model();
-    return `Glass jar of ${GASES[this.gas][0].toLowerCase()} at ${m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)} torr: ${m.state.toLowerCase()}${m.glow > 0.2 ? ', glowing' : ''}.`;
+    const band = pressureBand(m.p), pressure = band === 'in'
+      ? `The pressure is in its band: the piston holds the ${m.Te >= 2 ? 'plasma' : 'gas'} pressed toward the middle of the jar.`
+      : `The pressure is ${band} its band.`;
+    return `Glass jar of ${GASES[this.gas][0].toLowerCase()} at ${m.p >= 10 ? fmt(m.p) : fmt(m.p, 2)} torr: ${m.state.toLowerCase()}${m.glow > 0.2 ? ', glowing' : ''}. ${pressure}`;
   }
 }, { gas: 'h', power: 15, p: 760, hold: 0, t: 0, anim: 0, pumping: false, strokeT: 0, ions: [], els: [] });
 
 /* ───────── Step 2: Hold ───────── */
 const MU0 = 4e-7 * Math.PI;
+// The Hold step's goal, beta from 0.75 to 1. Only inside it do the cusp leaks close,
+// the six-second lock count, the readout say balanced and Confinement readiness hold.
+const BETA_BAND = { low: 0.75, high: 1 };
+const inBetaBand = beta => beta >= BETA_BAND.low && beta <= BETA_BAND.high;
+// The size a plasma ball settles to at a steady beta, against its starting size: blown
+// out past beta one, where the plasma overpowers the field, and otherwise squeezed
+// smaller as the field grows.
+const settledBallSize = beta => beta > 1 ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
+// The six cusp leaks show the lesson's claim (Park et al. 2015): near beta one the cusp
+// leaks close. Tight inside the beta band; open below or above it, and with the coils
+// off. Each leak's opening, as a half-angle in radians, follows current beta only and
+// widens the further beta is outside the band (coils off: an infinite beta, fully open).
+function cuspLeaks(beta) {
+  if (inBetaBand(beta)) return { closed: true, halfAngle: 0.09 + 0.03 * (BETA_BAND.high - beta) };
+  const outsideBy = isFinite(beta) ? (beta > BETA_BAND.high ? beta - BETA_BAND.high : BETA_BAND.low - beta) : Infinity;
+  return { closed: false, halfAngle: Math.min(0.42, 0.28 + 0.05 * outsideBy) };
+}
+// The field's edge round a ball of radius `ballR`, broken at six cusps; plasma plumes out
+// of each leak. Returns whether the cusp leaks are closed.
+function drawCuspLeaks(bx, cy, ballR, beta) {
+  const { closed, halfAngle: half } = cuspLeaks(beta);
+  const edgeR = Math.max(ballR * 1.02, 6), plumeR = edgeR + ballR * (closed ? 0.16 : 0.68);
+  ctx.save();
+  ctx.strokeStyle = closed ? COL.cold : COL.hot;
+  ctx.lineWidth = closed ? 2 : 1.25;
+  ctx.globalAlpha = closed ? 0.95 : 0.45;
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + i * TAU / 6;
+    ctx.beginPath(); ctx.arc(bx, cy, edgeR, a + half, a + TAU / 6 - half); ctx.stroke();
+  }
+  ctx.lineWidth = closed ? 1.25 : 2.5;
+  ctx.globalAlpha = closed ? 0.75 : 0.9;
+  ctx.fillStyle = closed ? COL.cold : COL.hot;
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + i * TAU / 6;
+    ctx.beginPath();
+    ctx.moveTo(bx + Math.cos(a - half) * edgeR, cy + Math.sin(a - half) * edgeR);
+    ctx.lineTo(bx + Math.cos(a - half) * plumeR, cy + Math.sin(a - half) * plumeR);
+    ctx.arc(bx, cy, plumeR, a - half, a + half);
+    ctx.lineTo(bx + Math.cos(a + half) * edgeR, cy + Math.sin(a + half) * edgeR);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+  return closed;
+}
 const hold = stage({
   name: 'Hold', title: 'Keep the ball together',
   html: `
@@ -691,13 +800,14 @@ const hold = stage({
       this.B = clamp(this.B + (Bt - this.B) * Math.min(1, dt * 3), 0, 1);
     }
     const pm = this.pm = this.B * this.B / (2 * MU0) / 1000, beta = this.beta = pm > 0 ? p / pm : Infinity;
-    const leak = beta > 1, before = this.lock;
+    // Past beta one the plasma overpowers the field and spills out (the readout's "leaking").
+    const overpowered = beta > 1, before = this.lock;
     let missed = false;
     this.x += (this.push(t) + this.trim * 1.2 * clamp(this.B / 0.3, 0, 1)) * dt;
     if (Math.abs(this.x) >= 1) { this.x = 0; this.lock = 0; this.hit = 1.2; missed = true; if (dt > 0) snd.play('wall-loss'); }
     this.hit = Math.max(0, this.hit - dt);
     const centred = Math.abs(this.x) < 0.45;
-    this.lock = !leak && beta >= 0.75 && centred ? Math.min(6, this.lock + dt) : 0;
+    this.lock = inBetaBand(beta) && centred ? Math.min(6, this.lock + dt) : 0;
     if (before >= 1 && this.lock === 0) missed = true;
     if (missed && !this.done) { this.fails++; if (this.fails === 3 && this.paintAssist) this.paintAssist(); }
     if (this.lock >= 6) {
@@ -706,19 +816,18 @@ const hold = stage({
       complete(this);
       if (this.paintAssist) this.paintAssist();
     }
-    if (dt > 0 && leak) snd.play('particle-leak', { level: .45 });
+    if (dt > 0 && overpowered) snd.play('particle-leak', { level: .45 });
     snd.bed('field-bed', { level: .3 + this.B * .5, brightness: 900 + this.B * 2800 });
-    const target = leak ? 1.25 : clamp(Math.pow(beta, 0.3), 0.7, 1);
-    this.size += (target - this.size) * Math.min(1, dt * 5);
-    const out = leak ? clamp(beta - 1, 0.15, 3) * 1.6 : 0;
+    this.size += (settledBallSize(beta) - this.size) * Math.min(1, dt * 5);
+    const spill = overpowered ? clamp(beta - 1, 0.15, 3) * 1.6 : 0;
     this.parts.forEach(q => {
       q.a += q.w * dt;
-      if (leak) { q.r += out * dt * (0.4 + q.r); if (q.r > 3.4) q.r = Math.sqrt(Math.random()) * 0.9; }
+      if (overpowered) { q.r += spill * dt * (0.4 + q.r); if (q.r > 3.4) q.r = Math.sqrt(Math.random()) * 0.9; }
       else if (q.r > 1) q.r = Math.max(0.2, q.r - dt * 2.5);
     });
     const kn = $('#ho-knob'); if (kn) { kn.style.left = (this.trim + 1) * 50 + '%'; kn.style.top = (1 - this.B) * 100 + '%'; }
     set('ho-b', this.B.toFixed(2) + ' T<small>plasma at ' + fmt(p) + ' kPa</small>');
-    set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (leak ? 'leaking' : beta < 0.75 ? 'held, over-built' : 'balanced') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
+    set('ho-beta', isFinite(beta) ? beta.toFixed(2) + '<small>' + (inBetaBand(beta) ? 'balanced' : overpowered ? 'leaking' : 'held, over-built') + '</small>' : '∞<small>coils off: gone in 0.3 s</small>');
     set('ho-x', this.hit > 0 ? 'hit the wall<small>cooled and lost</small>' : centred ? 'centred' : this.x < 0 ? 'drifting left<small>push right</small>' : 'drifting right<small>push left</small>');
     const mk = $('#ho-mark'); if (mk) mk.style.left = clamp((isFinite(beta) ? beta : 2) / 2, 0, 1) * 100 + '%';
     goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Goal: beta between 0.75 and 1, ball centred, for six seconds.');
@@ -748,12 +857,18 @@ const hold = stage({
     ctx.fillStyle = 'rgba(255,200,225,.9)';
     this.parts.forEach(q => { const d = q.r * rr; ctx.globalAlpha = clamp(1.2 - q.r / 3, 0.1, 1); ctx.beginPath(); ctx.arc(bx + Math.cos(q.a) * d, cy + Math.sin(q.a) * d, 1.6, 0, TAU); ctx.fill(); });
     ctx.globalAlpha = 1;
+    // The cusp leaks hug the ball. Under reduced motion they take the ball's settled size
+    // for the current beta at once, so they never grow or shrink as the ball eases.
+    const leaksClosed = drawCuspLeaks(bx, cy, reduced ? R0 * settledBallSize(this.beta) : rr, this.beta);
     viewTitle('PLASMA BALL BETWEEN COILS');
-    if (this.B === 0) label(this.t === 0 ? 'touch the pad or press an arrow key to switch the coils on' : 'coils off: the plasma spreads and is gone', cx, H - 18, this.t === 0 ? COL.ink : COL.hot, 'center', W < 420 ? 9.5 : 11);
+    // Bottom line, so the status does not cover the title on a narrow canvas.
+    label(leaksClosed ? 'cusp leaks closed' : 'cusp leaks open', cx, this.B === 0 ? H - 34 : H - 16, leaksClosed ? COL.cold : COL.hot, 'center', W < 420 ? 10 : 12);
+    if (this.B === 0) label(this.t === 0 ? 'touch the pad or press an arrow key to switch the coils on' : 'coils off: the plasma spreads and is gone', cx, H - 16, this.t === 0 ? COL.ink : COL.hot, 'center', W < 420 ? 9.5 : 11);
   },
   describe() {
     const pos = this.hit > 0 ? 'has hit the wall' : Math.abs(this.x) < 0.45 ? 'is centred' : this.x < 0 ? 'is drifting left' : 'is drifting right';
-    return this.B === 0 ? 'Plasma ball between coils, coils off.' : `Plasma ball between coils at ${this.B.toFixed(2)} tesla, beta ${isFinite(this.beta) ? this.beta.toFixed(2) : 'infinite'}. The ball ${pos}.`;
+    const leaks = `The cusp leaks are ${cuspLeaks(this.beta).closed ? 'closed' : 'open'}.`;
+    return this.B === 0 ? `Plasma ball between coils, coils off. ${leaks}` : `Plasma ball between coils at ${this.B.toFixed(2)} tesla, beta ${isFinite(this.beta) ? this.beta.toFixed(2) : 'infinite'}. The ball ${pos}. ${leaks}`;
   }
 }, { B: 0, trim: 0, x: 0, lock: 0, t: 0, size: 1, hit: 0, drag: false, assist: false, assisted: false, autopilot: false, fails: 0, parts: [] });
 
@@ -767,9 +882,14 @@ const fuel = stage({
   html: `
     <div class="lesson">
       <p><span class="tag read">4orbs account</span>Forbes's picture of an orb is "a coherent ball of plasma with potentially a device inside of it". A device that flies needs power on board, and his account runs it on fusion.</p>
+      <p><span class="tag read">4orbs account</span>Forbes reads the <a href="https://4orbs.com/research/miley-2016-fusion/#ion-pumpy-schematic" target="_blank" rel="noopener">ion pumpy schematic</a>, an anonymous drawing of a compact fusion reactor, as the dense plasma focus George Miley studied. It <a href="${ION_PUMPY_DPF_URL}" target="_blank" rel="noopener">breathes air and burns boron-11</a>, and it <a href="${ION_PUMPY_REACTOR_URL}" target="_blank" rel="noopener">powers the orbs</a>.</p>
+      <p><span class="tag model">Theory</span>A 2006 study by five authors, Miley and an Air Force Research Laboratory propulsion scientist among them, modelled a hydrogen-boron dense plasma focus as the power and propulsion of an air-breathing aerospace plane.</p>
       <p><span class="tag lab">Lab physics</span>The Polywell is a fusion machine as well as a trap. Its trapped electrons form a virtual cathode, a well about 10 kV deep on Bussard's sixth machine. Positive ions fall into the well, speed up toward the centre, collide and fuse. George Miley's 2010 report for the Defense Intelligence Agency surveys this family, inertial electrostatic confinement.</p>
       <p><span class="tag lab">Lab physics</span>Most fusion work burns two heavy forms of hydrogen. That reaction lights at the lowest temperature, but it throws out neutrons. No magnetic field can steer a neutron, so it goes straight into the wall and makes it radioactive.</p>
       <p><span class="tag lab">Lab physics</span>Hydrogen and boron-11 make three helium nuclei and almost no neutrons. The energy comes out on charged particles, so it could in principle be turned straight into electricity. The catch: it needs far higher temperatures to burn. Boron fuel is being tested in experiments now.</p>
+      <p><span class="tag read">4orbs account</span>The orbs burn it cooler. <a href="${ELECTRON_SCREENING_URL}" target="_blank" rel="noopener">Flooding the fuel with electrons</a> lets fusion go at lower temperatures: the electrons screen the Coulomb barrier, the electric push that keeps two nuclei apart. That is how a compact orb keeps fusion going with far less heat than it would otherwise need.</p>
+      <p><span class="tag model">Theory</span>In a 2003 conference paper, George Miley's group at the University of Illinois and a colleague at the ENEA fusion centre in Frascati, Italy, calculated how the inner electrons of metal atoms screen the barrier, for deuterium fusion and for protons captured by metal nuclei. Both reactions came out significantly enhanced.</p>
+      <p><span class="tag scen">Game rule</span>How much screening helps is set for play. Below a fuel's peak temperature, switching it on makes the fuel burn as it would at three times the temperature, capped at the peak temperature. At or above its peak, screening changes nothing.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Fuel">
@@ -777,6 +897,10 @@ const fuel = stage({
         <button type="button" id="fu-pb" data-fuel="pb">Hydrogen + boron-11</button>
       </div>
       <label for="fu-t"><span id="fu-t-l">Plasma temperature</span> <output id="fu-t-o"></output><input id="fu-t" aria-labelledby="fu-t-l" type="range" min="0" max="3" step="0.05"></label>
+      <div class="assist">
+        <button type="button" class="btn" id="fu-screen" aria-pressed="false" aria-describedby="fu-screen-note">Electron screening</button>
+        <p class="note" id="fu-screen-note">Optional. How much it helps is a game rule, set out in the lesson.</p>
+      </div>
       <div>
         <div class="meter" aria-hidden="true"><div class="fill bad" id="fu-dose"></div></div>
         <div class="mlabels"><span>0</span><span>cumulative neutron exposure</span><span>full scale</span></div><p class="note">Exposure is simplified for play and stays recorded for this run. Impact flashes fade; exposure does not.</p>
@@ -793,10 +917,14 @@ const fuel = stage({
     const paint = () => fs.forEach(b => b.setAttribute('aria-pressed', b.dataset.fuel === this.fuel));
     fs.forEach(b => b.onclick = () => { if (this.fuel !== b.dataset.fuel) snd.play('ui-toggle', { kind: 'ui' }); this.fuel = b.dataset.fuel; paint(); });
     paint();
+    const screenToggle = $('#fu-screen'), paintScreen = () => screenToggle.setAttribute('aria-pressed', this.screening);
+    screenToggle.onclick = () => { this.screening = !this.screening; snd.play('ui-toggle', { kind: 'ui' }); paintScreen(); };
+    paintScreen();
   },
   update(dt) {
-    const F = FUELS[this.fuel], keV = 10 ** this.lt, x = Math.log10(keV / F.peak) / F.width;
-    const rate = this.rate = F.k * Math.exp(-x * x), lit = this.lit = rate >= 0.15;
+    // The activity the player sees is the one the Fuel readiness check reads.
+    const F = FUELS[this.fuel], keV = 10 ** this.lt;
+    const rate = this.rate = fuelActivity(this), lit = this.lit = rate >= 0.15;
     this.acc += rate * 16 * dt;
     while (this.acc >= 1 && this.ev.length < 220) {
       this.acc -= 1;
@@ -819,13 +947,15 @@ const fuel = stage({
     this.hold = lit && this.fuel === 'pb' ? this.hold + dt : 0;
     if (this.hold >= 3) complete(this);
     snd.bed('fusion-bed', { level: .2 + rate * .6, brightness: 900 + this.lt * 800 });
-    const K = keV * 11.6e6;
-    out('fu-t', K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K');
-    set('fu-rate', lit ? 'Burning<small>simplified temperature response</small>' : 'Low activity<small>simplified temperature response</small>');
+    const K = keV * 11.6e6, shown = K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K';
+    out('fu-t', shown);
+    const response = `<small>${this.screening ? 'screened; ' : ''}simplified temperature response</small>`;
+    set('fu-rate', (lit ? 'Burning' : 'Low activity') + response);
     set('fu-out', F.out);
     set('fu-n', this.fuel === 'dt' ? 'Most<small>neutrons carry much of the energy</small>' : 'Almost none<small>the main reaction makes none; side reactions make a few</small>');
     const d = $('#fu-dose'); if (d) d.style.width = this.dose * 100 + '%';
-    goal(this.hold / 3, this.hold >= 3 ? 'Burning boron: the energy stays on charged particles the field can catch. It took billions of kelvin.' : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: sustain the hydrogen-boron demonstration for three seconds.');
+    const burned = 'Burning boron: the energy stays on charged particles the field can catch. ' + (this.screening ? `With the barrier screened, it burns at ${shown}.` : 'It took billions of kelvin.');
+    goal(this.hold / 3, this.hold >= 3 ? burned : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: sustain the hydrogen-boron demonstration for three seconds.');
   },
   draw() {
     const cx = W / 2, cy = H / 2 - 4, R = Math.min(W, H) * 0.34, hotness = clamp(this.lt / 3, 0, 1);
@@ -837,6 +967,15 @@ const fuel = stage({
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.34);
     g.addColorStop(0, `rgba(255,${Math.round(150 + 105 * hotness)},${Math.round(120 + 135 * hotness)},${0.25 + 0.7 * hotness})`); g.addColorStop(1, 'rgba(255,120,175,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 0.34, 0, TAU); ctx.fill();
+    // Screening electrons fill the core inside the field edge. They are drawn in fixed
+    // places, so they hold still under reduced motion as at any time.
+    if (this.screening) {
+      ctx.fillStyle = COL.ink;
+      for (let i = 0; i < 36; i++) {
+        const r = R * 0.56 * Math.sqrt((i + 0.5) / 36), a = i * 2.39996;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1.3, 0, TAU); ctx.fill();
+      }
+    }
     this.ev.forEach(q => {
       ctx.fillStyle = q.k === 'n' ? COL.hot : COL.cold;
       ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, q.k === 'n' ? 2.2 : 2.8, 0, TAU); ctx.fill();
@@ -845,12 +984,13 @@ const fuel = stage({
     label('field edge', cx + R * 0.6 * 0.71 + 6, cy - R * 0.6 * 0.71 - 4, COL.cold);
     ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 34, 2.8, 0, TAU); ctx.fill(); label('helium (charged)', 48, H - 30);
     ctx.fillStyle = COL.hot; ctx.beginPath(); ctx.arc(38, H - 18, 2.2, 0, TAU); ctx.fill(); label('neutron', 48, H - 14);
-    viewTitle('REACTOR CORE · ' + (this.fuel === 'dt' ? 'D-T' : 'P-B11'));
+    if (this.screening) { ctx.fillStyle = COL.ink; ctx.beginPath(); ctx.arc(38, H - 50, 1.3, 0, TAU); ctx.fill(); label('electron', 48, H - 46); }
+    viewTitle('REACTOR CORE · ' + (this.fuel === 'dt' ? 'D-T' : 'P-B11') + (this.screening ? ' · SCREENED' : ''));
   },
   describe() {
-    return `Reactor core burning ${FUELS[this.fuel].name.toLowerCase()}: ${this.lit ? 'burning, ' + (this.fuel === 'pb' ? 'charged helium nuclei curling in the field' : 'neutrons striking the wall') : 'low activity'}. Wall exposure ${fmt(this.dose * 100)} percent.`;
+    return `Reactor core burning ${FUELS[this.fuel].name.toLowerCase()}${this.screening ? ', flooded with electrons that screen the Coulomb barrier' : ''}: ${this.lit ? 'burning, ' + (this.fuel === 'pb' ? 'charged helium nuclei curling in the field' : 'neutrons striking the wall') : 'low activity'}. Wall exposure ${fmt(this.dose * 100)} percent.`;
   }
-}, { fuel: 'dt', lt: 0.3, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
+}, { fuel: 'dt', lt: 0.3, screening: false, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
 
 /* ───────── Shared scene helpers ───────── */
 function sceneScale() { return Math.min(W, H) / 2 / 122; }
@@ -875,6 +1015,15 @@ function formation(r, ang, tumble) {
   return out;
 }
 const camB = (p, deg) => { const th = deg * Math.PI / 180; return [p[0], p[1] * Math.cos(th) - p[2] * Math.sin(th)]; };
+// The Formation's ranges, as Orbit's goal states them: distance from the aircraft (m),
+// time for one lap (s) and angle between the cameras (°).
+const FORMATION_RANGES = { r: [60, 70], T: [2.3, 2.7], cam: [123, 141] };
+const inRange = (x, [lo, hi]) => x >= lo && x <= hi;
+// The Formation is matched inside all three: the check Formation readiness uses.
+function formationMatched(o) { return Object.entries(FORMATION_RANGES).every(([k, range]) => inRange(o[k], range)); }
+// How far the matched Formation's glow has built, from 0 to 1: over the hold that
+// completes the step, or at once under reduced motion and once Orbit is done.
+function formationGlowAmount(o) { return reduced || o.done ? 1 : clamp(o.hold / 1.5, 0, 1); }
 const orbit = stage({
   name: 'Orbit', title: 'Fly the formation',
   html: `
@@ -901,11 +1050,10 @@ const orbit = stage({
   update(dt) {
     this.ghost += TAU / 2.5 * dt; this.tumble += TAU / 11 * dt;
     this.ang += TAU / this.T * dt;
-    const paced = this.T >= 2.3 && this.T <= 2.7;
+    const paced = inRange(this.T, FORMATION_RANGES.T);
     if (paced) { let d = (this.ghost - this.ang) % (TAU / 3); if (d > TAU / 6) d -= TAU / 3; if (d < -TAU / 6) d += TAU / 3; this.ang += d * Math.min(1, dt * 4); }
     const v = TAU * this.r / this.T, a = v * v / this.r, g = a / 9.81;
-    const ok = this.r >= 60 && this.r <= 70 && paced && this.cam >= 123 && this.cam <= 141;
-    this.hold = ok ? this.hold + dt : 0;
+    this.hold = formationMatched(this) ? this.hold + dt : 0;
     if (this.hold >= 1.5) complete(this);
     snd.bed('formation-bed', { level: .65, brightness: 1200 + Math.min(v, 400) * 5 });
     out('or-r', this.r + ' m'); out('or-t', this.T.toFixed(1) + ' s'); out('or-c', this.cam + '°');
@@ -916,7 +1064,7 @@ const orbit = stage({
     goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
   },
   draw() {
-    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6;
+    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6, matched = formationMatched(this), glow = formationGlowAmount(this);
     ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
@@ -929,13 +1077,13 @@ const orbit = stage({
       mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
       ctx.closePath(); ctx.stroke();
       mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
+      if (matched) orbGlow(cx, cy, sc, mine.map(proj), { ring: 12 + 18 * glow, pad: 10 + 14 * glow, alpha: .28 + .67 * glow, width: 1.25 + 1.75 * glow, colour: COL.cold });
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });
     scaleBarDraw(sc);
   },
   describe() {
-    const match = this.r >= 60 && this.r <= 70 && this.T >= 2.3 && this.T <= 2.7 && this.cam >= 123 && this.cam <= 141;
-    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${match ? 'The orbs sit on the tracked rings in both views.' : 'The orbs are off the tracked rings.'}`;
+    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${formationMatched(this) ? 'The formation is matched: the orbs sit on the tracked rings, and both views highlight them.' : 'The orbs are off the tracked rings.'}`;
   }
 }, { r: 95, T: 6, cam: 40, ang: 0, ghost: 0, tumble: 0, hold: 0 });
 
@@ -943,6 +1091,8 @@ const orbit = stage({
 const JUPITERS_PER_M = 0.7; // Illustrative linear scaling of the corrected episode's approximate 70 per 100 m.
 const J_PER_M = JUPITERS_PER_M * 1.898e27 * 8.988e16;
 const HBARC = 1.0546e-34 * 2.998e8;
+// The Open step's views, in the order its view control offers them: button id, view, button label.
+const OPEN_VIEWS = [['op-plates', 'plates', 'Inspect plates'], ['op-throat', 'throat', 'Inspect throat'], ['op-cavity', 'cavity', 'Inspect plasma cavity']];
 const open = stage({
   name: 'Open', title: 'Prop a wormhole open',
   html: `
@@ -951,11 +1101,12 @@ const open = stage({
       <p><span class="tag lab">Lab physics</span>Negative energy is real. Between two metal plates set very close together, the empty space holds less energy than the space outside, and the plates are pushed together. This is the Casimir effect, predicted in 1948. Steve Lamoreaux made the first precision measurement of its force in 1997. Halve the gap and the energy grows eightfold: it goes as one over the gap cubed.</p>
       <p><span class="tag model">Theory</span>In 2017 Ping Gao, Daniel Jafferis and Aron Wall showed that a pulse of negative energy makes an Einstein-Rosen bridge crossable. In 2022 a team ran a model of this on nine qubits of Google's quantum processor.</p>
       <p><span class="tag model">Theory</span>The 2010 report for the Defense Intelligence Agency, <cite>Traversable Wormholes, Stargates, and Negative Energy</cite>, sizes the job. By its table, a 100 m wide wormhole needs negative energy equal to about seventy times the mass of Jupiter.</p>
-      <p><span class="tag scen">Game rule</span>Here the orbs supply that energy, because in Forbes's account their convergence is what opens the wormhole.</p>
+      <p><span class="tag read">4orbs account</span>The orbs generate negative energy themselves, by the dynamic Casimir effect, as the 4orbs <a href="${DYNAMIC_CASIMIR_URL}" target="_blank" rel="noopener">dynamic Casimir page</a> has it. An orb collapses its plasma bubble fast, and the collapse turns vacuum fluctuations into real photons and negative energy. The bubble's plasma wall acts like a moving Casimir surface, in place of a pair of fixed metal plates.</p>
+      <p><span class="tag scen">Game rule</span>Here the orbs supply exactly the negative energy the throat needs, because in Forbes's account their convergence is what opens the wormhole.</p>
       <p class="note">The throat's need scales the report's figure in a straight line with width. Extra width costs points only in timed runs.</p>
     </div>
     <div class="ctl">
-      <div class="seg" role="group" aria-label="Experiment view"><button type="button" id="op-plates">Inspect plates</button><button type="button" id="op-throat">Inspect throat</button></div>
+      <div class="seg" role="group" aria-label="Experiment view">${OPEN_VIEWS.map(([id, , name]) => `<button type="button" id="${id}">${name}</button>`).join('')}</div>
       <label for="op-w"><span id="op-w-l">Throat width</span> <output id="op-w-o"></output><input id="op-w" aria-labelledby="op-w-l" type="range" min="1" max="200" step="1"></label>
       <label for="op-d"><span id="op-d-l">Gap between the plates</span> <output id="op-d-o"></output><input id="op-d" aria-labelledby="op-d-l" type="range" min="1" max="4" step="0.01"></label>
       <label for="op-a"><span id="op-a-l">Plate area</span> <output id="op-a-o"></output><input id="op-a" aria-labelledby="op-a-l" type="range" min="0" max="6" step="0.05"></label>
@@ -973,9 +1124,9 @@ const open = stage({
   init() {
     for (const [id, k] of [['op-w', 'w'], ['op-d', 'ld'], ['op-a', 'la']]) { const el = $('#' + id); el.value = this[k]; el.oninput = () => { this[k] = +el.value; }; }
     $('#op-assume').onclick = () => { this.assumed = !this.assumed; S.paused = false; syncAudioMode(); snd.play(this.assumed ? 'assumption' : 'plasma-fade'); };
-    const paint = () => { $('#op-plates').setAttribute('aria-pressed', this.view === 'plates'); $('#op-throat').setAttribute('aria-pressed', this.view === 'throat'); };
-    $('#op-plates').onclick = () => { if (this.view !== 'plates') snd.play('ui-toggle', { kind: 'ui' }); this.view = 'plates'; paint(); };
-    $('#op-throat').onclick = () => { if (this.view !== 'throat') snd.play('ui-toggle', { kind: 'ui' }); this.view = 'throat'; paint(); };
+    // Switching views only changes what is drawn: never the throat, the orbs' energy or a completed result.
+    const paint = () => { for (const [id, view] of OPEN_VIEWS) $('#' + id).setAttribute('aria-pressed', this.view === view); };
+    for (const [id, view] of OPEN_VIEWS) $('#' + id).onclick = () => { if (this.view !== view) snd.play('ui-toggle', { kind: 'ui' }); this.view = view; paint(); };
     paint();
   },
   update(dt) {
@@ -999,6 +1150,7 @@ const open = stage({
   },
   draw() {
     if (this.view === 'plates') return drawPlates(this);
+    if (this.view === 'cavity') return drawCavity(this);
     const cx = W / 2, cy = H / 2, sc = sceneScale();
     const openness = this.assumed ? 1 : Math.max(0, Math.sin(this.t * (reduced ? 0.5 : 1.3)));
     const rad = this.w / 2 * sc * openness;
@@ -1022,6 +1174,7 @@ const open = stage({
   },
   describe() {
     if (this.view === 'plates') return `Casimir plates ${fmt(10 ** this.ld)} nanometres apart, ${sci(10 ** this.la)} square metres in area, pushed together by negative energy.`;
+    if (this.view === 'cavity') return `${reduced ? 'Plasma cavity, held still part-way through the collapse.' : 'Plasma cavity.'} 4orbs account: an orb collapses its plasma bubble fast, turning vacuum fluctuations into real photons and negative energy.`;
     return `Looking down a ${this.w} metre wormhole throat at the airliner. ${this.assumed ? 'Held open by the orbs’ negative energy.' : 'No negative energy: it will not stay open.'} ${this.w >= 61 ? 'The wings clear the throat.' : 'The wingtips are outside the throat.'}`;
   }
 }, { w: 10, ld: 3, la: 0, assumed: false, t: 0, view: 'plates' });
@@ -1050,9 +1203,70 @@ function drawPlates(st) {
   label('Schematic · logarithmic controls · not to scale', cx, H - 22, COL.muted, 'center', W < 400 ? 9 : 10);
   viewTitle('CASIMIR PLATE EXPERIMENT');
 }
+// The plasma cavity, the game's name for this view of the 4orbs account (the dynamic Casimir
+// theory page): an orb collapses its plasma bubble fast, and the collapse turns vacuum
+// fluctuations into real photons and negative energy. The bubble's wall acts like a moving
+// Casimir surface. No undulator is drawn.
+// How far the bubble has collapsed, from 0 (whole) to 1 (smallest). It runs on the
+// step's clock, so it stops whenever the experiment pauses: each CAVITY_SECONDS it
+// collapses, faster and faster, then re-forms. Reduced motion holds it half collapsed.
+const CAVITY_SECONDS = 3;
+function cavityCollapse(st) {
+  if (reduced) return .5;
+  const u = (st.t % CAVITY_SECONDS) / CAVITY_SECONDS;
+  return u < .8 ? (u / .8) ** 2 : 1 - (u - .8) / .2;
+}
+function drawCavity(st) {
+  // The bubble and its arrows (17 px past the wall) sit below the title and above the two bottom lines.
+  const top = 30, bottom = H - 52, cx = W / 2, cy = (top + bottom) / 2, c = cavityCollapse(st), small = W < 400;
+  const R = Math.min(W * .3, H * .26, (bottom - top) / 2 - 17), r = R * (1 - .4 * c);
+  ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+  // The vacuum round the orb, its fluctuations drawn as faint fixed specks.
+  ctx.fillStyle = COL.line;
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 37 % 41) / 41 * W, y = 34 + (i * 23 % 43) / 43 * (H - 88);
+    if (Math.hypot(x - cx, y - cy) > R + 24) ctx.fillRect(x, y, 2, 2);
+  }
+  // Inside the collapsing bubble: negative energy, below that of the empty space outside.
+  const inside = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  inside.addColorStop(0, COL.void); inside.addColorStop(.72, COL.void); inside.addColorStop(1, 'rgba(185,162,255,.4)');
+  ctx.fillStyle = inside; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  // The plasma wall, acting like a moving Casimir surface.
+  ctx.strokeStyle = 'rgba(255,120,175,.95)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  // Arrows on the wall point in, the way it collapses; real photons leave between them.
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * TAU, ux = Math.cos(a), uy = Math.sin(a), tip = r + 5, tail = r + 17;
+    const barb = side => [cx + ux * (tip + 5) - side * uy * 3.5, cy + uy * (tip + 5) + side * ux * 3.5];
+    ctx.strokeStyle = COL.ink; ctx.beginPath();
+    ctx.moveTo(cx + ux * tail, cy + uy * tail); ctx.lineTo(cx + ux * tip, cy + uy * tip);
+    ctx.moveTo(...barb(-1)); ctx.lineTo(cx + ux * tip, cy + uy * tip); ctx.lineTo(...barb(1));
+    ctx.stroke();
+    const b = a + TAU / 16, vx = Math.cos(b), vy = Math.sin(b), from = r + 6 + 16 * c;
+    ctx.strokeStyle = COL.warm; ctx.globalAlpha = .35 + .65 * c; ctx.beginPath();
+    ctx.moveTo(cx + vx * from, cy + vy * from); ctx.lineTo(cx + vx * (from + 7), cy + vy * (from + 7)); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  label('negative energy', cx, cy + 4, COL.read, 'center', small ? 9 : 10);
+  // Beside the bubble, but kept 6 px inside the canvas on the narrowest phones, reckoning a
+  // monospace character at 0.6 of the font size.
+  const photons = 'real photons', photonSize = small ? 9 : 10;
+  label(photons, Math.min(cx + R + 18, W - 6 - photons.length * photonSize * .6), cy - R * .55, COL.warm, 'left', photonSize);
+  // The view's 4orbs account claim, in that label's colour. At 9 px it fits a 320 px phone's canvas.
+  label('4orbs account: real photons and negative energy', cx, H - 42, COL.read, 'center', small ? 9 : 11);
+  label(reduced ? 'Schematic · held mid-collapse · not to scale' : 'Schematic · not to scale', cx, H - 22, COL.muted, 'center', small ? 9 : 10);
+  viewTitle('PLASMA CAVITY · DYNAMIC CASIMIR');
+}
 
+// Electron screening (Game rule): below a fuel's peak temperature, a screened fuel burns as it
+// would at SCREENING_GAIN times the temperature, capped at the peak temperature. At or above
+// the peak, and unscreened, the curve is as before.
+const SCREENING_GAIN = 3;
 function fuelActivity(st) {
-  const f = FUELS[st.fuel], x = Math.log10(10 ** st.lt / f.peak) / f.width;
+  const f = FUELS[st.fuel], peak = Math.log10(f.peak);
+  const lt = st.screening && st.lt < peak ? Math.min(st.lt + Math.log10(SCREENING_GAIN), peak) : st.lt;
+  const x = Math.log10(10 ** lt / f.peak) / f.width;
   return f.k * Math.exp(-x * x);
 }
 function plasmaPressure(t) { return 100 + 26 * Math.sin(t * .8) + 16 * Math.sin(t * .37 + 1) + 8 * Math.sin(t * 1.5 + 2); }
@@ -1060,10 +1274,10 @@ function missionReadiness() {
   const pressure = plasmaPressure(hold.t);
   const beta = hold.B > 0 ? pressure / (hold.B ** 2 / (2 * MU0) / 1000) : Infinity;
   return [
-    { name: 'Plasma', stage: 0, ok: ignite.done && ignite.model().ok, detail: 'cold glow' },
-    { name: 'Confinement', stage: 1, ok: hold.done && hold.lock >= 6 && beta >= .75 && beta <= 1 && Math.abs(hold.x) < .45, detail: 'six-second hold captured' },
+    { name: 'Plasma', stage: 0, ok: ignite.done && plasmaHeld(ignite), detail: 'cold glow, held in the pressure band' },
+    { name: 'Confinement', stage: 1, ok: hold.done && hold.lock >= 6 && inBetaBand(beta) && Math.abs(hold.x) < .45, detail: 'six-second hold captured' },
     { name: 'Fuel', stage: 2, ok: fuel.done && fuel.fuel === 'pb' && fuelActivity(fuel) >= .15, detail: 'hydrogen-boron active' },
-    { name: 'Formation', stage: 3, ok: orbit.done && orbit.r >= 60 && orbit.r <= 70 && orbit.T >= 2.3 && orbit.T <= 2.7 && orbit.cam >= 123 && orbit.cam <= 141, detail: `${orbit.r} m / ${orbit.T.toFixed(1)} s / ${orbit.cam}°` },
+    { name: 'Formation', stage: 3, ok: orbit.done && formationMatched(orbit), detail: `${orbit.r} m / ${orbit.T.toFixed(1)} s / ${orbit.cam}°` },
     { name: 'Throat', stage: 4, ok: open.done && open.w >= 61 && open.assumed, detail: `${open.w} m / held by the orbs` }
   ];
 }
@@ -1080,6 +1294,14 @@ function transitModel(progress, width) {
   const fraction = clamp(progress, 0, 1), duration = AIRCRAFT.length / AIRCRAFT.speed;
   return { fraction, duration, elapsed: fraction * duration, centreY: AIRCRAFT.length * (.5 - fraction),
     clearance: (width - AIRCRAFT.span) / 2, fits: width >= AIRCRAFT.span };
+}
+// How far the throat has formed as the triangle closes, from 0 when closing starts to
+// 1 at half size, where a close left unopened resets. It grows steadily through the
+// opening band, so it gives no cue of when to open. Reduced motion holds it still.
+// 0 outside the close.
+function throatFormingAmount(st) {
+  if (st.phase !== 'closing') return 0;
+  return reduced ? 1 : clamp((1 - st.k) / 0.5, 0, 1);
 }
 function drawTransit(st) {
   const q = st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
@@ -1103,6 +1325,8 @@ function drawTransit(st) {
   label(`${open.w} m entrance`, cx, cy - 15, m.fits ? COL.cold : COL.hot, 'center');
   label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 48, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
   label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at 250 m/s cruise`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
+  // The crossing's 4orbs account claim, in that label's colour. At 9 px it fits a 320 px phone's canvas.
+  label('4orbs account: constant speed relative to the field', cx, H - 66, COL.read, 'center', W < 440 ? 9 : 11);
   viewTitle('TRANSIT DIAGRAM');
 }
 const conv = stage({
@@ -1113,6 +1337,7 @@ const conv = stage({
       <p><span class="tag read">4orbs account</span>Forbes: "you can produce a wormhole by having three of these orbs converge." 4orbs reads the cold flash below as that wormhole opening, and Forbes calls the event endothermic. In this step, closing the triangle to the measured quarter-smaller size opens the throat you sized in step 5.</p>
       <p><span class="tag meas">Measured</span>From above, the flash is bright. On the heat camera it reads black: colder than the sky. Afterwards the airliner is gone, leaving open sky with no fireball or debris.</p>
       <p><span class="tag model">Theory</span>The 2010 DIA report says a small wormhole would look like an unusually bright spot in the sky. It also reports a calculation that negative energy should cool the matter it meets.</p>
+      <p><span class="tag read">4orbs account</span>The airliner crosses the throat at constant speed relative to the field, as the 4orbs <a href="${TELEPORTATION_URL}" target="_blank" rel="noopener">teleportation page</a> has it. The transit diagram draws the crossing that way.</p>
       <p class="note">This mission uses your current settings. Timing penalties apply only in timed runs.</p>
     </div>
     <div class="ctl">
@@ -1130,7 +1355,7 @@ const conv = stage({
         <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
         <button type="button" id="cv-transit" data-view="transit">Transit diagram</button>
       </div>
-      <p class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</p>
+      <div class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</div>
       <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
       <p class="note">Earlier experiments are held at their saved settings. Revisit a step to retune it.</p>
     </div>
@@ -1190,7 +1415,7 @@ const conv = stage({
     const crossing = transitModel(this.q, open.w);
     set('cv-x', fmt(crossing.duration, 3) + ' s<small>63.7 m ÷ 250 m/s cruise speed</small>');
     set('cv-clear', fmt(crossing.clearance, 2) + ' m<small>each wing; centred 60.9 m span</small>');
-    set('cv-view-note', this.view === 'transit' ? 'Schematic: a centred aircraft passes into a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
+    set('cv-view-note', this.view === 'transit' ? '<p><span class="tag read">4orbs account</span> The airliner crosses the throat at constant speed relative to the field.</p><p>Schematic: a centred airliner passes a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.</p>' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
     const checks = $('#mission-checks');
     if (checks) {
       const checkHTML = missionReadiness().map(r => `<li class="${r.ok ? 'ready' : 'blocked'}"><span>${r.ok ? '✓' : '○'} ${r.name}: ${r.ok ? r.detail : 'retune required'}</span><button type="button" class="btn small" data-retune="${r.stage}" aria-label="Retune ${r.name.toLowerCase()} (step ${r.stage + 1})">Retune</button></li>`).join('');
@@ -1229,6 +1454,12 @@ const conv = stage({
         } else orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
       }
     }
+    const forming = throatFormingAmount(this);
+    if (forming > 0) {
+      // The heat camera sees the convergence cold, as the lesson measures: the glow is darker than the sky there.
+      orbGlow(cx, cy, sc, points.map(project), { ring: 16 + 22 * forming, pad: 8 + 16 * forming, alpha: .22 + .7 * forming, width: 1.25 + 2 * forming, colour: th ? COL.void : COL.cold });
+      label('throat forming', cx, 44, COL.cold, 'center', W < 420 ? 10 : 12);
+    }
     if (flashing) {
       const s = Math.sin(Math.PI * this.q), R = (open.w / 2) * (0.4 + s) * sc;
       if (reduced) {
@@ -1250,11 +1481,13 @@ const conv = stage({
     scaleBarDraw(sc);
   },
   describe() {
-    if (this.view === 'transit') return `Transit diagram: the airliner passing into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing.`;
+    if (this.view === 'transit') return `Transit diagram. 4orbs account: the airliner crosses the throat at constant speed relative to the field. It passes into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing. No destination.`;
     const view = this.view === 'thermal' ? 'Thermal view from the side' : 'Visible view from above';
     if (this.phase === 'gone') return `${view}: the airliner is gone, leaving open sky.`;
     if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner.`;
-    return `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size.`;
+    const orbs = `${view}: three orbs around the airliner, triangle at ${fmt(this.k * 100)} percent of its size.`;
+    const ring = this.view === 'thermal' ? (reduced ? 'a steady dark ring, colder than the sky, surrounds' : 'a dark ring, colder than the sky, grows round') : (reduced ? 'a steady glow surrounds' : 'a glow grows round');
+    return throatFormingAmount(this) > 0 ? `${orbs} The throat is forming as the triangle closes, and ${ring} the orbs.` : orbs;
   }
 }, { phase: 'orbit', k: 1, q: 0, ang: 0, tumble: 0, startAng: 0, startTumble: 0, view: 'thermal', msg: '' });
 
@@ -1266,11 +1499,15 @@ function tally() {
   const score = Math.max(0, Math.round(10000 - 25 * secs - 300 * run.misses - 40 * extra));
   return { mode: run.mode, score: run.mode === 'challenge' ? score : null, secs, misses: run.misses, extra, width: run.width, rank: RANKS.find(r => score >= r[0])[1] };
 }
+// The timed best on this device and the practice board's collection. Each moves to a new key
+// when timed-practice timing changes, so results never mix across timings: the 3-second
+// Ignite hold took them from -v2 to -v3. Results under older keys stay stored, unshown.
+const BEST_KEY = 'ipt-best-v3', BOARD_COLLECTION = 'scores-v3';
 function localBest(res) {
   let best = null;
-  try { best = JSON.parse(localStorage.getItem('ipt-best-v2') || 'null'); } catch (_) {}
+  try { best = JSON.parse(localStorage.getItem(BEST_KEY) || 'null'); } catch (_) {}
   if (best && (!Number.isFinite(best.score) || best.score < 0 || best.score > 10000 || !Number.isFinite(best.secs) || best.secs < 0)) best = null;
-  if (res && res.mode === 'challenge' && (!best || res.score > best.score)) { best = { score: res.score, secs: Math.round(res.secs) }; try { localStorage.setItem('ipt-best-v2', JSON.stringify(best)); } catch (_) {} }
+  if (res && res.mode === 'challenge' && (!best || res.score > best.score)) { best = { score: res.score, secs: Math.round(res.secs) }; try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch (_) {} }
   return best;
 }
 const board = { db: null, user: null, me: null, rows: [], names: {}, state: 'loading', pending: null, readonly: false };
@@ -1296,7 +1533,7 @@ async function submit(res) {
   if (!board.db || !board.me) { board.pending = res; return; }
   board.pending = null;
   try {
-    const ref = board.db.doc('scores-v2/' + board.me), cur = await ref.get();
+    const ref = board.db.doc(BOARD_COLLECTION + '/' + board.me), cur = await ref.get();
     if (cur.exists && (Number(cur.data().score) || 0) >= res.score) return;
     await ref.set({ score: res.score, secs: Math.round(res.secs), at: Date.now() });
   } catch (_) { board.readonly = true; renderBoard(); }
@@ -1310,7 +1547,7 @@ async function submit(res) {
   try { board.me = user ? await user.id() : null; } catch (_) {}
   if (!board.me) board.readonly = true;
   const slow = setTimeout(() => { if (board.state === 'loading') { board.state = 'off'; renderBoard(); } }, 10000);
-  db.collection('scores-v2').orderBy('score', 'desc').limit(10).onSnapshot(async snap => {
+  db.collection(BOARD_COLLECTION).orderBy('score', 'desc').limit(10).onSnapshot(async snap => {
     clearTimeout(slow);
     board.rows = snap.docs.map(d => { const v = d.data() || {}; return { id: d.id, score: clamp(Math.round(Number(v.score) || 0), 0, 10000), secs: clamp(Number(v.secs) || 0, 0, 86400) }; });
     board.state = 'ok'; renderBoard();
@@ -1468,9 +1705,9 @@ const RUN_KEY = 'ipt-run-v2';
 const RUN_FIELDS = [
   { gas: ['h', 'ar'], power: [0, 100], p: [.05, 760], hold: [0, 86400], t: [0, 1e9] },
   { B: [0, 1], trim: [-1, 1], x: [-1, 1], lock: [0, 6], t: [0, 1e9], assist: 'boolean?', assisted: 'boolean?' },
-  { fuel: ['dt', 'pb'], lt: [0, 3], hold: [0, 86400], dose: [0, 1] },
+  { fuel: ['dt', 'pb'], lt: [0, 3], screening: 'boolean?', hold: [0, 86400], dose: [0, 1] },
   { r: [30, 100], T: [1, 8], cam: [0, 180], ang: [-1e9, 1e9], ghost: [-1e9, 1e9], tumble: [-1e9, 1e9], hold: [0, 86400] },
-  { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: ['plates', 'throat'] },
+  { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: OPEN_VIEWS.map(([, view]) => view) },
   { k: [.5, 1], ang: [-1e9, 1e9], tumble: [-1e9, 1e9], startAng: [-1e9, 1e9], startTumble: [-1e9, 1e9], view: ['thermal', 'visible', 'transit'] }
 ];
 function snapshot() {
@@ -1615,7 +1852,7 @@ panel.addEventListener('input', e => {
 });
 panel.addEventListener('pointerdown', e => { if (e.target.closest('#ig-pump, #ho-pad')) S.paused = false; });
 panel.addEventListener('keydown', e => { if (e.target.closest('#ig-pump, #ho-pad') && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter'].includes(e.key)) S.paused = false; });
-panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume, #ho-assist, #ho-show')) { S.paused = false; syncAudioMode(); } saveProgress(); });
+panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #fu-screen, #op-assume, #ho-assist, #ho-show')) { S.paused = false; syncAudioMode(); } saveProgress(); });
 $('#pause').onclick = () => { S.paused = !S.paused; ignite.pumping = false; hold.drag = false; syncAudioMode(); snd.play('ui-toggle', { kind: 'ui' }); saveProgress(); };
 $('#restart').onclick = e => askRestart(S.mode, e && e.currentTarget);
 $('#mode-learn').onclick = e => { if (S.mode !== 'learn') askRestart('learn', e && e.currentTarget); };
@@ -1651,7 +1888,8 @@ function start(d) {
 const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(snapshot);
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__lab = { snd, syncAudioMode, audioTransitions, seedAudioState, S, STAGES, show, complete, board, advance, snapshot, validSnapshot, restore, restart, askRestart, notice, tally, missionReadiness, missionReady, readyToAdvance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCES, SOURCE_REVISION };
+// Test hook: the test clock, the physics models and the source revision, nothing else (docs/adr/0001).
+window.__lab = { advance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCE_REVISION };
 })();
 </script>
 <script src="ga4.js" defer></script>

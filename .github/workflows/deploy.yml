@@ -26,8 +26,15 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+      # The same checks as Game checks (checks.yml): nothing deploys unless all of them pass.
+      - name: Install
+        run: npm ci
       - name: Run tests
-        run: node --test tests/game.test.cjs tests/seo.test.cjs
+        run: npm test
+      - name: Type check
+        run: npm run typecheck
+      - name: Browser check
+        run: npm run test:browser
       - name: Build Pages dist
         run: scripts/build-dist.sh
       - name: Verify Pages dist
@@ -76,9 +83,18 @@ jobs:
         if: steps.creds.outputs.present == 'true'
         with:
           node-version: 22
+      - name: Install
+        if: steps.creds.outputs.present == 'true'
+        run: npm ci
       - name: Run tests
         if: steps.creds.outputs.present == 'true'
-        run: node --test tests/game.test.cjs tests/seo.test.cjs
+        run: npm test
+      - name: Type check
+        if: steps.creds.outputs.present == 'true'
+        run: npm run typecheck
+      - name: Browser check
+        if: steps.creds.outputs.present == 'true'
+        run: npm run test:browser
       - name: Build Pages dist
         if: steps.creds.outputs.present == 'true'
         run: scripts/build-dist.sh

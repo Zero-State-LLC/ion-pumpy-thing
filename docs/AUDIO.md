@@ -7,7 +7,7 @@ The 29 effects use ElevenLabs textures with local editing and selected tuning la
 | Cue | Trigger and purpose |
 | --- | --- |
 | `ui-confirm` | Confirm successful sound enable or start Show me in Hold. |
-| `ui-toggle` | Change gas, fuel, camera, plate/throat view, pause, source-card state, Hold assist, or restart-dialog state. |
+| `ui-toggle` | Change gas, fuel, electron screening, camera, plate, throat or plasma-cavity view, pause, source-card state, Hold assist, or restart-dialog state. |
 | `control-tick` | Changed experiment slider value, limited to one tick per 160 ms. |
 | `stage-enter` | Player navigates to a lesson; initial load and restore remain quiet. |
 | `lesson-complete` | First completion of lessons 1–5; can finish through the automatic pause. |

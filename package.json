@@ -1,0 +1,17 @@
+{
+  "name": "ion-pumpy-thing",
+  "private": true,
+  "description": "A browser game in six steps, from a jar of glowing gas to an airliner that isn't there.",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "test:browser": "node tests/browser-check.mjs",
+    "typecheck": "tsc -p jsconfig.json",
+    "dev": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

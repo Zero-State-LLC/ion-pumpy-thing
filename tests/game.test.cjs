@@ -22,7 +22,9 @@ function boot(storage = new Map(), options = {}) {
     if (key in target) return target[key];
     if (String(key).startsWith('create')) return (...args) => {
       for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg));
-      drawing.push([key, ...args]); return { addColorStop() {} };
+      // A gradient's colour stops are kept on its own command, so they print with it nowhere.
+      const call = [key, ...args]; drawing.push(call);
+      return { addColorStop(...stop) { (call.stops ||= []).push(stop); } };
     };
     return (...args) => {
       for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg), `${String(key)} received ${arg}`);
@@ -2255,6 +2257,119 @@ test('over Hold\'s 3D view the 2D canvas draws the flat view\'s words and marks:
     assert.equal(marks(in3D.drawing), marks(flat.drawing.slice(0, ball)), `marks at beta ${beta}`);
     assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
     for (const shape of ['fillRect', 'strokeRect', 'arc', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas at beta ${beta}`);
+  }
+});
+
+// The Fuel step of a run whose first two steps are done, with the stand-in renderer.
+const fuelIn3D = (options = {}) => bootIn3D(savedRunOn(2), options);
+// Sets the Fuel step's fuel, temperature (log10 of keV, as the slider) and electron screening,
+// then plays `seconds` of it.
+function fuelPlay(game, { fuel, lt, screening, seconds = 2 }) {
+  click(game, `fu-${fuel}`); if (pressed(game, 'fu-screen') !== screening) click(game, 'fu-screen');
+  slide(game, 'fu-t', lt);
+  for (let i = 0; i < seconds * 60; i++) game.lab.advance(1 / 60);
+}
+// The flat Fuel canvas, one frame, in pixels: its wall, its core's glow, and the dots of each
+// size it fills round the core (the legend's dots, at x 38, aside), each with its fill.
+function fuelShapes(game) {
+  game.drawing.length = 0; paint(game);
+  const d = game.drawing, wall = d.findIndex(c => c[0] === 'arc'), glow = d.find(c => c[0] === 'createRadialGradient');
+  const dots = r => d.flatMap((c, i) => c[0] === 'arc' && c[3] === r && c[1] !== 38 ? [{ at: [c[1], c[2]], fill: settingAt(d, i, 'fillStyle') }] : []);
+  return { wall: { at: d[wall].slice(1, 3), radius: d[wall][3], width: settingAt(d, wall, 'lineWidth'), colour: settingAt(d, wall, 'strokeStyle') },
+    glow: glow && { at: glow.slice(1, 3), radius: glow[6], stops: glow.stops },
+    helium: dots(2.8), neutrons: dots(2.2), electrons: dots(1.3), spots: dots(5) };
+}
+// The same frame with the 3D view turned off, so the flat view draws the state the scene showed.
+function flatAfter(game) {
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  return fuelShapes(game);
+}
+const rgba = colour => colour.match(/^rgba?\(([^)]+)\)$/)[1].split(',').map(Number);
+const hexOf = ([r, g, b]) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+const FUEL_CASES = ['dt', 'pb'].flatMap(fuel => [false, true].flatMap(screening => [[fuel, screening, .3], [fuel, screening, fuel === 'dt' ? 1.8 : 2.8]]));
+
+test('Fuel in 3D: a diagram end on at the lab\'s scale, where what burns and how much come from the fuel\'s activity: the helium and the neutrons where the flat view draws them, for both fuels, with electron screening on and off', async () => {
+  const counts = {};
+  for (const [fuel, screening, lt] of FUEL_CASES) {
+    const game = await fuelIn3D(), why = `${fuel} at ${(10 ** lt).toFixed(1)} keV${screening ? ', screened' : ''}`;
+    fuelPlay(game, { fuel, lt, screening });
+    const frame = nextScene(game), list = frame.views[0].list, flat = flatAfter(game);
+    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)');
+    assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'end on, at the lab\'s scale');
+    for (const kind of ['helium', 'neutrons']) {
+      const dots = flat[kind], [specks] = list.filter(e => e.kind === 'specks' && e.of === kind);
+      assert.ok(specks, `${kind} listed at ${why}`);
+      assert.equal(specks.points.length, dots.length, `as many ${kind} as the flat view draws at ${why}`);
+      if (dots.length) assert.equal(specks.colour, dots[0].fill, `${kind} coloured as the flat view's`);
+      dots.forEach((dot, i) => labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `${kind} ${i} where the flat view draws it at ${why}`)));
+      near(specks.size * LAB_SCALE, kind === 'helium' ? 5.6 : 4.4, `${kind} as wide as the flat view's dots`); assert.equal(specks.round, true);
+      counts[`${why} ${kind}`] = dots.length;
+    }
+  }
+  // Independently of the flat view: deuterium + tritium throws out neutrons, hydrogen + boron-11
+  // none, and a fuel that burns makes more helium than one that barely does.
+  assert.ok(counts['dt at 63.1 keV neutrons'] > 0 && counts['dt at 63.1 keV, screened neutrons'] > 0, JSON.stringify(counts));
+  for (const key of Object.keys(counts)) if (key.startsWith('pb') && key.endsWith('neutrons')) assert.equal(counts[key], 0, key);
+  assert.ok(counts['pb at 631.0 keV helium'] > counts['pb at 2.0 keV helium'], JSON.stringify(counts));
+  assert.ok(counts['dt at 63.1 keV helium'] > counts['dt at 2.0 keV helium'], JSON.stringify(counts));
+});
+
+test('Fuel in 3D: the screening electrons, when screening is on, where the flat view draws them', async () => {
+  for (const screening of [false, true]) {
+    const game = await fuelIn3D();
+    fuelPlay(game, { fuel: 'pb', lt: 1.5, screening });
+    const list = nextScene(game).views[0].list, flat = flatAfter(game);
+    const electrons = list.filter(e => e.kind === 'specks' && e.of === 'electrons');
+    assert.equal(flat.electrons.length, screening ? 36 : 0, 'the flat view draws 36 electrons when screening is on');
+    if (!screening) { assert.equal(electrons.length, 0, 'no electrons listed with screening off'); continue; }
+    const [specks] = electrons;
+    assert.equal(specks.points.length, 36); assert.equal(specks.colour, flat.electrons[0].fill); assert.equal(specks.round, true);
+    near(specks.size * LAB_SCALE, 2.6, 'as wide as the flat view\'s dots');
+    flat.electrons.forEach((dot, i) => labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `electron ${i} where the flat view draws it`)));
+  }
+});
+
+test('Fuel in 3D: the core glows as big and as bright as the flat view\'s for its temperature, and the wall is where the flat view draws it, coloured by its exposure, with each neutron\'s impact on it', async () => {
+  for (const [fuel, screening, lt] of FUEL_CASES) {
+    const game = await fuelIn3D(), why = `${fuel} at ${(10 ** lt).toFixed(1)} keV${screening ? ', screened' : ''}`;
+    fuelPlay(game, { fuel, lt, screening, seconds: 3 });
+    const list = nextScene(game).views[0].list, flat = flatAfter(game);
+    const [glow] = list.filter(e => e.kind === 'core glow'), [wall] = list.filter(e => e.kind === 'reactor wall');
+    labPixels(glow.at).forEach((v, k) => near(v, flat.glow.at[k], `the glow where the flat view's is at ${why}`));
+    near(glow.radius * LAB_SCALE, flat.glow.radius, `as big at ${why}`);
+    const [[at0, inner], [at1, outer]] = flat.glow.stops, [r, g, b, a] = rgba(inner), [r1, g1, b1, a1] = rgba(outer);
+    assert.deepEqual([at0, at1, a1], [0, 1, 0], 'the flat view fades from the middle to nothing at the edge');
+    assert.equal(glow.core, hexOf([r, g, b]), `its middle coloured as the flat view's at ${why}`); near(glow.opacity, a, `as bright at ${why}`);
+    assert.equal(glow.colour, hexOf([r1, g1, b1]), 'fading to the flat view\'s edge colour');
+    labPixels(wall.at).forEach((v, k) => near(v, flat.wall.at[k], `the wall where the flat view's is at ${why}`));
+    near(wall.radius * LAB_SCALE, flat.wall.radius, 'as big'); near(wall.width * LAB_SCALE, flat.wall.width, 'as wide');
+    assert.equal(wall.colour, flat.wall.colour, `coloured by the exposure, as the flat view's, at ${why}`);
+    const [spots] = list.filter(e => e.kind === 'specks' && e.of === 'impacts');
+    assert.equal(spots.points.length, flat.spots.length, `as many impacts as the flat view draws at ${why}`);
+    flat.spots.forEach((spot, i) => {
+      labPixels(spots.points[i]).forEach((v, k) => near(v, spot.at[k], `impact ${i} where the flat view draws it`));
+      const [sr, sg, sb, sa] = rgba(spot.fill);
+      assert.equal(spots.colour, hexOf([sr, sg, sb])); near(spots.opacities[i], sa, `impact ${i} as faint`);
+    });
+    near(spots.size * LAB_SCALE, 10, 'each as wide as the flat view\'s'); assert.equal(spots.round, true);
+    if (fuel === 'dt' && lt > 1) assert.ok(flat.spots.length > 0, `neutrons strike the wall at ${why}`);
+  }
+});
+
+test('over Fuel\'s 3D view the 2D canvas draws the flat view\'s words and marks: the field\'s edge and the legend, and none of its shapes', async () => {
+  for (const screening of [false, true]) {
+    const flat = bootFromSavedRun(savedRunOn(2)), in3D = await fuelIn3D();
+    // Cool, so no products are drawn, and the two runs' random products can't differ.
+    for (const game of [flat, in3D]) fuelPlay(game, { fuel: 'dt', lt: 0, screening, seconds: .5 });
+    scene(flat); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), `words${screening ? ', screened' : ''}`);
+    const R = Math.min(390, 292.5) * 0.34;
+    // The dashed field's edge, and the legend's dots at x 38, are marks; the rest are shapes, in 3D.
+    const marks = drawing => JSON.stringify(drawing.filter(c => c[0] === 'setLineDash' || c[0] === 'arc' && (c[1] === 38 || Math.abs(c[3] - R * 0.6) < 1e-9)));
+    assert.equal(marks(in3D.drawing), marks(flat.drawing), `marks${screening ? ', screened' : ''}`);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+    assert.equal(in3D.drawing.filter(c => c[0] === 'arc').length, screening ? 4 : 3, 'only the field\'s edge and the legend\'s dots are arcs');
+    for (const shape of ['fillRect', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas`);
   }
 });
 

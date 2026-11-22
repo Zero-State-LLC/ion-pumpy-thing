@@ -377,6 +377,34 @@ async function start(canvas, { props, onLost }) {
       if (p.material.vertexColors !== !!e.opacities) { p.material.vertexColors = !!e.opacities; p.material.transparent = true; p.material.needsUpdate = true; }
       swapGeometry(p, geometry);
     },
+    // Fuel's reactor wall, end on: a ring of tube as wide as the flat view's stroke. It writes no
+    // depth, so the neutrons' impacts, listed on its middle line, show over it as in the flat view.
+    'reactor wall'(e) {
+      const w = take('reactor wall', () => { const m = new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff')); m.material.depthWrite = false; return m; });
+      w.position.set(...e.at); paint(w.material, e, 'heat', 'colour');
+      swapGeometry(w, new THREE.TorusGeometry(e.radius, e.width / 2, 12, 128));
+    },
+    // Fuel's burning core: a disc fading from its middle's colour (`core`), as opaque as `opacity`,
+    // to nothing in its edge colour (`colour`), as the flat view's gradient. Its brightness changes
+    // with the temperature slider, so the disc repaints its own texture rather than cache one per value.
+    'core glow'(e) {
+      const g = take('core glow', () => {
+        const c = document.createElement('canvas'); c.width = c.height = 128;
+        const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
+        const m = new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), m); disc.renderOrder = 2; return disc;
+      });
+      const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
+      const key = `${e.core} ${e.opacity} ${e.colour}`, map = /** @type {THREE.CanvasTexture} */ (g.material.map);
+      if (map.userData.key !== key) {
+        const c = /** @type {HTMLCanvasElement} */ (map.image), g2 = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
+        const gradient = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gradient.addColorStop(0, `rgba(${rgb(e.core)},${e.opacity})`); gradient.addColorStop(1, `rgba(${rgb(e.colour)},0)`);
+        g2.clearRect(0, 0, 128, 128); g2.fillStyle = gradient; g2.fillRect(0, 0, 128, 128);
+        map.userData.key = key; map.needsUpdate = true;
+      }
+      facing(g).position.set(...e.at); g.scale.setScalar(e.radius);
+    },
     // Hold's vacuum chamber, cut away: only its far half, so the ball and coils inside it show.
     'vacuum chamber'(e) {
       const g = take('vacuum chamber', () => {

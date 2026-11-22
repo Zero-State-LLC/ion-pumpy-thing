@@ -100,3 +100,12 @@ The wormhole opening sized in the Open step and held open by negative energy fro
 
 **Casimir plates**:
 The adjustable plate diagram that introduces negative energy in the Open step.
+
+**Dynamic Casimir effect**:
+Real photons made from vacuum fluctuations by a boundary, such as a mirror, that moves very fast. Plates held still give the static Casimir effect instead.
+
+**Plasma bubble**:
+The bubble of plasma an orb collapses fast, turning vacuum fluctuations into real photons and negative energy by the dynamic Casimir effect.
+
+**Plasma cavity**:
+The game's name for the inside of an orb's plasma bubble, whose plasma wall acts like a moving Casimir surface in place of a pair of fixed metal plates. The Open step's plasma-cavity view shows the bubble collapsing.

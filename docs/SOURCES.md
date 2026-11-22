@@ -1,6 +1,6 @@
 # Corrected source register
 
-Reviewed on 21 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-21-transit-speed`.
+Reviewed on 21 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-21-open-cavity`.
 
 The narrative baseline is the live [corrected November 2026 Part Three](https://4orbs.com/the-vanishing/part-3-the-science/), duration 25:24, video identifier `_gzWIv7uABs`. The 19:38 April edition returned by an earlier search cache is excluded. The live page was retrieved twice during review. The [homepage correction notices](https://4orbs.com/) document replacement of the older episode.
 
@@ -28,7 +28,7 @@ The aircraft is referred to only by make and model.
 | Hold | Corrected Part Three, 7:40 and 10:15; Polywell page | Beta, the Polywell cusp trap, Grad's high-beta boundary as tested by Park et al. (2015) | Beta is computed as plasma pressure divided by magnetic pressure. Drift, the target band and the loss above beta one are game rules. The coils are a simplified cusp. |
 | Fuel | Corrected Part Three, 10:15; Polywell and AAWSAP pages; Miley 2016 page and the dense plasma focus theory pages | Charged versus neutral reaction products; the Polywell's virtual cathode; Miley's IEC report; Forbes's dense plasma focus reading of the ion pumpy schematic; the 2006 dense plasma focus study | The reaction curves, thresholds and exposure rate are simplified. p-B11 side reactions are stated but not simulated. |
 | Orbit | Measurement page, rigid formation and camera fit | One equilateral formation in two projections | Reported radius, period and camera ranges guide a synthetic reconstruction. The fixed 24° tilt and 11-second tumble are illustrative, not imported tracks. |
-| Open | Corrected Part Three, 16:51; Sonny White page; AAWSAP page | Morris–Thorne negative energy; the Casimir effect; Gao–Jafferis–Wall; the DIA report's throat table; the orbs as the source | Ideal parallel-plate energy uses `π² ħ c A / (720 d³)`. The throat scales the report's 70 Jupiter masses per 100 m linearly. The orbs supplying the energy is labelled Game rule. |
+| Open | Corrected Part Three, 16:51; Sonny White page; AAWSAP page; dynamic Casimir theory page | Morris–Thorne negative energy; the Casimir effect; Gao–Jafferis–Wall; the DIA report's throat table; the orbs as the source, generating negative energy by the dynamic Casimir effect as each collapses its plasma bubble (4orbs account), drawn in the plasma-cavity view | Ideal parallel-plate energy uses `π² ħ c A / (720 d³)`. The throat scales the report's 70 Jupiter masses per 100 m linearly. The orbs supplying exactly the energy the throat needs is labelled Game rule. The plasma-cavity view is a schematic with no undulator; it changes neither the throat width nor the energy the throat needs. |
 | Converge | Corrected Part Three, 16:51; measurement page, final frames and scale; teleportation-mechanism theory page | Forbes's convergence account; the DIA report's bright spot and cooling; both cameras share one scene; a transit diagram shows clearance, with the airliner crossing the throat at constant speed relative to the field (4orbs account) | Convergence opens the throat, as in the 4orbs account. False colour and the flash are drawn for viewing. The transit is a kinematic diagram; no destination is drawn because no page names one. |
 
 ## Transit diagram assumptions
@@ -51,8 +51,9 @@ This source revision invalidates prior in-progress saves with an on-screen expla
 | [Ion Pumpy Thing as DPF Fusion Device](https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/) | No | Fuel |
 | [Ion Pumpy Thing as Compact Fusion Reactor](https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/) | No | Fuel |
 | [Four Orbs Teleportation Mechanism](https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/) | No | Converge |
+| [Plasma orbs as dynamic Casimir effect generators](https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/) | No | Open |
 
-The bodies of the Miley 2016 page, both ion pumpy pages and the teleportation-mechanism page name the flight. Their addresses and titles don't, so the correction policy allows them.
+The bodies of the Miley 2016 page, both ion pumpy pages, the teleportation-mechanism page and the dynamic Casimir page name the flight. Their addresses and titles don't, so the correction policy allows them.
 
 ## Papers used in the lessons
 
@@ -75,7 +76,8 @@ Each is cited by a 4orbs page and linked from the lesson's source card.
 - Eric Davis, *Traversable Wormholes, Stargates, and Negative Energy* (April 2010), is linked in the site's [AAWSAP registry](https://4orbs.com/research/aatip/). The PDF could not be fully retrieved: one reader returned HTTP 403 and another rejected the file above its 50 MiB limit. Exact table headings, units and geometry were not independently checked.
 - George Miley, *Inertial Electrostatic Confinement Fusion* (March 2010), is linked in the same registry. Its PDF returned HTTP 403. No numerical curve from it is claimed.
 - Knecht et al. (2006): the publisher's abstract was read on 21 November 2026; the full text is paywalled. The lesson uses only its stated scope, a parametric study of a p-11B dense plasma focus as the power and propulsion of an air-breathing aerospace plane, and labels it Theory. No figure from it is claimed.
-- The three pages under **4orbs pages cited** were read on 21 November 2026.
+- The pages under **4orbs pages cited** were read on 21 November 2026.
+- The dynamic Casimir theory page was read in full on 21 November 2026. The Open lesson takes its main claim: the orbs generate negative energy by the dynamic Casimir effect, collapsing a plasma bubble fast to convert vacuum fluctuations into real photons and negative energy. It also takes a supporting claim that high-beta plasmoids act like moving Casimir surfaces, which the lesson gives as the bubble's plasma wall. "Plasma cavity" is the game's name for the view, not the page's term. The page names no paper for the dynamic Casimir experiments, so the game makes no Lab physics claim for them.
 
 The throat display uses the corrected episode's figure from the DIA report, about 70 Jupiter masses for a 100 m wormhole, scaled linearly as `0.7 × width`. The source card says so.
 

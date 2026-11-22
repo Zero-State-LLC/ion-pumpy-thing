@@ -2549,6 +2549,11 @@ test('where the renderer cannot start, or loses WebGL, the flat view draws and t
   assert.equal(lost.storage.get('ion-pumpy-view-v1'), savedViewBeforeLoss, 'restoration does not rewrite preference');
   paint(lost); await settle();
   assert.ok(nextScene(lost), 'a fresh 3D renderer draws after context restoration');
+  lost.view3d.given.onLost();
+  assert.equal(nextScene(lost), null, 'a second loss falls back to flat again');
+  lost.ids.get('gl').listeners.webglcontextrestored();
+  paint(lost); await settle();
+  assert.ok(nextScene(lost), 'repeated loss and restoration can recover');
 });
 
 test('the 3D view draws nothing while the tab is hidden, and steps without a scene list draw flat', async () => {

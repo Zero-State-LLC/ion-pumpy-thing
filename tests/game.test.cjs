@@ -2011,6 +2011,128 @@ test('over Orbit\'s 3D view the 2D canvas draws the titles, scale bar, divider a
   assert.equal(in3D.ids.get('gl').hidden, false, 'the 3D canvas shows');
 });
 
+// Open's three views in 3D. The throat is at the flat view's scale, in metres. The plates and
+// the plasma cavity are schematics: their camera's scale is the lab's, 9 % of the canvas's
+// shorter side to the tenth of a metre, so the plate mount prop, at its real 100 mm, stands that tall.
+const LAB_SCALE = Math.min(390, 292.5) * 0.9, PLATE_MOUNT_HEIGHT = 0.1;
+// The Open step of a run whose earlier steps are done, showing `view`, its sliders set as given.
+async function openIn3D(view, settings = {}, options = {}) {
+  const game = await bootIn3D(savedRunOn(4), options);
+  click(game, `op-${view}`);
+  for (const [id, value] of Object.entries(settings)) slide(game, id, value);
+  return game;
+}
+
+test('Open in 3D loads the plate mount prop beside the airliner', async () => {
+  const game = await openIn3D('plates');
+  assert.deepEqual({ ...game.view3d.given.props }, { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb' });
+});
+
+test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the area the player sets, as the flat view draws them, each held by a plate mount prop at its real 100 mm', async () => {
+  for (const [ld, la] of [[3, 0], [1, 6], [4, 2.5]]) {
+    const game = await openIn3D('plates', { 'op-d': ld, 'op-a': la }), frame = nextScene(game);
+    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)'); assert.equal(frame.views.length, 1);
+    assert.deepEqual([frame.views[0].left, frame.views[0].width, frame.views[0].origin], [0, 390, [195, 292.5 / 2]]);
+    assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
+    // The flat view's plates, in pixels: centred 47 % of the way down, the gap and height set by the logarithmic controls.
+    const gap = 390 * (0.06 + (ld - 1) / 3 * 0.32), height = 292.5 * (0.22 + la / 6 * 0.25), cy = (292.5 * 0.47 - 292.5 / 2) / LAB_SCALE;
+    const plates = entries(frame, 'plate');
+    assert.equal(plates.length, 2, `two plates at ${ld}, ${la}`);
+    plates.forEach((p, i) => {
+      const side = i ? 1 : -1;
+      near(p.at[0], side * gap / 2 / LAB_SCALE, 'each plate half the gap from the middle'); near(p.at[1], cy, 'at the flat view\'s height'); assert.equal(p.at[2], 0);
+      near(p.size[0], 8 / LAB_SCALE, '8 px thick'); near(p.size[1], height / LAB_SCALE, 'as tall as the flat view\'s');
+    });
+    const [glow] = entries(frame, 'gap glow');
+    near(glow.size[0], gap / LAB_SCALE, 'the glow fills the gap'); near(glow.size[1], height / LAB_SCALE, 'and the plates\' height');
+    const mounts = entries(frame, 'plate mount');
+    assert.equal(mounts.length, 2);
+    mounts.forEach((m, i) => {
+      assert.equal(m.height, PLATE_MOUNT_HEIGHT, 'at real size');
+      assert.deepEqual(m.at, [plates[i].at[0], plates[i].at[1] + plates[i].size[1] / 2, 0], 'its post holds the plate\'s lower edge');
+      assert.deepEqual(Object.keys(m).sort(), ['at', 'colour', 'height', 'kind'], 'kind, place, size and colour only (docs/adr/0003)');
+    });
+  }
+});
+
+// The gap's measure line on the plates view: the straight lines stroked from one plate to the
+// other, at the gap's width about the canvas's middle, as [y, from x, to x] in canvas pixels.
+function gapMeasureLines(game, ld) {
+  const gap = 390 * (0.06 + (ld - 1) / 3 * 0.32), lines = [];
+  game.drawing.length = 0; paint(game);
+  let at = null;
+  for (const call of game.drawing) {
+    if (call[0] === 'moveTo') at = call.slice(1, 3);
+    else if (call[0] === 'lineTo' && at) {
+      if (Math.abs(at[1] - call[2]) < 1e-9 && Math.abs(Math.abs(call[1] - at[0]) - gap) < 1e-9) lines.push([at[1], at[0], call[1]]);
+      at = call.slice(1, 3);
+    }
+  }
+  return lines;
+}
+
+test('Open\'s plates in 3D keep the gap\'s measure line where the flat view draws it, over the plate mounts', async () => {
+  for (const [ld, la] of [[3, 0], [1, 6]]) {
+    const flat = bootFromSavedRun(savedRunOn(4));
+    click(flat, 'op-plates'); slide(flat, 'op-d', ld); slide(flat, 'op-a', la);
+    const shown = await openIn3D('plates', { 'op-d': ld, 'op-a': la });
+    const want = gapMeasureLines(flat, ld);
+    assert.equal(want.length, 1, `one measure line in the flat view at ${ld}, ${la}`);
+    assert.deepEqual(gapMeasureLines(shown, ld), want, 'the same line over the 3D view (the 2D canvas is in front of the mounts)');
+  }
+});
+
+test('Open\'s throat in 3D: the airliner at the origin, and the throat below it as wide as the player sets and as open as the flat view\'s', async () => {
+  const game = await openIn3D('throat', { 'op-w': 80 });
+  click(game, 'op-assume');
+  const frame = nextScene(game);
+  assert.equal(frame.look, 'visible');
+  assert.deepEqual(cameraOf(frame), { angle: 0, scale: Math.min(390, 292.5) / 2 / 122 }, 'from above, at the flat view\'s scale');
+  const [airliner] = entries(frame, 'airliner'), [throat] = entries(frame, 'throat');
+  assert.deepEqual([airliner.at, airliner.size], [[0, 0, 0], [60.9, 63.7]]);
+  assert.equal(throat.radius, 40, 'held open by the orbs, half the 80 m width');
+  assert.equal(throat.at[0], 0); assert.equal(throat.at[1], 0); assert.ok(throat.at[2] > 0, 'below the airliner, away from the camera');
+  slide(game, 'op-w', 30); assert.equal(entries(nextScene(game), 'throat')[0].radius, 15);
+  // Without the orbs it pulses open and pinches shut, as the flat view's: never wider than the width set.
+  click(game, 'op-assume'); // releasing the throat also resumes play
+  const radii = [];
+  for (let i = 0; i < 12; i++) { game.lab.advance(0.25); radii.push(entries(nextScene(game), 'throat')[0]?.radius ?? 0); }
+  assert.ok(radii.every(r => r >= 0 && r <= 15), radii.join(', '));
+  assert.ok(new Set(radii).size > 3, `it moves: ${radii}`);
+});
+
+test('Open\'s plasma cavity in 3D: the bubble is as big as the flat view\'s and collapses with it, and reduced motion holds it still', async () => {
+  const flat = bootFromSavedRun(savedRunOn(4)); click(flat, 'op-cavity'); click(flat, 'pause');
+  const game = await openIn3D('cavity'); click(game, 'pause');
+  for (let i = 0; i < 4; i++) {
+    flat.lab.advance(0.25); game.lab.advance(0.25);
+    const frame = nextScene(game), [bubble] = entries(frame, 'bubble');
+    assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE });
+    near(bubble.radius * LAB_SCALE, cavityView(flat).bubble, `the bubble at ${(i + 1) / 4} s`);
+  }
+  assert.ok(entries(nextScene(game), 'specks')[0].points.length > 20, 'the vacuum\'s fluctuations round it');
+  const still = await openIn3D('cavity', {}, { reduced: true }); click(still, 'pause');
+  const first = nextScene(still);
+  for (let i = 0; i < 6; i++) { still.lab.advance(0.25); assert.deepEqual(nextScene(still), first, `nothing moves after ${(i + 1) / 4} s`); }
+});
+
+test('over Open\'s 3D views the 2D canvas draws the flat view\'s words and marks, and none of its shapes', async () => {
+  for (const view of ['plates', 'throat', 'cavity']) {
+    const flat = bootFromSavedRun(savedRunOn(4)); click(flat, `op-${view}`); scene(flat);
+    const in3D = await openIn3D(view); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), view);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), `${view}: the 2D canvas clears to show the 3D view`);
+    for (const shape of ['fillRect', 'createRadialGradient', 'createLinearGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `${view}: no ${shape} on the 2D canvas`);
+    assert.equal(in3D.ids.get('gl').hidden, false, `${view}: the 3D canvas shows`);
+  }
+  // The throat's marks stay on the 2D canvas: the dashed circle of the width set, and the wingtip rings.
+  const flat = bootFromSavedRun(savedRunOn(4)); click(flat, 'op-throat'); slide(flat, 'op-w', 40); scene(flat);
+  const in3D = await openIn3D('throat', { 'op-w': 40 }); scene(in3D);
+  const sc = Math.min(390, 292.5) / 2 / 122, marks = game => game.drawing.filter(c => c[0] === 'arc' && (c[3] === 7 || Math.abs(c[3] - 20 * sc) < 1e-9));
+  assert.equal(marks(flat).length, 3, 'the width circle and two wingtip rings');
+  assert.deepEqual(in3D.drawing.filter(c => c[0] === 'arc'), marks(flat));
+});
+
 test('the 3D view switch starts on where the renderer starts, is remembered on this device apart from the saved run, and turning it off draws the flat view', async () => {
   const game = await bootIn3D('ready-to-converge');
   const toggle = game.ids.get('view-3d');

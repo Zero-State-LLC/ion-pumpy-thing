@@ -59,13 +59,14 @@ function heatMaterial(ramp) {
   });
 }
 
-// A soft round glow from `colour` at its centre to nothing at its edge, as the flat view's gradients.
+// A soft round glow from `colour` at its centre to nothing at its edge, as the flat view's
+// gradients; or, `across`, a gradient from left to right.
 const glowTextures = new Map();
-function glowTexture(stops) {
-  const key = JSON.stringify(stops);
+function glowTexture(stops, across = false) {
+  const key = JSON.stringify([stops, across]);
   if (glowTextures.has(key)) return glowTextures.get(key);
   const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g2 = c.getContext('2d'), g = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+  const g2 = c.getContext('2d'), g = across ? g2.createLinearGradient(0, 0, 128, 0) : g2.createRadialGradient(64, 64, 0, 64, 64, 64);
   for (const [at, colour] of stops) g.addColorStop(at, colour);
   g2.fillStyle = g; g2.fillRect(0, 0, 128, 128);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -92,16 +93,49 @@ async function loadAirliner(url) {
   return { parts, edges: Object.fromEntries(Object.entries(parts).map(([k, g]) => [k, new THREE.EdgesGeometry(g, 30)])), span: size.x, length: size.z };
 }
 
+/* ── The plate mount prop: Y up, its origin at its post's tip, sized by the list ── */
+async function loadPlateMount(url) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  /** @type {THREE.BufferGeometry | null} */
+  let geometry = null;
+  gltf.scene.traverse(o => { if (o instanceof THREE.Mesh && o.name === 'mount') geometry = o.geometry; });
+  if (!geometry) throw new Error('The plate mount prop has no mount mesh.');
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox, centre = box.getCenter(new THREE.Vector3());
+  // `side`: which way, along X, the base stands out from the post.
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 30), height: box.max.y - box.min.y, side: Math.sign(centre.x) || 1 };
+}
+
+// A colour as three.js shader uniforms take it, unconverted, so it matches the flat view's.
+const shaderColour = hex => new THREE.Vector3(...rgb(hex).map(v => v / 255));
+// The plasma bubble: void inside, its rim, the outer 28 % of its radius on screen, turning to the
+// rim colour at the rim's opacity, as the flat view's radial gradient.
+function bubbleMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uInside: { value: new THREE.Vector3() }, uRim: { value: new THREE.Vector3() }, uRimOpacity: { value: 1 } },
+    vertexShader: `varying vec3 vN;
+      void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uInside; uniform vec3 uRim; uniform float uRimOpacity; varying vec3 vN;
+      void main() {
+        vec3 n = normalize(vN); float edge = clamp((length(n.xy) - 0.72) / 0.28, 0.0, 1.0);
+        gl_FragColor = vec4(mix(uInside, uRim, edge), mix(1.0, uRimOpacity, edge));
+      }`,
+    transparent: true, depthWrite: false
+  });
+}
+
 /**
  * Starts WebGL on `canvas` and loads the props. Rejects where WebGL can't start.
  * @param {HTMLCanvasElement} canvas
- * @param {{ props: { airliner: string }, onLost: () => void }} options
+ * @param {{ props: { airliner: string, plateMount: string }, onLost: () => void }} options
  */
 async function start(canvas, { props, onLost }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.localClippingEnabled = true;
   canvas.addEventListener('webglcontextlost', () => onLost(), { once: true });
-  const airliner = await loadAirliner(props.airliner);
+  const [airliner, mount] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount)]);
+  // The props' geometry is shared by every world, so it stays when a world goes.
+  const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges]);
   const ramp = rampTexture();
   // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
   let worlds = [], world = null, size = '';
@@ -110,7 +144,7 @@ async function start(canvas, { props, onLost }) {
     // A world's own geometry and materials go; the prop's shared geometry and the textures stay.
     w.scene.traverse(o => {
       if (!(o instanceof THREE.Mesh || o instanceof THREE.Line || o instanceof THREE.Sprite)) return;
-      if (!(o instanceof THREE.Sprite) && !Object.values(airliner.parts).includes(o.geometry) && !Object.values(airliner.edges).includes(o.geometry)) o.geometry.dispose();
+      if (!(o instanceof THREE.Sprite) && !shared.has(o.geometry)) o.geometry.dispose();
       o.material.dispose();
     });
   }
@@ -226,6 +260,84 @@ async function start(canvas, { props, onLost }) {
       const m = take('cold mark', () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true })));
       m.material.color.set(e.colour); m.material.opacity = e.opacity;
       swapGeometry(m, tube(e.path, e.width / 2));
+    },
+    // Open's plates: boxes, as the list sizes them, outlined.
+    plate(e) {
+      const p = take('plate', () => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), surface('#ffffff'));
+        m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMaterial()));
+        return m;
+      });
+      p.position.set(...e.at); p.scale.set(...e.size); paint(p.material, e, 'heat', 'colour');
+    },
+    // The glow in the gap, brighter at the plates than in the middle, behind the plates' faces.
+    'gap glow'(e) {
+      const g = take('gap glow', () => new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+      const map = glowTexture([[0, e.colour], [.5, e.middle], [1, e.colour]], true);
+      if (g.material.map !== map) { g.material.map = map; g.material.needsUpdate = true; }
+      g.position.set(...e.at); g.scale.set(e.size[0], e.size[1], 1);
+    },
+    'plate mount'(e) {
+      const g = take('plate mount', () => {
+        const outer = new THREE.Group(), inner = new THREE.Group();
+        // Into the game's frame: the file's up (+Y) is the game's -y, up the canvas in a side-on view.
+        inner.rotation.x = Math.PI; outer.add(inner);
+        inner.add(new THREE.Mesh(mount.geometry, surface('#ffffff')), new THREE.LineSegments(mount.edges, lineMaterial()));
+        return outer;
+      });
+      g.position.set(...e.at);
+      // Evenly scaled to the list's height, and mirrored so the base stands out away from the view's
+      // middle: a presentation choice from the listed place, as the list carries no facing (docs/adr/0003).
+      const k = e.height / mount.height, inner = g.children[0];
+      inner.scale.set(k * (mount.side === Math.sign(e.at[0] || 1) ? 1 : -1), k, k);
+      paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
+    },
+    // A wormhole's throat, seen down its length: its mouth, void within and a glowing rim, and
+    // rings narrowing as they go deeper, all behind whatever is in front of it.
+    throat(e) {
+      const t = take('throat', () => {
+        const g = new THREE.Group();
+        const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 96), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+        mouth.renderOrder = 1; g.add(mouth);
+        const circle = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 96 }, (_, i) => new THREE.Vector3(Math.cos(i / 96 * TAU), Math.sin(i / 96 * TAU), 0)));
+        for (let i = 1; i <= 5; i++) { const ring = new THREE.LineLoop(i === 1 ? circle : circle.clone(), new THREE.LineBasicMaterial({ transparent: true })); ring.renderOrder = 2; g.add(ring); }
+        return g;
+      });
+      t.position.set(...e.at);
+      const [mouth, ...rings] = /** @type {any[]} */ (t.children);
+      // The flat view's gradient runs from a fifth of the radius to 1.25 times it; on the mouth's
+      // disc, 1.25 times the radius, its stops fall at these fractions.
+      const map = glowTexture([[.16, e.colour], [.815, e.colour], [.882, e.rim], [1, e.fade]]);
+      if (mouth.material.map !== map) { mouth.material.map = map; mouth.material.needsUpdate = true; }
+      mouth.scale.setScalar(e.radius * 1.25);
+      rings.forEach((ring, j) => {
+        const i = j + 1, r = e.radius * Math.pow(1 - i / 6, 1.4);
+        ring.material.color.set(e.rings); ring.material.opacity = e.ringOpacity;
+        ring.scale.set(r, r, 1); ring.position.z = e.radius * i / 6;
+      });
+    },
+    // The plasma bubble and its wall.
+    bubble(e) {
+      const b = take('bubble', () => {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), bubbleMaterial());
+        const wall = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true }));
+        wall.renderOrder = 1; ball.add(wall); return ball;
+      });
+      const { uInside, uRim, uRimOpacity } = b.material.uniforms;
+      uInside.value.copy(shaderColour(e.colour)); uRim.value.copy(shaderColour(e.rim)); uRimOpacity.value = e.rimOpacity;
+      b.position.set(...e.at); b.scale.setScalar(e.radius);
+      const wall = /** @type {any} */ (b.children[0]);
+      wall.material.color.set(e.wall); wall.material.opacity = e.wallOpacity;
+      // A torus round the bubble, facing the camera, as wide as the flat view's stroke; in the
+      // ball's units, which the ball's scale makes metres.
+      swapGeometry(wall, new THREE.TorusGeometry(1, e.wallWidth / 2 / e.radius, 8, 96));
+      facing(wall); wall.quaternion.premultiply(b.quaternion.clone().invert());
+    },
+    // Fixed specks, as squares the list's size across.
+    specks(e) {
+      const p = take('specks', () => new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ sizeAttenuation: false })));
+      p.material.color.set(e.colour); p.material.size = e.size * world.scale;
+      swapGeometry(p, new THREE.BufferGeometry().setFromPoints(e.points.map(q => new THREE.Vector3(...q))));
     },
     'throat forming': roundGlow('throat'),
     'formation glow': roundGlow('formation glow'),

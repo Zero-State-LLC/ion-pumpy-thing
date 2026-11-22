@@ -1,6 +1,6 @@
 // The assets register (docs/ASSETS.md) and the files it lists: every vendored or generated
-// file the site ships is listed with the hash of the file as committed, and the airliner prop
-// is what issue #56 asks for.
+// file the site ships is listed with the hash of the file as committed, and the airliner and
+// plate mount props are what issues #56 and #58 ask for.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -72,4 +72,18 @@ test('the airliner prop is untextured, 10,000 triangles or fewer, 1 MB or less, 
   const xyz = new Float32Array(b.buffer.slice(b.byteOffset + binStart + (view.byteOffset || 0), b.byteOffset + binStart + (view.byteOffset || 0) + pos.count * 12));
   let top = 0; for (let i = 1; i < pos.count; i++) if (xyz[i * 3 + 1] > xyz[top * 3 + 1]) top = i;
   assert.ok(xyz[top * 3 + 2] > 20, 'the fin top is at the tail, toward +Z');
+});
+
+test('the plate mount prop is untextured, 30,000 triangles or fewer, 1 MB or less, Y up at its real 100 mm, with its origin at the tip of its post', () => {
+  const file = 'assets/plate-mount.glb', j = gltf(file);
+  assert.ok(read(file).length <= 1024 * 1024, 'at most 1 MB');
+  for (const key of ['images', 'textures', 'materials', 'samplers', 'extensionsUsed']) assert.equal(j[key], undefined, `no ${key}`);
+  assert.deepEqual(j.nodes.map(n => n.name), ['mount']);
+  for (const key of ['matrix', 'rotation', 'scale', 'translation']) assert.equal(j.nodes[0][key], undefined, 'already in place');
+  const [prim] = j.meshes[0].primitives, pos = j.accessors[prim.attributes.POSITION];
+  assert.ok(j.accessors[prim.indices].count / 3 <= 30000, 'at most 30,000 triangles');
+  assert.ok(prim.attributes.NORMAL !== undefined, 'with normals, for lighting');
+  assert.ok(Math.abs(pos.max[1] - pos.min[1] - 0.1) < 1e-6, `${pos.max[1] - pos.min[1]} m tall`);
+  assert.ok(Math.abs(pos.max[1]) < 1e-6, 'the post tip, its top, at the origin');
+  for (const i of [0, 2]) assert.ok(pos.max[i] - pos.min[i] > 0.05 && pos.max[i] - pos.min[i] < 0.2, 'a base about as wide as it is tall');
 });

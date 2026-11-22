@@ -106,6 +106,21 @@ async function loadPlateMount(url) {
   return { geometry, edges: new THREE.EdgesGeometry(geometry, 30), height: box.max.y - box.min.y, side: Math.sign(centre.x) || 1 };
 }
 
+/* ── The vacuum chamber prop: Y up at its real size in metres, its origin on its axis at half its
+   height, its side wall's distance from the axis in its node's extras; sized by the list ── */
+async function loadVacuumChamber(url) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  /** @type {THREE.BufferGeometry | null} */
+  let geometry = null, wallRadius = 0;
+  gltf.scene.traverse(o => { if (o instanceof THREE.Mesh && o.name === 'chamber') { geometry = o.geometry; wallRadius = o.userData.wallRadius; } });
+  if (!geometry) throw new Error('The vacuum chamber prop has no chamber mesh.');
+  if (!(wallRadius > 0)) throw new Error('The vacuum chamber prop gives no wall radius.');
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  // Only its sharpest edges are outlined, the flanges and ribs; its faceted wall is not.
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 60), height: box.max.y - box.min.y, wallRadius };
+}
+
 // A colour as three.js shader uniforms take it, unconverted, so it matches the flat view's.
 const shaderColour = hex => new THREE.Vector3(...rgb(hex).map(v => v / 255));
 // The plasma bubble: void inside, its rim, the outer 28 % of its radius on screen, turning to the
@@ -123,19 +138,35 @@ function bubbleMaterial() {
     transparent: true, depthWrite: false
   });
 }
+// The plasma ball: the flat view's radial gradient, from its core colour at the middle to its
+// colour at 45 % of the radius on screen, 0.7 as opaque, and out to nothing at the edge.
+function plasmaMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uCore: { value: new THREE.Vector3() }, uColour: { value: new THREE.Vector3() }, uOpacity: { value: 1 } },
+    vertexShader: `varying vec3 vN;
+      void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uCore; uniform vec3 uColour; uniform float uOpacity; varying vec3 vN;
+      void main() {
+        float u = length(normalize(vN).xy);
+        vec4 mid = vec4(uColour, uOpacity * 0.7);
+        gl_FragColor = u < 0.45 ? mix(vec4(uCore, uOpacity), mid, u / 0.45) : mix(mid, vec4(uColour, 0.0), (u - 0.45) / 0.55);
+      }`,
+    transparent: true, depthWrite: false
+  });
+}
 
 /**
  * Starts WebGL on `canvas` and loads the props. Rejects where WebGL can't start.
  * @param {HTMLCanvasElement} canvas
- * @param {{ props: { airliner: string, plateMount: string }, onLost: () => void }} options
+ * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string }, onLost: () => void }} options
  */
 async function start(canvas, { props, onLost }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.localClippingEnabled = true;
   canvas.addEventListener('webglcontextlost', () => onLost(), { once: true });
-  const [airliner, mount] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount)]);
+  const [airliner, mount, chamber] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber)]);
   // The props' geometry is shared by every world, so it stays when a world goes.
-  const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges]);
+  const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges, chamber.geometry, chamber.edges]);
   const ramp = rampTexture();
   // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
   let worlds = [], world = null, size = '';
@@ -333,11 +364,92 @@ async function start(canvas, { props, onLost }) {
       swapGeometry(wall, new THREE.TorusGeometry(1, e.wallWidth / 2 / e.radius, 8, 96));
       facing(wall); wall.quaternion.premultiply(b.quaternion.clone().invert());
     },
-    // Fixed specks, as squares the list's size across.
+    // Specks the list's size across: squares, or `round` dots; each as opaque as `opacities` gives.
     specks(e) {
-      const p = take('specks', () => new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ sizeAttenuation: false })));
+      const p = take(e.round ? 'round specks' : 'specks', () => {
+        const m = new THREE.PointsMaterial({ sizeAttenuation: false });
+        if (e.round) { m.map = glowTexture([[0, 'rgba(255,255,255,1)'], [.8, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]); m.transparent = true; m.depthWrite = false; }
+        const points = new THREE.Points(new THREE.BufferGeometry(), m); points.renderOrder = 5; return points;
+      });
       p.material.color.set(e.colour); p.material.size = e.size * world.scale;
-      swapGeometry(p, new THREE.BufferGeometry().setFromPoints(e.points.map(q => new THREE.Vector3(...q))));
+      const geometry = new THREE.BufferGeometry().setFromPoints(e.points.map(q => new THREE.Vector3(...q)));
+      if (e.opacities) geometry.setAttribute('color', new THREE.Float32BufferAttribute(e.opacities.flatMap(a => [1, 1, 1, a]), 4));
+      if (p.material.vertexColors !== !!e.opacities) { p.material.vertexColors = !!e.opacities; p.material.transparent = true; p.material.needsUpdate = true; }
+      swapGeometry(p, geometry);
+    },
+    // Hold's vacuum chamber, cut away: only its far half, so the ball and coils inside it show.
+    'vacuum chamber'(e) {
+      const g = take('vacuum chamber', () => {
+        const outer = new THREE.Group(), inner = new THREE.Group();
+        // Into the game's frame: the file's up (+Y) is the game's -y, up the canvas in a side-on view.
+        inner.rotation.x = Math.PI; outer.add(inner);
+        const far = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)];
+        const body = new THREE.Mesh(chamber.geometry, surface('#ffffff')), edges = new THREE.LineSegments(chamber.edges, lineMaterial());
+        for (const o of [body, edges]) /** @type {any} */ (o.material).clippingPlanes = far;
+        inner.add(body, edges); return outer;
+      });
+      g.position.set(...e.at);
+      // Its side wall at the list's radius and its whole height the list's: sized by the list (docs/adr/0003).
+      const inner = g.children[0]; const across = e.radius / chamber.wallRadius; inner.scale.set(across, e.height / chamber.height, across);
+      paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
+    },
+    // A coil: a ring round the y axis, its left and right halves each as opaque as the list gives
+    // over the sky's colour, as the flat view fills its coils over the background, outlined round
+    // its top and bottom.
+    coil(e) {
+      const c = take('coil', () => {
+        const g = new THREE.Group();
+        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+        for (let i = 0; i < 2; i++) g.add(new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial()));
+        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })));
+        return g;
+      });
+      c.position.set(...e.at);
+      const [left, right, top, bottom, ...backing] = /** @type {any[]} */ (c.children);
+      [left, right].forEach((half, i) => {
+        // Half a torus, turned to the left (x below 0) or right half, then laid round the y axis.
+        const geometry = new THREE.TorusGeometry(e.radius, e.tube, 12, 48, Math.PI).rotateZ(i ? -Math.PI / 2 : Math.PI / 2).rotateX(Math.PI / 2);
+        swapGeometry(half, geometry); half.material.color.set(e.colour); half.material.opacity = e.opacity[i];
+        // Behind it, the same half in the sky's colour, opaque, so nothing behind shows through.
+        swapGeometry(backing[i], geometry.clone()); backing[i].material.color.copy(/** @type {any} */ (world.scene.background) || new THREE.Color(0));
+      });
+      [top, bottom].forEach((rim, i) => {
+        swapGeometry(rim, new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, k) => new THREE.Vector3(Math.cos(k / 64 * TAU) * e.radius, (i ? 1 : -1) * e.tube, Math.sin(k / 64 * TAU) * e.radius))));
+        rim.material.color.set(e.edge);
+      });
+    },
+    'plasma ball'(e) {
+      const b = take('plasma ball', () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), plasmaMaterial()); m.renderOrder = 3; return m; });
+      const { uCore, uColour, uOpacity } = b.material.uniforms;
+      uCore.value.copy(shaderColour(e.core)); uColour.value.copy(shaderColour(e.colour)); uOpacity.value = e.opacity;
+      b.position.set(...e.at); b.scale.setScalar(e.radius);
+    },
+    // The field's edge round the ball, broken at each leak, and the plasma pluming out of each:
+    // in the plane facing a side-on camera, in front of everything, as the flat view draws them.
+    'cusp leaks'(e) {
+      const n = e.angles.length, l = take('cusp leaks', () => {
+        const g = new THREE.Group();
+        for (let i = 0; i < 3 * n; i++) {
+          const m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+          m.renderOrder = 6; g.add(m);
+        }
+        return g;
+      });
+      l.position.set(...e.at);
+      const half = e.halfAngle, parts = /** @type {any[]} */ (l.children);
+      e.angles.forEach((a, i) => {
+        const next = i + 1 < n ? e.angles[i + 1] : e.angles[0] + TAU, [arc, fill, outline] = [parts[i], parts[n + i], parts[2 * n + i]];
+        // The edge from this leak to the next, a tube as wide as the flat view's stroke.
+        swapGeometry(arc, new THREE.TorusGeometry(e.edge, e.edgeWidth / 2, 6, 32, next - a - 2 * half).rotateZ(a + half));
+        arc.material.color.set(e.colour); arc.material.opacity = e.edgeOpacity;
+        // The plume: out from the edge to its reach across the leak's opening, filled and outlined.
+        const at = (r, t) => new THREE.Vector2(Math.cos(t) * r, Math.sin(t) * r), plume = new THREE.Shape();
+        plume.moveTo(...at(e.edge, a - half).toArray()); plume.lineTo(...at(e.plume, a - half).toArray());
+        plume.absarc(0, 0, e.plume, a - half, a + half, false); plume.lineTo(...at(e.edge, a + half).toArray()); plume.closePath();
+        swapGeometry(fill, new THREE.ShapeGeometry(plume, 12));
+        swapGeometry(outline, tube(plume.getPoints(12).map(p => [p.x, p.y, 0]), e.plumeWidth / 2, true));
+        for (const m of [fill, outline]) { m.material.color.set(e.colour); m.material.opacity = e.plumeOpacity; }
+      });
     },
     'throat forming': roundGlow('throat'),
     'formation glow': roundGlow('formation glow'),

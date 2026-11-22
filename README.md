@@ -25,7 +25,7 @@ Serve the static files from this folder, then open http://localhost:8000:
 
 Sound is off on every page load until you turn it on. The 29 effects use local ElevenLabs assets and follow the game events. Volume, background level, and the optional gentle pulse are adjustable. Those preferences stay on this device. See the [sound map and playback notes](docs/AUDIO.md).
 
-The Orbit, Open and Converge steps draw in 3D with three.js where the browser has WebGL; the 3D view switch beside the sound settings turns it off, and the setting stays on this device. The three.js files and the airliner and plate mount props ship from this site and are listed, with their sources, licences and hashes, in the [assets register](docs/ASSETS.md).
+The Hold, Orbit, Open and Converge steps draw in 3D with three.js where the browser has WebGL; the 3D view switch beside the sound settings turns it off, and the setting stays on this device. The three.js files and the airliner, plate mount and vacuum chamber props ship from this site and are listed, with their sources, licences and hashes, in the [assets register](docs/ASSETS.md).
 
 The pages load Google Fonts. Google Analytics loads only on the production host, as described in the privacy notice. Audio plays from this site with no ElevenLabs runtime connection.
 

@@ -1,7 +1,8 @@
 // The 3D view's renderer. It draws a step's scene list with three.js on the WebGL canvas
 // behind the 2D canvas (docs/adr/0003), and holds no game rules: what it draws, where, how
 // big and in what colour or heat all come from the list, in metres. Each view keeps its flat
-// view's camera: the same angle and scale, orthographic (docs/adr/0004). Heat-camera views
+// view's camera: the same angle and scale, orthographic (docs/adr/0004). A frame holds a view
+// for each camera on screen; each draws its own list in its own part of the canvas. Heat-camera views
 // shade every surface by its heat on the thermal scale, with thin outlines; the visible view
 // is lit; diagrams are flat colour with outlines. All text stays on the 2D canvas.
 //
@@ -102,27 +103,35 @@ async function start(canvas, { props, onLost }) {
   canvas.addEventListener('webglcontextlost', () => onLost(), { once: true });
   const airliner = await loadAirliner(props.airliner);
   const ramp = rampTexture();
-  let world = null, size = '';
+  // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
+  let worlds = [], world = null, size = '';
 
-  function build(frame) {
-    // The previous world's own geometry and materials go; the prop's shared geometry and the textures stay.
-    if (world) world.scene.traverse(o => {
+  function dispose(w) {
+    // A world's own geometry and materials go; the prop's shared geometry and the textures stay.
+    w.scene.traverse(o => {
       if (!(o instanceof THREE.Mesh || o instanceof THREE.Line || o instanceof THREE.Sprite)) return;
       if (!(o instanceof THREE.Sprite) && !Object.values(airliner.parts).includes(o.geometry) && !Object.values(airliner.edges).includes(o.geometry)) o.geometry.dispose();
       o.material.dispose();
     });
-    const { look, camera: { angle, scale }, width: W, height: H } = frame;
-    const th = angle * DEG, cam = new THREE.OrthographicCamera(-W / 2 / scale, W / 2 / scale, H / 2 / scale, -H / 2 / scale, NEAR, FAR);
+  }
+
+  function build(look, view, H) {
+    const { left, width, origin: [ox, oy], camera: { angle, scale } } = view;
+    // The frustum is cut so the scene's origin falls at the view's origin on the canvas.
+    const th = angle * DEG, cam = new THREE.OrthographicCamera((left - ox) / scale, (left + width - ox) / scale, oy / scale, (oy - H) / scale, NEAR, FAR);
     // Turned about the x axis by the view's angle, as the game's camB: screen y is y cos θ - z sin θ.
     cam.position.set(0, -CAMERA_DISTANCE * Math.sin(th), -CAMERA_DISTANCE * Math.cos(th));
     cam.up.set(0, -Math.cos(th), Math.sin(th)); cam.lookAt(0, 0, 0); cam.updateMatrixWorld();
     const scene = new THREE.Scene();
     if (look === 'visible') {
       scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-      const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-60, -90, -140); scene.add(sun);
+      // The sun turns with the camera, so every camera sees its side lit as camera 1 sees the top,
+      // as the flat view draws both cameras alike; a camera from below would otherwise see shadow.
+      const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+      sun.position.set(-60, -90, -140).applyAxisAngle(new THREE.Vector3(1, 0, 0), -th); scene.add(sun);
     }
     const outline = look === 'heat' ? [token('--ink'), .85] : look === 'visible' ? ['#2a3045', 1] : [token('--deep'), 1];
-    world = { look, cam, scene, outline, pools: new Map() };
+    return { look, cam, scene, outline, scale, view, pools: new Map() };
   }
 
   // Objects are pooled by kind and reused frame to frame; what the list leaves out is hidden.
@@ -141,7 +150,21 @@ async function start(canvas, { props, onLost }) {
   };
   const facing = o => { o.quaternion.copy(world.cam.quaternion); return o; };
   const lineMaterial = () => new THREE.LineBasicMaterial({ color: world.outline[0], transparent: true, opacity: world.outline[1] });
-  const project = p => { const v = new THREE.Vector3(...p).project(world.cam); return [v.x * world.halfW, -v.y * world.halfH]; };
+  // Where a point falls on screen, in pixels from the scene's origin: right and down.
+  const project = p => { const v = new THREE.Vector3(...p).applyMatrix4(world.cam.matrixWorldInverse); return [v.x * world.scale, -v.y * world.scale]; };
+  // Rings round each point and an outline round their triangle, standing `pad` further out from
+  // the centre on screen, as the flat view's orbGlow: the throat forming, the Formation's glow.
+  const roundGlow = kind => e => {
+    const material = m => { m.material.color.set(e.colour); m.material.opacity = e.opacity; m.renderOrder = 5; return m; };
+    const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
+    for (const p of e.points) {
+      const r = material(take(kind + ' ring', make));
+      swapGeometry(r, new THREE.RingGeometry(e.ring - e.width / 2, e.ring + e.width / 2, 48));
+      facing(r).position.set(...p);
+    }
+    const padded = e.points.map(p => { const [x, y] = project(p), m = Math.hypot(x, y) / world.scale, k = m > 0.5 ? (m + e.pad) / m : 1; return p.map(c => c * k); });
+    swapGeometry(material(take(kind + ' outline', make)), tube(padded, e.width / 2, true));
+  };
 
   const DRAW = {
     sky(e) { world.scene.background = new THREE.Color(e.colour); },
@@ -202,18 +225,8 @@ async function start(canvas, { props, onLost }) {
       m.material.color.set(e.colour); m.material.opacity = e.opacity;
       swapGeometry(m, tube(e.path, e.width / 2));
     },
-    'throat forming'(e) {
-      const material = m => { m.material.color.set(e.colour); m.material.opacity = e.opacity; m.renderOrder = 5; return m; };
-      const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
-      for (const p of e.points) {
-        const r = material(take('throat ring', make));
-        swapGeometry(r, new THREE.RingGeometry(e.ring - e.width / 2, e.ring + e.width / 2, 48));
-        facing(r).position.set(...p);
-      }
-      // The outline round the triangle stands `pad` further out from the centre, on screen.
-      const padded = e.points.map(p => { const [x, y] = project(p), m = Math.hypot(x, y) / world.scale, k = m > 0.5 ? (m + e.pad) / m : 1; return p.map(c => c * k); });
-      swapGeometry(material(take('throat outline', make)), tube(padded, e.width / 2, true));
-    },
+    'throat forming': roundGlow('throat'),
+    'formation glow': roundGlow('formation glow'),
     flash(e) {
       const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
       if (e.style === 'bright') {
@@ -231,20 +244,26 @@ async function start(canvas, { props, onLost }) {
 
   return {
     /**
-     * Draws one frame of a scene list.
-     * @param {{ width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'diagram', camera: { angle: number, scale: number }, list: any[] }} frame
+     * Draws one frame: each view's scene list through its camera, in its part of the canvas.
+     * @param {{ width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'diagram', views: SceneView[] }} frame
      */
     draw(frame) {
-      const { width: W, height: H, pixelRatio, look, camera } = frame;
-      const key = [W, H, pixelRatio, look, camera.angle, camera.scale].join();
+      const { width: W, height: H, pixelRatio, look, views } = frame;
+      const key = JSON.stringify([W, H, pixelRatio, look, views.map(({ left, width, origin, camera }) => [left, width, origin, camera])]);
       if (key !== size) {
         renderer.setPixelRatio(Math.min(pixelRatio, 2)); renderer.setSize(W, H, false);
-        build(frame); Object.assign(world, { halfW: W / 2, halfH: H / 2, scale: camera.scale }); size = key;
+        worlds.forEach(dispose); worlds = views.map(view => build(look, view, H)); size = key;
       }
-      for (const pool of world.pools.values()) pool.used = 0;
-      for (const entry of frame.list) DRAW[entry.kind]?.(entry);
-      for (const pool of world.pools.values()) pool.items.forEach((o, i) => { if (i >= pool.used) o.visible = false; });
-      renderer.render(world.scene, world.cam);
+      renderer.setScissorTest(true);
+      views.forEach((view, i) => {
+        world = worlds[i];
+        for (const pool of world.pools.values()) pool.used = 0;
+        for (const entry of view.list) DRAW[entry.kind]?.(entry);
+        for (const pool of world.pools.values()) pool.items.forEach((o, j) => { if (j >= pool.used) o.visible = false; });
+        // Viewports count from the canvas's bottom; each view fills the full height.
+        renderer.setViewport(view.left, 0, view.width, H); renderer.setScissor(view.left, 0, view.width, H);
+        renderer.render(world.scene, world.cam);
+      });
     }
   };
 }

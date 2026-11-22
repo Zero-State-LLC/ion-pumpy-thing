@@ -25,7 +25,7 @@ Serve the static files from this folder, then open http://localhost:8000:
 
 Sound is off on every page load until you turn it on. The 29 effects use local ElevenLabs assets and follow the game events. Volume, background level, and the optional gentle pulse are adjustable. Those preferences stay on this device. See the [sound map and playback notes](docs/AUDIO.md).
 
-The Converge step draws in 3D with three.js where the browser has WebGL; the 3D view switch beside the sound settings turns it off, and the setting stays on this device. The three.js files and the airliner prop ship from this site and are listed, with their sources, licences and hashes, in the [assets register](docs/ASSETS.md).
+The Orbit and Converge steps draw in 3D with three.js where the browser has WebGL; the 3D view switch beside the sound settings turns it off, and the setting stays on this device. The three.js files and the airliner prop ship from this site and are listed, with their sources, licences and hashes, in the [assets register](docs/ASSETS.md).
 
 The pages load Google Fonts. Google Analytics loads only on the production host, as described in the privacy notice. Audio plays from this site with no ElevenLabs runtime connection.
 
@@ -40,7 +40,7 @@ With Node 22 or later:
     npm test
     npm run test:browser
 
-`npm test` (the same as `node --test tests/*.test.cjs`) checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. `npm run test:browser` opens every step and the ledger in the installed Chrome in a 390 × 844 and a 320 × 640 phone window, and fails if the page scrolls sideways, throws, or draws canvas text outside the canvas. It then opens each 3D view and fails if WebGL doesn't start or the 3D frame is blank. Without Chrome, or on an older Node, it skips locally and fails in CI. Neither replaces a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
+`npm test` (the same as `node --test tests/*.test.cjs`) checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. `npm run test:browser` opens every step and the ledger in the installed Chrome in a 390 × 844 and a 320 × 640 phone window, and fails if the page scrolls sideways, throws, or draws canvas text outside the canvas. It then opens each 3D view and fails if WebGL doesn't start or the 3D frame is blank, or, for Orbit, either camera's half of it. Without Chrome, or on an older Node, it skips locally and fails in CI. Neither replaces a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
 
 ## Sources and framing
 

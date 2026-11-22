@@ -7,7 +7,7 @@
 // not throw, and must draw no canvas text outside its canvas. Those run in the
 // flat view. Then each view with a 3D view (VIEWS_3D) is checked again in 3D:
 // WebGL must start and the 3D canvas must draw a frame that isn't blank. See
-// docs/adr/0001, docs/adr/0003 and issues #15, #45 and #56.
+// docs/adr/0001, docs/adr/0003 and issues #15, #45, #56 and #57.
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
 //
@@ -28,12 +28,15 @@ const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'Ledger'];
 // the button's id, and a name for what it shows.
 const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
 // The views drawn in 3D, each checked at a moment of the completed run's replay where it has
-// something to draw: the step, the view's button, a name for it, the replay's per cent, and
-// whether the frame is cut at the entrance. 30 % of the way through, the front of the airliner,
-// its nose and forward fuselage, is past the entrance, the canvas's middle row, so nothing may
-// be drawn in the frame's top half. (Halfway, too little is left on a 320 px phone to count as drawn.)
-const VIEWS_3D = [[5, 'cv-thermal', 'Converge, thermal view', 10, false], [5, 'cv-visible', 'Converge, visible view', 10, false],
-  [5, 'cv-transit', 'Converge, transit diagram', 0, false], [5, 'cv-transit', 'Converge, transit diagram', 30, true]];
+// something to draw: the step, the view's button (null for a step with one view), a name for it,
+// the replay's per cent (null for a step with no replay), and what else the frame must show:
+// 'cut', that it is cut at the entrance, or 'split', that each half of the canvas, one camera
+// each, is drawn. 30 % of the way through the transit, the front of the airliner, its nose and
+// forward fuselage, is past the entrance, the canvas's middle row, so nothing may be drawn in
+// the frame's top half. (Halfway, too little is left on a 320 px phone to count as drawn.)
+const VIEWS_3D = [[3, null, 'Orbit, both cameras', null, 'split'],
+  [5, 'cv-thermal', 'Converge, thermal view', 10, null], [5, 'cv-visible', 'Converge, visible view', 10, null],
+  [5, 'cv-transit', 'Converge, transit diagram', 0, null], [5, 'cv-transit', 'Converge, transit diagram', 30, 'cut']];
 // How many device pixels either side of the entrance the cut check leaves out, for anti-aliasing.
 const CUT_MARGIN = 2;
 // The 3D view's setting, kept apart from the saved run.
@@ -263,10 +266,10 @@ async function main() {
       // The same views in 3D. Each waits for the 3D canvas to show, which it does once WebGL has
       // started and the renderer has drawn the view's scene list.
       await loadSavedRun('completed-run', undefined, true);
-      for (const [step, button, name, at, cut] of VIEWS_3D) {
-        const view = `Completed run, ${name} in 3D at ${at} % of the replay`;
-        await evaluate(`document.getElementById('step-${step}').click(); document.getElementById('${button}').click();
-          (s => { s.value = '${at}'; s.dispatchEvent(new Event('input', { bubbles: true })); })(document.getElementById('cv-scrub'))`);
+      for (const [step, button, name, at, also] of VIEWS_3D) {
+        const view = `Completed run, ${name} in 3D` + (at === null ? '' : ` at ${at} % of the replay`);
+        await evaluate(`document.getElementById('step-${step}').click();` + (button ? ` document.getElementById('${button}').click();` : '')
+          + (at === null ? '' : ` (s => { s.value = '${at}'; s.dispatchEvent(new Event('input', { bubbles: true })); })(document.getElementById('cv-scrub'))`));
         const shown = await evaluate(`new Promise(r => { const t0 = performance.now(); (function wait() {
           if (!document.getElementById('gl').hidden) return r(true);
           if (performance.now() - t0 > ${START_3D_MS} || document.getElementById('view-3d').disabled) return r(false);
@@ -286,10 +289,18 @@ async function main() {
           for (let i = 0; i < px.length; i += 4) if (px[i] !== px[0] || px[i + 1] !== px[1] || px[i + 2] !== px[2]) {
             differ++; if (Math.floor(i / 4 / w) > h / 2 + ${CUT_MARGIN}) beyond++;
           }
-          r({ fraction: differ / (w * h), beyond });
+          // Each half, one camera's, is read against its own outer bottom corner, as each camera fills
+          // its own background.
+          const halves = [0, 0], corners = [0, (w - 1) * 4];
+          for (let i = 0; i < px.length; i += 4) {
+            const side = (i / 4) % w < w / 2 ? 0 : 1, c = corners[side];
+            if (px[i] !== px[c] || px[i + 1] !== px[c + 1] || px[i + 2] !== px[c + 2]) halves[side]++;
+          }
+          r({ fraction: differ / (w * h), beyond, halves: halves.map(n => n / (w * h / 2)) });
         }))`);
         if (!(drawn.fraction >= DRAWN_FRACTION)) failures.push(`${where(view)}: the 3D frame is blank (${(drawn.fraction * 100).toFixed(2)} % of its pixels differ from its corner)`);
-        if (cut && drawn.beyond) failures.push(`${where(view)}: ${drawn.beyond} pixels of the airliner are drawn past the entrance`);
+        if (also === 'cut' && drawn.beyond) failures.push(`${where(view)}: ${drawn.beyond} pixels of the airliner are drawn past the entrance`);
+        if (also === 'split') drawn.halves.forEach((f, i) => { if (!(f >= DRAWN_FRACTION)) failures.push(`${where(view)}: camera ${i + 1}'s half of the 3D frame is blank (${(f * 100).toFixed(2)} % of its pixels differ from its corner)`); });
         views3d++;
       }
       // The views draw labels, so measuring none means the measuring has stopped working, not that all is well.

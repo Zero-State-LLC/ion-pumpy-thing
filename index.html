@@ -1,10 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>
 /* Hallmark · source-audit polish · preserve the thermal instrument design and all game behavior */
 /* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: execution; fix document overflow and label tracking without changing the experiment */
-:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: var(--sp-2) 0; border: 1px solid var(--line); border-radius: 10px; padding: var(--sp-3) var(--sp-4); }
 .sound-settings summary { cursor: pointer; min-height: 32px; }
-.sound-controls { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding: 8px 0; }
-.sound-controls label { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.sound-controls { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-6); align-items: center; padding: var(--sp-2) 0; }
+.sound-controls label { display: flex; gap: var(--sp-3); align-items: center; font-size: 13px; }
 .sound-controls input[type=range] { width: min(160px, 40vw); }
 .sound-controls input[type=checkbox] { width: 20px; height: 20px; }
 </style>
@@ -109,7 +109,7 @@ a { color: var(--cold); }
 .top p { margin: 0; max-width: 52ch; color: var(--muted); }
 
 .key { font-size: var(--fs-sm); color: var(--muted); }
-.key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; }
+.key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; min-height: 32px; }
 .key ul { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
 .key li { display: inline-flex; gap: var(--sp-2); align-items: center; white-space: nowrap; }
 .tag { font-family: var(--mono); font-size: var(--fs-xs); padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
@@ -122,6 +122,7 @@ a { color: var(--cold); }
 .rail { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-4); align-items: center; justify-content: space-between; }
 .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); counter-reset: s; }
 .steps button {
+  min-height: 32px;
   font-family: var(--display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: var(--track-display); text-transform: uppercase;
   color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3);
   cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
@@ -153,7 +154,7 @@ a { color: var(--cold); }
 .view #gl { position: absolute; inset: 0; }
 .view #cv { position: relative; }
 .view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: 0 0 var(--sp-3); }
-.view-settings label { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.view-settings label { display: flex; gap: var(--sp-3); align-items: center; font-size: 13px; }
 .view-settings input[type=checkbox] { width: 20px; height: 20px; }
 .view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
 .view::before { left: var(--sp-2); top: var(--sp-2); border-right: 0; border-bottom: 0; }
@@ -172,7 +173,7 @@ a { color: var(--cold); }
 .lesson .tag { margin-right: var(--sp-2); }
 .note { color: var(--muted); font-size: var(--fs-md); }
 .source-card { border: 1px solid var(--line); padding: var(--sp-2) var(--sp-3); }
-.source-card summary { cursor: pointer; color: var(--cold); min-height: 28px; }
+.source-card summary { cursor: pointer; color: var(--cold); min-height: 32px; }
 .source-card[open] summary { margin-bottom: var(--sp-3); }
 .source-card .source { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
 .source-card .refs { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); font-size: var(--fs-sm); color: var(--muted); }
@@ -188,7 +189,7 @@ a { color: var(--cold); }
 .ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: var(--sp-0) 0 0; height: 24px; cursor: pointer; }
 .seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .seg button, .btn {
-  font: 500 var(--fs-sm) var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); cursor: pointer;
+  font: 500 var(--fs-sm) var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); min-height: 32px; cursor: pointer;
 }
 .seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--ink); color: var(--deep); border-color: var(--ink); }
 .btn.primary { background: var(--warm); border-color: var(--warm); color: var(--deep); font-weight: 600; }
@@ -204,7 +205,7 @@ a { color: var(--cold); }
 .pad { position: relative; height: 150px; border: 1px solid var(--muted); background:
   linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)), var(--deep);
   touch-action: none; cursor: crosshair; }
-.pad i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
+.pad i { position: absolute; width: 20px; height: 20px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
 .padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
 .assist { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 

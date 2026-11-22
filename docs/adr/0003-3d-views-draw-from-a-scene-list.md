@@ -13,6 +13,7 @@ Each 3D view builds a scene list from the run's state on every frame: one entry 
 ## Consequences
 
 - In ADR 0001, "canvas drawing" now covers both the 2D drawing calls and the scene list.
+- The game hands each frame's scene list to the renderer script. The test harness wraps the renderer before the game starts, as it wraps the sound engine, and records every list, so `window.__lab` stays as it is.
 - The renderer holds no game rules. Anything a physics model shapes or moves reaches it through the list, so no claim can sit in the renderer where tests can't see it.
 - A prop enters the list by kind and size only. Its mesh file is presentation.
 - The flat view stays, with its tests, as the fallback.

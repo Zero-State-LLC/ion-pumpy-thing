@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 test('each lesson brief names an action and the source card stays accessible', () => {
   const section = html.match(/const BRIEFS = \[([\s\S]*?)\];/);
   assert.ok(section, 'BRIEFS section exists');
-  const briefs = [...section[1].matchAll(/^\s*'([^']*)',?\s*$/gm)].map(m => m[1]);
+  const briefs = section[1].split('\n').map(line => line.trim()).filter(line => line.startsWith("'"));
   assert.equal(briefs.length, 6);
   for (const brief of briefs) assert.ok(brief.length > 50, 'brief contains useful instructions');
   assert.match(html, /<summary>Explanation and sources<\/summary>/);

@@ -245,6 +245,21 @@ async function main() {
       await loadWith('localStorage.clear()');
       if (await currentStep() !== 0) throw new Error(`A fresh run did not open on Ignite in the ${width} × ${height} window.`);
       await check('Fresh run, step 1 (Ignite), later steps locked');
+      // The first controls are below the scene on phones. A visible shortcut must
+      // take touch and keyboard users to the live controls without hiding them behind the sticky scene.
+      const jump = await evaluate(`(async () => {
+        const link = document.getElementById('jump-to-controls');
+        const target = document.getElementById('controls');
+        const visible = !!link && getComputedStyle(link).display !== 'none' && link.getBoundingClientRect().height >= 44;
+        if (!link || !target) return { exists: false };
+        link.click();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return { exists: true, visible, focused: document.activeElement === target,
+          top: target.getBoundingClientRect().top,
+          sceneBottom: document.querySelector('.view').getBoundingClientRect().bottom };
+      })()`);
+      if (!jump.exists || !jump.visible || !jump.focused || jump.top < jump.sceneBottom - 8)
+        failures.push(`${where('Fresh run')}: Go to step controls must be visible, focus the current controls, and scroll below the sticky scene (${JSON.stringify(jump)})`);
       await loadSavedRun('completed-run');
       let ledgerRows = 0;
       for (let i = 0; i < STEPS.length; i++) {

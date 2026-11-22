@@ -286,9 +286,10 @@ async function start(canvas, { props, onLost }) {
         return outer;
       });
       g.position.set(...e.at);
-      // Evenly scaled to the list's height, and mirrored so the base stands out to the side the list faces.
+      // Evenly scaled to the list's height, and mirrored so the base stands out away from the view's
+      // middle: a presentation choice from the listed place, as the list carries no facing (docs/adr/0003).
       const k = e.height / mount.height, inner = g.children[0];
-      inner.scale.set(k * (mount.side === e.facing ? 1 : -1), k, k);
+      inner.scale.set(k * (mount.side === Math.sign(e.at[0] || 1) ? 1 : -1), k, k);
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
     },
     // A wormhole's throat, seen down its length: its mouth, void within and a glowing rim, and

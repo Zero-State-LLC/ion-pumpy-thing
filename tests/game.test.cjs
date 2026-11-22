@@ -2022,8 +2022,35 @@ test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the a
     mounts.forEach((m, i) => {
       assert.equal(m.height, PLATE_MOUNT_HEIGHT, 'at real size');
       assert.deepEqual(m.at, [plates[i].at[0], plates[i].at[1] + plates[i].size[1] / 2, 0], 'its post holds the plate\'s lower edge');
-      assert.equal(m.facing, i ? 1 : -1, 'its base stands out from the gap, on the plate\'s far side');
+      assert.deepEqual(Object.keys(m).sort(), ['at', 'colour', 'height', 'kind'], 'kind, place, size and colour only (docs/adr/0003)');
     });
+  }
+});
+
+// The gap's measure line on the plates view: the straight lines stroked from one plate to the
+// other, at the gap's width about the canvas's middle, as [y, from x, to x] in canvas pixels.
+function gapMeasureLines(game, ld) {
+  const gap = 390 * (0.06 + (ld - 1) / 3 * 0.32), lines = [];
+  game.drawing.length = 0; paint(game);
+  let at = null;
+  for (const call of game.drawing) {
+    if (call[0] === 'moveTo') at = call.slice(1, 3);
+    else if (call[0] === 'lineTo' && at) {
+      if (Math.abs(at[1] - call[2]) < 1e-9 && Math.abs(Math.abs(call[1] - at[0]) - gap) < 1e-9) lines.push([at[1], at[0], call[1]]);
+      at = call.slice(1, 3);
+    }
+  }
+  return lines;
+}
+
+test('Open\'s plates in 3D keep the gap\'s measure line where the flat view draws it, over the plate mounts', async () => {
+  for (const [ld, la] of [[3, 0], [1, 6]]) {
+    const flat = bootFromSavedRun(savedRunOn(4));
+    click(flat, 'op-plates'); slide(flat, 'op-d', ld); slide(flat, 'op-a', la);
+    const shown = await openIn3D('plates', { 'op-d': ld, 'op-a': la });
+    const want = gapMeasureLines(flat, ld);
+    assert.equal(want.length, 1, `one measure line in the flat view at ${ld}, ${la}`);
+    assert.deepEqual(gapMeasureLines(shown, ld), want, 'the same line over the 3D view (the 2D canvas is in front of the mounts)');
   }
 });
 

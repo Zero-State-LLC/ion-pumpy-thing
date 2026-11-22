@@ -1308,8 +1308,8 @@ function platesScene(st) {
   const sc = labScale(), { cy, gap, height } = platesLayout(st), m = px => px / sc, y = m(cy - H / 2), h = m(height);
   const list = [{ kind: 'sky', colour: COL.deep }, { kind: 'gap glow', at: [0, y, 0], size: [m(gap), h], colour: GAP_GLOW.edge, middle: GAP_GLOW.middle }];
   for (const side of [-1, 1]) list.push({ kind: 'plate', at: [side * m(gap) / 2, y, 0], size: [m(8), h, h], colour: COL.muted });
-  // `facing` is the side, along x, each mount's base stands out to: away from the gap.
-  for (const side of [-1, 1]) list.push({ kind: 'plate mount', at: [side * m(gap) / 2, y + h / 2, 0], height: PLATE_MOUNT_HEIGHT, facing: side, colour: '#aab3c5' });
+  // Kind, place, size and colour only (docs/adr/0003): the renderer turns each base away from the gap.
+  for (const side of [-1, 1]) list.push({ kind: 'plate mount', at: [side * m(gap) / 2, y + h / 2, 0], height: PLATE_MOUNT_HEIGHT, colour: '#aab3c5' });
   return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
 }
 function drawPlates(st, flat = true) {
@@ -1327,11 +1327,11 @@ function drawPlates(st, flat = true) {
     ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x - side * 18, cy);
     ctx.lineTo(x - side * 12, cy - 5); ctx.moveTo(x - side * 18, cy); ctx.lineTo(x - side * 12, cy + 5); ctx.stroke();
   }
-  // The gap's measure line, below the plates; over the 3D view, where the plate mounts stand
-  // below the plates, it moves up into the gap, clear of them.
-  const y = cy + height / 2 + 18, ly = flat ? y : cy + height / 2 - 14;
+  // The gap's measure line, below the plates, where the flat view draws it in 3D too: the 2D
+  // canvas is in front, so it shows over the plate mounts (#53: the 2D marks line up).
+  const y = cy + height / 2 + 18;
   ctx.strokeStyle = COL.warm; ctx.lineWidth = 1; ctx.beginPath();
-  ctx.moveTo(cx - gap / 2, ly - 4); ctx.lineTo(cx - gap / 2, ly + 4); ctx.moveTo(cx - gap / 2, ly); ctx.lineTo(cx + gap / 2, ly); ctx.lineTo(cx + gap / 2, ly - 4); ctx.moveTo(cx + gap / 2, ly); ctx.lineTo(cx + gap / 2, ly + 4); ctx.stroke();
+  ctx.moveTo(cx - gap / 2, y - 4); ctx.lineTo(cx - gap / 2, y + 4); ctx.moveTo(cx - gap / 2, y); ctx.lineTo(cx + gap / 2, y); ctx.lineTo(cx + gap / 2, y - 4); ctx.moveTo(cx + gap / 2, y); ctx.lineTo(cx + gap / 2, y + 4); ctx.stroke();
   label('gap ' + fmt(10 ** st.ld) + ' nm', cx, y + 20, COL.warm, 'center');
   label('area ' + sci(10 ** st.la) + ' m²', cx, cy - height / 2 - 16, COL.ink, 'center');
   label('Attraction between the plates', cx, 48, COL.cold, 'center', W < 400 ? 10 : 12);

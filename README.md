@@ -38,7 +38,7 @@ With Node 22 or later:
     npm test
     npm run test:browser
 
-`npm test` (the same as `node --test tests/*.test.cjs`) checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. `npm run test:browser` opens every step and the ledger in the installed Chrome in a 390 px phone window, and fails if the page scrolls sideways or throws. Without Chrome, or on an older Node, it skips locally and fails in CI. Neither replaces a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
+`npm test` (the same as `node --test tests/*.test.cjs`) checks the game logic, drawing commands, audio lifecycle, asset integrity, and SEO with a minimal DOM and mocked Web Audio. `npm run test:browser` opens every step and the ledger in the installed Chrome in a 390 × 844 and a 320 × 640 phone window, and fails if the page scrolls sideways, throws, or draws canvas text outside the canvas. Without Chrome, or on an older Node, it skips locally and fails in CI. Neither replaces a real browser playthrough. See [the implementation and acceptance notes](docs/UPGRADE.md).
 
 ## Sources and framing
 

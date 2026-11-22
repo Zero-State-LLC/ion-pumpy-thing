@@ -1999,9 +1999,9 @@ async function openIn3D(view, settings = {}, options = {}) {
   return game;
 }
 
-test('the 3D view loads the airliner, the plate mount and the vacuum chamber props', async () => {
+test('the 3D view loads the airliner, the plate mount, the vacuum chamber, the piston housing and the pump handle props', async () => {
   const game = await openIn3D('plates');
-  assert.deepEqual({ ...game.view3d.given.props }, { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb' });
+  assert.deepEqual({ ...game.view3d.given.props }, { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb', pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb' });
 });
 
 test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the area the player sets, as the flat view draws them, each held by a plate mount prop at its real 100 mm', async () => {
@@ -2345,6 +2345,138 @@ test('over Fuel\'s 3D view the 2D canvas draws the flat view\'s words and marks:
   }
 });
 
+// The Ignite step reloaded at drive power 60 and `p` torr, with the stand-in renderer.
+const igniteAt = (p, options = {}) => bootFromSavedRun(savedRunOn(0, d => Object.assign(d.stages[0].values, { power: 60, p })), options);
+const igniteIn3D = (p, options = {}) => bootIn3D(savedRunOn(0, d => Object.assign(d.stages[0].values, { power: 60, p })), options);
+// The flat Ignite canvas, one frame, in pixels: the pump's pipe, barrel, piston head, rod and
+// handle; the plasma's glow; the jar and the haze in it; the ions and electrons (the legend's
+// dots, at x 38, aside); and the dashed front the piston presses the plasma to, or null.
+function igniteShapes(game) {
+  game.drawing.length = 0; paint(game);
+  const d = game.drawing, fills = d.flatMap((c, i) => c[0] === 'fillRect' && (c[1] || c[2]) ? [{ box: c.slice(1), fill: settingAt(d, i, 'fillStyle') }] : []);
+  const pipe = d.findIndex(c => c[0] === 'lineTo'), barrel = d.findIndex(c => c[0] === 'strokeRect'), glow = d.find(c => c[0] === 'createRadialGradient');
+  const arcs = d.flatMap((c, i) => c[0] === 'arc' && c[1] !== 38 ? [{ at: [c[1], c[2]], r: c[3], i }] : []);
+  // The jar: the circle its haze fills a pixel inside.
+  const haze = arcs.find(c => arcs.some(o => Math.abs(o.r - 1 - c.r) < 1e-9)), jar = arcs.find(o => Math.abs(o.r - 1 - haze.r) < 1e-9);
+  const after = (i, call) => d.slice(i + 1).find(c => c[0] === 'stroke' || c[0] === 'fill')?.[0] === call;
+  const ring = arcs.find(c => c !== jar && after(c.i, 'stroke') && JSON.stringify(settingAt(d, c.i, 'setLineDash')) === '[5,4]');
+  const dots = r => arcs.filter(c => c.r === r).map(c => ({ at: c.at, fill: settingAt(d, c.i, 'fillStyle') }));
+  const [head, rod, handle] = fills;
+  return {
+    pipe: { from: d[pipe - 1].slice(1, 3), to: d[pipe].slice(1, 3), width: settingAt(d, pipe, 'lineWidth'), colour: settingAt(d, pipe, 'strokeStyle') },
+    barrel: { box: d[barrel].slice(1), colour: settingAt(d, barrel, 'strokeStyle') }, head, rod, handle,
+    glow: glow ? { at: glow.slice(1, 3), radius: glow[6], stops: glow.stops } : null,
+    jar: { at: jar.at, radius: jar.r, width: settingAt(d, jar.i, 'lineWidth'), colour: settingAt(d, jar.i, 'strokeStyle') },
+    haze: { radius: haze.r, fill: settingAt(d, haze.i, 'fillStyle') },
+    ions: dots(4), electrons: dots(1.8),
+    front: ring ? { at: ring.at, radius: ring.r, width: settingAt(d, ring.i, 'lineWidth'), colour: settingAt(d, ring.i, 'strokeStyle'), opacity: settingAt(d, ring.i, 'globalAlpha') } : null
+  };
+}
+// The same frame with the 3D view turned off, so the flat Ignite view draws the state the scene showed.
+function flatAfterIgnite(game) {
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  const shapes = igniteShapes(game); toggle.checked = true; toggle.onchange(); return shapes;
+}
+// A flat box [x, y, width, height] in pixels, from a listed centre and its size in metres.
+const boxAround = (at, width, height) => { const [x, y] = labPixels(at), w = width * LAB_SCALE, h = height * LAB_SCALE; return [x - w / 2, y - h / 2, w, h]; };
+const nearBox = (a, b, why) => a.forEach((v, k) => assert.ok(Math.abs(v - b[k]) < 1e-9, `${why}: [${a}] is not [${b}]`));
+// Pressures above, in and below the Ignite band, with what the readout says about each.
+const IGNITE_PRESSURES = [[760, 'above'], [5, 'above'], [1, 'in'], [.4, 'in'], [.1, 'below']];
+
+test('Ignite in 3D: a diagram side on at the lab\'s scale, where the piston travels with each stroke and presses the plasma in to its front only while the pressure is in its band, above, in and below it', async () => {
+  for (const reduced of [false, true]) for (const [p, band] of IGNITE_PRESSURES) {
+    const game = await igniteIn3D(p, { reduced });
+    // At rest, a stroke's start, part way and done: each stroke takes a fifth of the pressure.
+    const heads = {};
+    for (const [moment, strokes, seconds] of [['at rest', 0, .5], ['a stroke starts', 1, 0], ['part way', 0, .1], ['done', 0, .3]]) {
+      const before = torr(game);
+      for (let i = 0; i < strokes; i++) press(game, 'ig-pump', ' ');
+      for (let i = 0; i < Math.round(seconds * 20); i++) game.lab.advance(1 / 20);
+      if (strokes) { game.lab.advance(0); assert.ok(torr(game) < before, 'a stroke lowers the pressure'); }
+      const inBand = pressureNote(game) === 'in the band', why = `${p} torr ${moment} (${torr(game)} torr)${reduced ? ', reduced motion' : ''}`;
+      if (moment === 'at rest') assert.equal(inBand, band === 'in', `${p} torr stays ${band} the band at rest`);
+      const frame = nextScene(game), flat = flatAfterIgnite(game);
+      assert.equal(frame.look, 'diagram', 'a lab schematic, so drawn as a diagram (docs/adr/0004)');
+      assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
+      const [piston] = entries(frame, 'piston'), [front] = entries(frame, 'compression front');
+      nearBox(boxAround(piston.at, 2 * piston.radius, piston.thickness), flat.head.box, `the piston's head where the flat view draws it at ${why}`);
+      const [rx, ry] = labPixels(piston.rodTop), [, hy] = labPixels(piston.at); heads[moment] = piston.at[1];
+      nearBox([rx - piston.rodWidth * LAB_SCALE / 2, ry, piston.rodWidth * LAB_SCALE, hy - piston.thickness * LAB_SCALE / 2 - ry], flat.rod.box, `its rod at ${why}`);
+      assert.equal(piston.colour, flat.head.fill); assert.equal(piston.colour, flat.rod.fill);
+      if (!inBand) { assert.equal(front, undefined, `nothing pressed in at ${why}`); assert.equal(flat.front, null); continue; }
+      assert.ok(flat.front, `the flat view draws the front at ${why}`);
+      labPixels(front.at).forEach((v, k) => near(v, flat.front.at[k], `the front where the flat view's is at ${why}`));
+      near(front.radius * LAB_SCALE, flat.front.radius, `as far in at ${why}`); near(front.radius * LAB_SCALE, flat.jar.radius * .45, 'at the piston\'s front radius');
+      near(front.width * LAB_SCALE, flat.front.width, 'as wide'); assert.equal(front.colour, flat.front.colour); near(front.opacity, flat.front.opacity, 'as faint');
+      assert.deepEqual(front.dash.map(v => Math.round(v * LAB_SCALE * 1e6) / 1e6), [5, 4], 'dashed as the flat view\'s');
+    }
+    // The stroke lifts the head to the barrel's top, and it travels back down as the stroke ends.
+    assert.ok(heads['a stroke starts'] < heads['part way'] && heads['part way'] < heads.done && heads.done === heads['at rest'], `the piston travels: ${JSON.stringify(heads)}`);
+  }
+});
+
+test('Ignite in 3D: the piston housing and pump handle props, where the flat view draws the barrel and handle, listed by kind, place, size and colour only', async () => {
+  const game = await igniteIn3D(5);
+  const frame = nextScene(game), flat = flatAfterIgnite(game);
+  const [housing] = entries(frame, 'piston housing'), [handle] = entries(frame, 'pump handle');
+  assert.deepEqual(Object.keys(housing).sort(), ['at', 'colour', 'height', 'kind', 'radius'], 'kind, place, size and colour only (docs/adr/0003)');
+  assert.deepEqual(Object.keys(handle).sort(), ['at', 'colour', 'kind', 'span'], 'kind, place, size and colour only (docs/adr/0003)');
+  nearBox(boxAround(housing.at, 2 * housing.radius, housing.height), flat.barrel.box, 'the housing round the flat view\'s barrel');
+  const [x, y, w, h] = flat.handle.box;
+  labPixels(handle.at).forEach((v, k) => near(v, [x + w / 2, y + h / 2][k], 'the handle where the flat view\'s is'));
+  near(handle.span * LAB_SCALE, w, 'as wide'); assert.equal(handle.colour, flat.handle.fill);
+  for (const prop of [housing, handle]) assert.equal(prop.at[2], 0);
+  const [pipe] = entries(frame, 'pipe');
+  labPixels(pipe.from).forEach((v, k) => near(v, flat.pipe.from[k], 'the pipe from the jar')); labPixels(pipe.to).forEach((v, k) => near(v, flat.pipe.to[k], 'to the barrel'));
+  near(pipe.width * LAB_SCALE, flat.pipe.width, 'as wide'); assert.equal(pipe.colour, flat.pipe.colour);
+});
+
+test('Ignite in 3D: the jar, its haze, the plasma\'s glow and the ions and electrons where, as big and as bright as the flat view draws them, for both gases', async () => {
+  for (const gas of ['h', 'ar']) for (const [p] of IGNITE_PRESSURES) {
+    const game = await igniteIn3D(p); if (gas === 'ar') click(game, 'gas-ar');
+    for (let i = 0; i < 20; i++) game.lab.advance(1 / 20);
+    const why = `${gas} at ${p} torr`, frame = nextScene(game), flat = flatAfterIgnite(game);
+    const [jar] = entries(frame, 'glass jar'), glows = entries(frame, 'plasma glow');
+    labPixels(jar.at).forEach((v, k) => near(v, flat.jar.at[k], `the jar where the flat view's is at ${why}`));
+    near(jar.radius * LAB_SCALE, flat.jar.radius, 'as big'); near(jar.width * LAB_SCALE, flat.jar.width, 'as wide'); assert.equal(jar.colour, flat.jar.colour);
+    near(jar.inside * LAB_SCALE, flat.haze.radius, 'its haze as big'); const [hr, hg, hb, ha] = rgba(flat.haze.fill);
+    assert.equal(jar.hazeColour, hexOf([hr, hg, hb])); near(jar.haze, ha, `the haze as thick at ${why}`);
+    assert.equal(glows.length, flat.glow ? 1 : 0, `a glow when the flat view draws one at ${why}`);
+    if (flat.glow) {
+      const [glow] = glows;
+      labPixels(glow.at).forEach((v, k) => near(v, flat.glow.at[k], `the glow where the flat view's is at ${why}`));
+      near(glow.radius * LAB_SCALE, flat.glow.radius, `as big at ${why}`);
+      assert.equal(glow.stops.length, flat.glow.stops.length);
+      flat.glow.stops.forEach(([at, colour], i) => {
+        const [r, g, b, a] = rgba(colour), [lat, lcolour, lopacity] = glow.stops[i];
+        near(lat, at, 'the stop at the same place'); assert.equal(lcolour, hexOf([r, g, b]), `stop ${i} coloured as the flat view's at ${why}`); near(lopacity, a, `stop ${i} as bright at ${why}`);
+      });
+    }
+    for (const [kind, size] of [['ions', 8], ['electrons', 3.6]]) {
+      const [specks] = frame.views[0].list.filter(e => e.kind === 'specks' && e.of === kind), dots = flat[kind];
+      assert.equal(dots.length, 28, `the flat view draws 28 ${kind}`); assert.equal(specks.points.length, 28);
+      assert.equal(specks.colour, dots[0].fill); near(specks.size * LAB_SCALE, size, `${kind} as wide as the flat view's dots`); assert.equal(specks.round, true);
+      dots.forEach((dot, i) => labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `${kind} ${i} where the flat view draws it at ${why}`)));
+    }
+  }
+});
+
+test('over Ignite\'s 3D view the 2D canvas draws the flat view\'s words and marks: the arrows pressing on the front and the legend, and none of its shapes', async () => {
+  for (const [p] of IGNITE_PRESSURES) {
+    const flat = igniteAt(p), in3D = await igniteIn3D(p);
+    scene(flat); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), `words at ${p} torr`);
+    // The arrows: the lines and heads drawn after the front's dashes, as the flat view's.
+    const arrows = drawing => JSON.stringify(drawing.slice(drawing.findLastIndex(c => c[0] === 'setLineDash' && !c[1].length) + 1).filter(c => ['moveTo', 'lineTo', 'closePath'].includes(c[0])));
+    const flatArrows = flat.drawing.some(c => c[0] === 'setLineDash') ? arrows(flat.drawing) : '[]';
+    assert.equal(in3D.drawing.some(c => c[0] === 'setLineDash') ? arrows(in3D.drawing) : JSON.stringify(in3D.drawing.filter(c => ['moveTo', 'lineTo', 'closePath'].includes(c[0]))), flatArrows, `arrows at ${p} torr`);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+    assert.ok(in3D.drawing.filter(c => c[0] === 'arc').every(c => c[1] === 38), 'only the legend\'s dots are arcs');
+    for (const shape of ['fillRect', 'strokeRect', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas at ${p} torr`);
+  }
+});
+
+
 test('the 3D view switch starts on where the renderer starts, is remembered on this device apart from the saved run, and turning it off draws the flat view', async () => {
   const game = await bootIn3D('ready-to-converge');
   const toggle = game.ids.get('view-3d');
@@ -2383,6 +2515,7 @@ test('the 3D view draws nothing while the tab is hidden, and steps without a sce
   const game = await bootIn3D('ready-to-converge');
   game.document.hidden = true; assert.equal(nextScene(game), null, 'hidden tab');
   game.document.hidden = false; assert.ok(nextScene(game), 'visible again');
-  click(game, 'step-0'); assert.equal(nextScene(game), null, 'Ignite has no scene list yet');
-  assert.equal(game.ids.get('gl').hidden, true);
+  click(game, 'step-0'); assert.ok(nextScene(game), 'Ignite draws in 3D');
+  const done = await bootIn3D('completed-run'); click(done, 'step-6');
+  assert.equal(nextScene(done), null, 'the Ledger has no scene list'); assert.equal(done.ids.get('gl').hidden, true);
 });

@@ -2,9 +2,10 @@
 // installed headless Chrome over the DevTools protocol. For a fresh run, for
 // every step of a completed run, for what a step's own toggle buttons turn on
 // (TOGGLED: a view, or electron screening), and for the Ledger of a run whose
-// Fuel step was completed with electron screening on, in a 390 x 844 phone
-// window, the page must not scroll sideways and must not throw. See
-// docs/adr/0001 and issue #15.
+// Fuel step was completed with electron screening on, in each phone window
+// (WINDOWS: 390 x 844 and 320 x 640), the page must not scroll sideways, must
+// not throw, and must draw no canvas text outside its canvas. See
+// docs/adr/0001 and issues #15 and #45.
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
 //
@@ -17,11 +18,65 @@ import { join, extname, dirname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const WIDTH = 390, HEIGHT = 844;
+// The phone windows every view is checked in, as [width, height] in CSS pixels: a common
+// phone, and the narrowest phones still in use.
+const WINDOWS = [[390, 844], [320, 640]];
 const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'Ledger'];
 // What a step's own toggle buttons turn on, each checked with its button pressed: the step,
 // the button's id, and a name for what it shows.
 const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
+// How far, in CSS pixels, a glyph may reach past a canvas edge before it counts as cut off.
+// Half a pixel absorbs the canvas's whole-pixel rounding of its drawing size and anti-aliasing.
+const TOLERANCE = 0.5;
+// How long, in milliseconds, a page's fonts may take to load before its text is measured anyway.
+const FONT_WAIT_MS = 3000;
+
+// Runs in the page before the game's script. Every fillText and strokeText call is measured
+// where it lands: measureText gives the glyphs' ink box around the anchor, already following
+// textAlign and textBaseline; the current transform carries its corners into the canvas's own
+// pixels, which are compared with the canvas's drawing size. Text that reaches past an edge is
+// kept, with how far it reaches in CSS pixels on each side, until the check reads and clears it.
+// Only measurements that succeed are counted. Text that can't be measured is kept too, with the
+// error, so the check fails on it; the game's own drawing goes ahead either way.
+const CANVAS_TEXT_RECORDER = `(() => {
+  const outside = new Map(), unmeasured = new Map(); let measured = 0;
+  Object.defineProperty(window, '__canvasText', { value: {
+    take() {
+      const found = { measured, unmeasured: [...unmeasured.values()], outside: [...outside.values()] };
+      outside.clear(); unmeasured.clear(); measured = 0; return found;
+    }
+  } });
+  const proto = CanvasRenderingContext2D.prototype;
+  for (const name of ['fillText', 'strokeText']) {
+    const draw = proto[name];
+    proto[name] = function (text, x, y, maxWidth) {
+      try { note(this, String(text), x, y, maxWidth, name === 'strokeText' ? this.lineWidth / 2 : 0); }
+      catch (e) { const said = String(text); if (!unmeasured.has(said)) unmeasured.set(said, { text: said, error: String(e && e.message || e) }); }
+      return draw.apply(this, arguments);
+    };
+  }
+  function note(ctx, text, x, y, maxWidth, pen) {
+    if (!text.trim() || !isFinite(x) || !isFinite(y)) return;
+    const m = ctx.measureText(text);
+    // A maxWidth narrower than the text squeezes it sideways towards its anchor.
+    const squeeze = maxWidth !== undefined && m.width > maxWidth ? Math.max(0, maxWidth) / m.width : 1;
+    const x0 = x - m.actualBoundingBoxLeft * squeeze - pen, x1 = x + m.actualBoundingBoxRight * squeeze + pen;
+    const y0 = y - m.actualBoundingBoxAscent - pen, y1 = y + m.actualBoundingBoxDescent + pen;
+    const t = ctx.getTransform(), xs = [], ys = [];
+    for (const [px, py] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) { xs.push(t.a * px + t.c * py + t.e); ys.push(t.b * px + t.d * py + t.f); }
+    if (![...xs, ...ys].every(isFinite)) throw new Error('measureText gave no ink box');
+    measured++;
+    const c = ctx.canvas;
+    const over = { left: -Math.min(...xs), top: -Math.min(...ys), right: Math.max(...xs) - c.width, bottom: Math.max(...ys) - c.height };
+    if (Math.max(over.left, over.top, over.right, over.bottom) <= 0) return;
+    const rect = c.getBoundingClientRect(), sx = rect.width ? c.width / rect.width : 1, sy = rect.height ? c.height / rect.height : 1;
+    const canvasName = c.id ? '#' + c.id : 'unnamed', key = canvasName + '\\u0000' + text;
+    const seen = outside.get(key) || { canvas: canvasName, text, left: 0, top: 0, right: 0, bottom: 0 };
+    seen.left = Math.max(seen.left, over.left / sx); seen.right = Math.max(seen.right, over.right / sx);
+    seen.top = Math.max(seen.top, over.top / sy); seen.bottom = Math.max(seen.bottom, over.bottom / sy);
+    outside.set(key, seen);
+  }
+})();`;
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -47,7 +102,7 @@ function serve() {
 }
 
 function launch(chrome, profile) {
-  const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--disable-extensions', `--window-size=${WIDTH},${HEIGHT}`, 'about:blank'];
+  const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--disable-extensions', `--window-size=${WINDOWS[0].join(',')}`, 'about:blank'];
   if (process.getuid?.() === 0) args.unshift('--no-sandbox'); // Chrome refuses to sandbox as root
   const proc = spawn(chrome, args, { stdio: ['ignore', 'ignore', 'pipe'], detached: true }); // its own group, so helpers stop with it
   return new Promise((resolve, reject) => {
@@ -98,64 +153,89 @@ async function main() {
   try {
     await page.send('Page.enable'); await page.send('Runtime.enable');
     page.on('Runtime.exceptionThrown', ({ exceptionDetails: e }) => errors.push(e.exception?.description || e.text));
-    await page.send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
-    const pageErrors = label => errors.splice(0).map(e => `${label}: the page threw: ${e.split('\n')[0]}`);
+    await page.send('Page.addScriptToEvaluateOnNewDocument', { source: CANVAS_TEXT_RECORDER });
     const evaluate = async expression => (await page.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result.value;
-    const load = async () => { const loaded = page.once('Page.loadEventFired'); await page.send('Page.navigate', { url: site }); await loaded; };
-    const settle = () => evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))))');
-    const check = async label => {
-      views++; await settle();
-      const m = await evaluate('({ scroll: document.documentElement.scrollWidth, layout: window.innerWidth })');
-      if (m.scroll > WIDTH || m.layout > WIDTH) failures.push(`${label}: the page is ${Math.max(m.scroll, m.layout)} px wide in a ${WIDTH} px window, so it scrolls sideways`);
-      failures.push(...pageErrors(label));
+    // Each page's fonts finish loading before it is measured, since a font change moves text. A
+    // web font that can't load (offline, or its host blocked) leaves the page on a local font
+    // from the stack, which is then what gets measured. The timeout keeps a slow font host from
+    // holding the check up; the check then measures with whatever fonts have loaded.
+    const fontsLoaded = () => evaluate(`Promise.race([document.fonts.ready.then(() => true), new Promise(r => setTimeout(() => r(false), ${FONT_WAIT_MS}))])`);
+    const load = async () => {
+      const loaded = page.once('Page.loadEventFired'); await page.send('Page.navigate', { url: site }); await loaded;
+      if (!await fontsLoaded()) console.warn(`Browser check: the page's fonts were still loading after ${FONT_WAIT_MS / 1000} s, so it measured with the fonts it had.`);
     };
+    const settle = () => evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))))');
     const currentStep = () => evaluate(`[...document.querySelectorAll('#steps button')].findIndex(b => b.getAttribute('aria-current') === 'step')`);
-    // The game saves its own run as a page unloads, so a saved run goes into
-    // storage as the next page starts, before the game's script reads it.
+    // The game saves its own run as a page unloads, so storage is changed as the
+    // next page starts, before the game's script reads it.
+    const loadWith = async source => {
+      const { identifier } = await page.send('Page.addScriptToEvaluateOnNewDocument', { source });
+      await load(); await page.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+    };
     // A saved run from tests/fixtures, changed first by `edit` when one is given.
     const loadSavedRun = async (name, edit = () => {}) => {
       const run = JSON.parse(readFileSync(join(root, 'tests', 'fixtures', `${name}.json`), 'utf8'));
       edit(run);
       const saved = JSON.stringify({ sourceRevision: await evaluate('window.__lab.SOURCE_REVISION'), ...run });
-      const { identifier } = await page.send('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)})` });
-      await load(); await page.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+      await loadWith(`localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)})`);
       if (await currentStep() !== run.stage) throw new Error(`The ${name} saved run did not load.`);
     };
     const ledgerRowCount = () => evaluate(`document.querySelectorAll('.ledger li').length`);
+    const past = o => ['left', 'top', 'right', 'bottom'].filter(side => o[side] > TOLERANCE).map(side => `${o[side].toFixed(1)} px past the ${side} edge`).join(' and ');
 
-    await load(); await evaluate('localStorage.clear()'); await load();
-    if (await currentStep() !== 0) throw new Error('A fresh run did not open on Ignite.');
-    await check('Fresh run, step 1 (Ignite), later steps locked');
-    await loadSavedRun('completed-run');
-    let ledgerRows = 0;
-    for (let i = 0; i < STEPS.length; i++) {
-      await evaluate(`document.getElementById('step-${i}').click()`);
-      if (await currentStep() !== i) {
-        failures.push(`Completed run: could not open ${STEPS[i]}`, ...pageErrors(`Completed run, opening ${STEPS[i]}`));
-        continue;
+    for (const [width, height] of WINDOWS) {
+      // Each window starts from a fresh page, so the game lays itself out for that phone from the start.
+      await page.send('Emulation.setDeviceMetricsOverride', { width, height, screenWidth: width, screenHeight: height, deviceScaleFactor: 2, mobile: true });
+      const where = view => `${view}, ${width} × ${height} window`;
+      const pageErrors = view => errors.splice(0).map(e => `${where(view)}: the page threw: ${e.split('\n')[0]}`);
+      let textMeasured = 0;
+      const check = async view => {
+        views++; await evaluate('window.__canvasText.take()'); await settle();
+        const m = await evaluate('({ scroll: document.documentElement.scrollWidth, layout: window.innerWidth })');
+        if (m.scroll > width || m.layout > width) failures.push(`${where(view)}: the page is ${Math.max(m.scroll, m.layout)} px wide in a ${width} px window, so it scrolls sideways`);
+        const text = await evaluate('window.__canvasText.take()');
+        textMeasured += text.measured;
+        for (const u of text.unmeasured) failures.push(`${where(view)}: the canvas text "${u.text}" could not be measured (${u.error}), so the check cannot tell whether it fits its canvas`);
+        for (const o of text.outside) if (past(o)) failures.push(`${where(view)}: the canvas text "${o.text}" runs ${past(o)} of its canvas (${o.canvas})`);
+        failures.push(...pageErrors(view));
+      };
+
+      await loadWith('localStorage.clear()');
+      if (await currentStep() !== 0) throw new Error(`A fresh run did not open on Ignite in the ${width} × ${height} window.`);
+      await check('Fresh run, step 1 (Ignite), later steps locked');
+      await loadSavedRun('completed-run');
+      let ledgerRows = 0;
+      for (let i = 0; i < STEPS.length; i++) {
+        await evaluate(`document.getElementById('step-${i}').click()`);
+        if (await currentStep() !== i) {
+          failures.push(`${where('Completed run')}: could not open ${STEPS[i]}`, ...pageErrors(`Completed run, opening ${STEPS[i]}`));
+          continue;
+        }
+        if (i === 6) ledgerRows = await ledgerRowCount();
+        await check(i < 6 ? `Completed run, step ${i + 1} (${STEPS[i]})` : 'Completed run, the Ledger');
       }
-      if (i === 6) ledgerRows = await ledgerRowCount();
-      await check(i < 6 ? `Completed run, step ${i + 1} (${STEPS[i]})` : 'Completed run, the Ledger');
-    }
-    for (const [step, button, name] of TOGGLED) {
-      const label = `Completed run, step ${step + 1} (${STEPS[step]}), ${name}`;
-      await evaluate(`document.getElementById('step-${step}').click(); document.getElementById('${button}').click()`);
-      if (await evaluate(`document.getElementById('${button}').getAttribute('aria-pressed')`) !== 'true') {
-        failures.push(`${label}: could not open it`, ...pageErrors(label));
-        continue;
+      for (const [step, button, name] of TOGGLED) {
+        const view = `Completed run, step ${step + 1} (${STEPS[step]}), ${name}`;
+        await evaluate(`document.getElementById('step-${step}').click(); document.getElementById('${button}').click()`);
+        if (await evaluate(`document.getElementById('${button}').getAttribute('aria-pressed')`) !== 'true') {
+          failures.push(`${where(view)}: could not open it`, ...pageErrors(view));
+          continue;
+        }
+        await check(view);
       }
-      await check(label);
-    }
-    // The same run with its Fuel step completed with electron screening on: the Ledger has one
-    // more row, the screening row, which a run completed without screening never shows.
-    const screened = 'Completed run with Fuel completed with electron screening on, the Ledger';
-    await loadSavedRun('completed-run', run => Object.assign(run.stages[2].values, { screening: true, completedScreened: true }));
-    await evaluate(`document.getElementById('step-6').click()`);
-    if (await currentStep() !== 6) failures.push(`${screened}: could not open it`, ...pageErrors(screened));
-    else {
-      const rows = await ledgerRowCount();
-      if (rows !== ledgerRows + 1) failures.push(`${screened}: the Ledger shows ${rows} rows, not the ${ledgerRows + 1} it has with the screening row`);
-      await check(screened);
+      // The same run with its Fuel step completed with electron screening on: the Ledger has one
+      // more row, the screening row, which a run completed without screening never shows.
+      const screened = 'Completed run with Fuel completed with electron screening on, the Ledger';
+      await loadSavedRun('completed-run', run => Object.assign(run.stages[2].values, { screening: true, completedScreened: true }));
+      await evaluate(`document.getElementById('step-6').click()`);
+      if (await currentStep() !== 6) failures.push(`${where(screened)}: could not open it`, ...pageErrors(screened));
+      else {
+        const rows = await ledgerRowCount();
+        if (rows !== ledgerRows + 1) failures.push(`${where(screened)}: the Ledger shows ${rows} rows, not the ${ledgerRows + 1} it has with the screening row`);
+        await check(screened);
+      }
+      // The views draw labels, so measuring none means the measuring has stopped working, not that all is well.
+      if (!textMeasured) failures.push(`${width} × ${height} window: no canvas text was measured in any view, so the canvas text check could not run`);
     }
   } finally {
     page.close(); server.close();
@@ -166,7 +246,8 @@ async function main() {
     catch { console.warn(`Browser check: could not remove the temporary Chrome profile at ${profile}.`); }
   }
   if (failures.length) { console.error(`Browser check failed:\n${failures.map(f => `  - ${f}`).join('\n')}`); process.exit(1); }
-  console.log(`Browser check: ${views} views fit a ${WIDTH} px phone window with no page errors.`);
+  const windows = WINDOWS.map(([w, h]) => `${w} × ${h}`).join(' and ');
+  console.log(`Browser check: ${views} views (${views / WINDOWS.length} in each of the ${windows} phone windows) fit without sideways scrolling, with all canvas text inside its canvas and no page errors.`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

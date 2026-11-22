@@ -184,7 +184,7 @@ a { color: var(--cold); }
 .mission .ready { color: var(--cold); }
 .mission .blocked { color: var(--warm); }
 
-.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); scroll-margin-top: var(--sp-3); }
 .ctl label { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-0) var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
 .ctl label output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 .ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: var(--sp-0) 0 0; height: 24px; cursor: pointer; }
@@ -277,6 +277,7 @@ footer p { margin: 0; }
 }
 /* On a tall phone the experiment stays in view while its controls scroll beneath it. */
 @media (max-width: 860px) and (min-height: 600px) {
+  .ctl { scroll-margin-top: calc(min(75vw, 38vh) + var(--sp-3)); }
   .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; aspect-ratio: auto; height: min(75vw, 38vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
 }
 </style>
@@ -369,6 +370,9 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const cv = $('#cv'), ctx = cv.getContext('2d'), panel = $('#panel'), scaleBar = $('#scale');
+// Keep the active controls in the reading order. Fragment navigation scrolls to them,
+// and focusing the target lets keyboard users Tab into its first control.
+$('#jump-to-controls').addEventListener('click', () => { const target = $('#controls'); if (target) target.focus({ preventScroll: true }); });
 let W = 400, H = 300, DPR = 1;
 function fit() {
   const r = cv.getBoundingClientRect();

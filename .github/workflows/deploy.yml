@@ -1,0 +1,126 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: pages-deploy-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # The same checks as Game checks (checks.yml): nothing deploys unless all of them pass.
+      - name: Install
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Type check
+        run: npm run typecheck
+      - name: Browser check
+        run: npm run test:browser
+      - name: Build Pages dist
+        run: scripts/build-dist.sh
+      - name: Verify Pages dist
+        run: DIST_PREBUILT=1 node --test tests/dist.test.cjs
+      - name: Require deploy secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Set the CLOUDFLARE_API_TOKEN repository secret first."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Set the CLOUDFLARE_ACCOUNT_ID repository secret first."; exit 1; }
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@2ef9f398b9175c68f953e40d679493850d640a85 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=ion-pumpy-thing --branch=main --commit-hash=${{ github.sha }}
+      - name: Smoke the production host
+        run: scripts/smoke-production.sh ${{ github.sha }}
+
+  preview:
+    # secrets cannot be used in a job-level if; check them in a step instead
+    # so this workflow file stays valid and the PR stays green until they exist.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+    steps:
+      - name: Check deploy secrets
+        id: creds
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Preview deploy skipped: set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets first."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.creds.outputs.present == 'true'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.creds.outputs.present == 'true'
+        with:
+          node-version: 22
+      - name: Install
+        if: steps.creds.outputs.present == 'true'
+        run: npm ci
+      - name: Run tests
+        if: steps.creds.outputs.present == 'true'
+        run: npm test
+      - name: Type check
+        if: steps.creds.outputs.present == 'true'
+        run: npm run typecheck
+      - name: Browser check
+        if: steps.creds.outputs.present == 'true'
+        run: npm run test:browser
+      - name: Build Pages dist
+        if: steps.creds.outputs.present == 'true'
+        run: scripts/build-dist.sh
+      - name: Verify Pages dist
+        if: steps.creds.outputs.present == 'true'
+        run: DIST_PREBUILT=1 node --test tests/dist.test.cjs
+      - name: Deploy preview
+        if: steps.creds.outputs.present == 'true'
+        id: preview
+        uses: cloudflare/wrangler-action@2ef9f398b9175c68f953e40d679493850d640a85 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=ion-pumpy-thing --branch=pr-${{ github.event.pull_request.number }} --commit-hash=${{ github.sha }}
+      - name: Comment the preview URL
+        if: steps.creds.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_URL: ${{ steps.preview.outputs.deployment-url }}
+          ALIAS_URL: ${{ steps.preview.outputs.pages-deployment-alias-url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          url="${ALIAS_URL:-$PREVIEW_URL}"
+          if [[ -z "$url" ]]; then
+            echo "No preview URL was returned by wrangler-action."
+            exit 1
+          fi
+          gh pr comment "$PR_NUMBER" --body "Preview deployment for this PR: ${url}"

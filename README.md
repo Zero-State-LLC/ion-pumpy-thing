@@ -19,6 +19,8 @@ The Casimir lesson includes an adjustable plate diagram, a separate throat view,
 
 The game is at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). A short [privacy notice](privacy.html) describes local progress and measurement on that host.
 
+Merges to `main` deploy that host through GitHub Actions, once the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets exist. Until then, the Pages project is a direct upload and a merge does not go live by itself.
+
 Serve the static files from this folder, then open http://localhost:8000:
 
     python3 -m http.server

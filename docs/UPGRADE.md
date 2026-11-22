@@ -70,6 +70,11 @@ Run `node --test tests/game.test.cjs tests/seo.test.cjs` with Node 22 or later. 
 
 These are model and integration checks, not screenshot tests. `npm run test:browser` checks two phone windows automatically, 390 × 844 and 320 × 640: in each, every step and the Ledger in real Chrome, with no sideways scrolling, no canvas text outside its canvas and no page errors. Before release, perform an actual desktop and phone playthrough, keyboard and touch checks, audio checks, reduced-motion checks, and a visual inspection of both camera views and the plate diagram. Suggested phone baselines: 390 px and 320 px widths, no horizontal overflow, no canvas text cut off at the canvas edge, all controls reachable without a sticky scene covering them.
 
+
+## Deploy
+
+The production host is the Cloudflare Pages project `ion-pumpy-thing`, served at [ion-pumpy-thing.app](https://ion-pumpy-thing.app/). `scripts/build-dist.sh` copies the public site into `dist/`: the pages and their scripts, the 3D view (`view3d.js` and the three.js modules it imports under `vendor/three/`, with three.js's licence), the props (`assets/*.glb`) and the sound effects (`assets/audio/*.mp3`). It fails if any of those globs matches nothing, and tests, docs, tools and `.github` stay out. After the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets are set, merges to `main` (and manual `workflow_dispatch` runs) deploy that folder through GitHub Actions and smoke-check the live host: the home page, `/privacy`, the share image, the 3D view's scripts (served as JavaScript) and every prop `index.html` names (a binary glTF). The workflow does not run a production deploy from pull requests.
+
 ## Remaining work
 
 The specific Polywell/FRC visualizations, a more detailed reactor energy model, measured-track imports, full PDF equation verification and playtesting remain later phases. The aircraft transit is now a geometric teaching diagram, not a physical wormhole simulation. The current mission freezes earlier experiment settings rather than simulating a coupled reactor. No invented energy-conversion law has been introduced to connect fusion output to negative energy.

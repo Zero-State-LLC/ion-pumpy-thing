@@ -1255,7 +1255,7 @@ const orbit = stage({
       <p><span class="tag meas">Measured</span>In the parts of both videos that 4orbs can track, the three objects appear to circle the airliner once in about two and a half seconds. Taking the aircraft to be a Boeing 777-200ER, 4orbs estimates that the objects are 60 to 70 metres away. For about sixteen seconds, they form an equal-sided triangle centred on the aircraft. The triangle rotates and tilts as it moves.</p>
       <p><span class="tag lab">Lab physics</span>An object moving in a circle needs an inward force to keep turning. Its speed is the circle's circumference divided by the time for one lap. Its inward acceleration is speed squared divided by radius. A smaller circle or a higher speed requires more acceleration.</p>
       <p><span class="tag meas">Measured</span>Two cameras pin down one scene. 4orbs fitted the two lines of sight at 123 to 141 degrees apart, which is why the objects circle in opposite senses in the two videos.</p>
-      <p class="note">The hollow rings mark the objects' reported positions. Move your orbs onto those rings in both camera views.</p>
+      <p class="note">The hollow rings mark the objects' reported positions. Move your orbs onto those rings in both camera views. Camera 1 shows a visible overhead reconstruction. Camera 2 uses illustrative thermal colours, not measured temperatures.</p>
     </div>
     <div class="ctl" id="controls" tabindex="-1">
       <label for="or-r"><span id="or-r-l">Distance from the aircraft</span> <output id="or-r-o"></output><input id="or-r" aria-labelledby="or-r-l" type="range" min="30" max="100" step="1"></label>
@@ -1303,33 +1303,51 @@ const orbit = stage({
       const g = formationGlowLook(glow);
       list.push({ kind: 'formation glow', amount: glow, points, ring: px(g.ring), pad: px(g.pad), width: px(g.width), colour: g.colour, opacity: g.alpha });
     }
-    return { look: 'visible', views: views.map(v => ({ ...v, list })) };
+    // Camera 2 represents the thermal source view. Heat values are artistic, not calibrated
+    // temperatures; all positions, sizes and motion stay identical across the two cameras.
+    const thermalList = list.map(e => {
+      if (e.kind === 'sky') return { ...e, colour: COL.void };
+      if (e.kind === 'airliner') return { kind: e.kind, at: e.at, size: e.size, heat: .64, engineHeat: .88 };
+      if (e.kind === 'orb') return { kind: e.kind, id: e.id, at: e.at, size: e.size, heat: .56, halo: 'rgba(185,112,63,.3)' };
+      if (e.kind === 'triangle') return { ...e, colour: COL.warm };
+      if (e.kind === 'formation glow') return { ...e, colour: COL.warm };
+      return e;
+    });
+    return { look: 'visible', views: views.map((v, i) =>
+      ({ ...v, look: i === 0 ? 'visible' : 'heat', list: i === 0 ? list : thermalList })) };
   },
   // `flat` draws the whole flat view. Over the 3D view, which draws the scene list, it draws the
   // divider, the tracked rings, the camera titles and the scale bar.
   draw(flat = true) {
     const views = orbitViews(this), hw = W / 2, sc = views[0].camera.scale, matched = formationMatched(this), glow = formationGlowAmount(this);
-    if (flat) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
+    if (flat) {
+      ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, hw, H);
+      ctx.fillStyle = COL.void; ctx.fillRect(hw, 0, hw, H);
+    } else ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
-    const looks = [[p => [p[0], p[1]], 1, 'CAMERA 1 · FROM ABOVE'], [p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAMERA 2 · ${this.cam}° ROUND`]];
+    const looks = [[p => [p[0], p[1]], 1, 'CAMERA 1 · VISIBLE'], [p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAM 2 · THERMAL · ${this.cam}°`]];
     looks.forEach(([proj, sy, title], vi) => {
       const [cx, cy] = views[vi].origin, tp = vi ? p => camB(p, TRUE_CAM) : proj;
-      if (flat) { ctx.save(); ctx.translate(cx, cy); plane(sc, '#cfd6e6', '#8791ad', Math.abs(sy) < 0.04 ? 0.04 : sy); ctx.restore(); }
+      if (flat) {
+        ctx.save(); ctx.translate(cx, cy);
+        plane(sc, vi ? COL.warm : '#cfd6e6', vi ? COL.hot : '#8791ad', Math.abs(sy) < 0.04 ? 0.04 : sy);
+        ctx.restore();
+      }
       truth.forEach(p => { const q = tp(p); ring(cx + q[0] * sc, cy + q[1] * sc, 7, COL.warm); });
       if (flat) {
-        ctx.strokeStyle = 'rgba(236,230,214,.4)'; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.strokeStyle = vi ? 'rgba(255,174,66,.45)' : 'rgba(236,230,214,.4)'; ctx.lineWidth = 1; ctx.beginPath();
         mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
         ctx.closePath(); ctx.stroke();
-        mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
-        if (matched) orbGlow(cx, cy, sc, mine.map(proj), formationGlowLook(glow));
+        mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, vi ? COL.dusk : '#fff', vi ? 'rgba(185,112,63,.3)' : 'rgba(255,255,255,.35)'); });
+        if (matched) orbGlow(cx, cy, sc, mine.map(proj), vi ? { ...formationGlowLook(glow), colour: COL.warm } : formationGlowLook(glow));
       }
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });
     scaleBarDraw(sc);
   },
   describe() {
-    return `Two camera views of three orbs circling a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${formationMatched(this) ? 'The formation is matched: the orbs sit on the tracked rings, and both views highlight them.' : 'The orbs are off the tracked rings.'}`;
+    return `Two reconstructed camera views: Camera 1 visible from above; Camera 2 thermal from the side, with illustrative colours, not measured temperatures. Three orbs circle a Boeing 777-200ER, ${this.r} metres out, one lap in ${this.T.toFixed(1)} seconds, cameras ${this.cam} degrees apart. ${formationMatched(this) ? 'The formation is matched: the orbs sit on the tracked rings, and both views highlight them.' : 'The orbs are off the tracked rings.'}`;
   }
 }, { r: 95, T: 6, cam: 40, ang: 0, ghost: 0, tumble: 0, hold: 0 });
 

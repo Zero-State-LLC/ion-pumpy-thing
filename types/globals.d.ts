@@ -10,6 +10,7 @@ interface Window {
 interface SceneView {
   left: number, width: number, origin: [number, number],
   camera: { angle: number, scale: number },
+  look?: 'heat' | 'visible' | 'diagram',
   list: any[]
 }
 

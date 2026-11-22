@@ -1940,6 +1940,7 @@ test('Orbit in 3D draws both cameras side by side: camera 1 from above, camera 2
   const game = await orbitIn3D();
   const frame = nextScene(game);
   assert.equal(frame.look, 'visible'); assert.equal(frame.views.length, 2);
+  assert.deepEqual(frame.views.map(v => v.look), ['visible', 'heat'], 'each Orbit view keeps its source camera presentation');
   frame.views.forEach((v, i) => {
     assert.deepEqual([v.left, v.width, v.origin], [195 * i, 195, [195 * (i + .5), ORBIT_CENTRE_Y]], `camera ${i + 1} has its half of the canvas`);
     near(v.camera.scale, ORBIT_SCALE, `camera ${i + 1} keeps the flat view's pixels per metre`);
@@ -2672,4 +2673,26 @@ test('plain-English lessons define unfamiliar physics terms without dropping the
     /Einstein and Nathan Rosen/.test(p.said) &&
     /Michael Morris and Kip Thorne/.test(p.said) &&
     /narrow opening \(the throat\)/.test(p.said)));
+});
+
+
+test('Orbit thermal Camera 2 is an explicitly illustrated look, not a temperature measurement', async () => {
+  const game = await orbitIn3D({ 'or-c': 130 });
+  const frame = nextScene(game);
+  assert.deepEqual(frame.views.map(v => v.look), ['visible', 'heat']);
+  const [visible, thermal] = frame.views;
+  assert.deepEqual(visible.camera, thermal.camera.angle === 130
+    ? { angle: 0, scale: thermal.camera.scale } : visible.camera);
+  assert.equal(entries(frame, 'sky', 1)[0].colour, '#01030a');
+  const air = entries(frame, 'airliner', 1)[0];
+  assert.equal(air.heat, .64);
+  assert.equal(air.engineHeat, .88);
+  const orbs = entries(frame, 'orb', 1);
+  assert.equal(orbs.length, 3);
+  assert.ok(orbs.every(o => o.heat === .56));
+  assert.deepEqual(orbs.map(o => o.at), entries(frame, 'orb', 0).map(o => o.at),
+    'both cameras show identical orbit positions');
+  assert.match(text(game, 'panel'), /illustrative thermal colours, not measured temperatures/);
+  assert.match(description(game), /Camera 2 thermal from the side/);
+  assert.match(drawnWords(game).join(' '), /CAM 2 · THERMAL/);
 });

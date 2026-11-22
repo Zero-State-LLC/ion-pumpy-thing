@@ -74,6 +74,13 @@ The version of the sources a saved run was made against. A changed source revisi
 
 ## Physics in play
 
+**Pressure band**:
+The Ignite step's target pressure, 0.3 to 2.5 torr, marked on its meter. A cold plasma kept inside it for 3 seconds passes Plasma readiness; leaving it before then starts the count over.
+
+**Piston**:
+The part of the ion pumpy schematic that Forbes reads as having "full command of adiabatic pressure". It compresses the plasma in full command of its pressure, so the orbs can run continuously rather than fire once as a laboratory dense plasma focus does. In the Ignite step the hand pump plays it, and holds the plasma pressed toward the middle of the jar while the pressure is in its band.
+_Avoid_: magnetic piston (a different device, which compresses an ion beam)
+
 **Beta**:
 Plasma pressure divided by magnetic pressure. The Hold step targets beta near one (0.75 to 1).
 

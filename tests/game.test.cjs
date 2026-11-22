@@ -67,6 +67,8 @@ function boot(storage = new Map(), options = {}) {
   const root = new Element(); root.innerHTML = html.split('<script>')[0];
   const document = { hidden: false, documentElement: root, querySelector: s => root.querySelector(s), getElementById: s => ids.get(s) || null, createElement: () => new Element(), listeners: {}, addEventListener(k, fn) { this.listeners[k] = fn; } };
   const window = { listeners: {}, addEventListener(k, fn) { this.listeners[k] = fn; }, devicePixelRatio: 1 };
+  // A Claude artifact host, when the test gives one (see artifactHost).
+  if (options.claude) window.claude = options.claude;
   const sandbox = { document, window, getComputedStyle: () => ({ getPropertyValue: name => colourTokens.get(name) || '' }), matchMedia: () => ({ matches: !!options.reduced }), ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frames.push(f), performance: { now: () => 0 }, localStorage: { getItem: key => { if (options.noStorage) throw Error('blocked'); return storage.get(key) || null; }, setItem: (key, value) => { if (options.noStorage) throw Error('blocked'); storage.set(key, value); } }, setTimeout() { return 1; }, clearTimeout() {}, console };
   // Record every request the game makes of the sound engine, from the moment the page starts.
   const sounds = [];
@@ -104,6 +106,19 @@ function bootFromSavedRun(fixture, options = {}) {
   return boot(storage, options);
 }
 const lastSave = game => JSON.parse(game.storage.get('ipt-run-v2'));
+// A Claude artifact host with database access, where the practice board works. It records
+// which collections the board reads and what the game writes; every collection is empty.
+function artifactHost() {
+  const reads = [], writes = [];
+  const db = {
+    collection: name => { reads.push(name); return { orderBy: () => ({ limit: () => ({ onSnapshot: show => show({ docs: [] }) }) }) }; },
+    doc: path => ({ get: async () => ({ exists: false }), set: async value => { writes.push([path, value]); } })
+  };
+  const user = { id: async () => 'player', profiles: async () => ({}) };
+  return { reads, writes, claude: { use: async kind => ({ db, user })[kind] || null } };
+}
+// Let the game finish what it is waiting on, such as the host's database.
+const settle = () => new Promise(resolve => setImmediate(resolve));
 
 // What the player does. A control's own handler runs first; then, for controls
 // inside the step panel, the event bubbles to the panel, as in a browser.
@@ -136,6 +151,20 @@ function pad(game, kind, { field, trim = 0 }) {
   const el = game.ids.get('ho-pad'), event = { clientX: (trim + 1) / 2 * 390, clientY: (1 - field) * 292.5, pointerId: 1 };
   el['onpointer' + kind](event); if (kind === 'down') bubble(game, 'pointerdown', el, event);
 }
+// Press or let go of the Ignite step's on-screen pump. While it is held, it pumps.
+function pumpButton(game, kind) {
+  const el = game.ids.get('ig-pump'), event = { pointerId: 1 };
+  el['onpointer' + kind](event); if (kind === 'down') bubble(game, 'pointerdown', el, event);
+}
+// Play on in eighths of a second, which add up exactly.
+function playFor(game, seconds) { for (let i = 0; i < Math.round(seconds * 8); i++) game.lab.advance(1 / 8); }
+// Ignite: play on while the pressure readout says it is in the band, for at most a minute.
+// Returns how long that was.
+function playWhileInBand(game) {
+  let seconds = 0;
+  for (; seconds < 60 && pressureNote(game) === 'in the band'; seconds += 1 / 8) game.lab.advance(1 / 8);
+  return seconds;
+}
 function readSource(game, open) {
   const panel = game.ids.get('panel'), card = panel.children.find(n => n.attributes.class === 'source-card');
   card.matches = selector => selector === '.source-card'; card.open = open;
@@ -158,6 +187,15 @@ const scene = game => { game.drawing.length = 0; paint(game); return JSON.string
 // The words drawn on the canvas in the last frame painted.
 const drawnWords = game => game.drawing.filter(call => call[0] === 'fillText').map(call => call[1]);
 const ledgerScore = game => { click(game, 'step-6'); return text(game, 'panel').match(/<dt>Score<\/dt><dd>([^<]+)/)[1]; };
+// Ignite's pressure readout: the pressure in torr, and its note ('keep pumping', 'in the band', ...).
+const torr = game => parseFloat(text(game, 'ig-p'));
+const pressureNote = game => text(game, 'ig-p').match(/<small>([^<]+)<\/small>/)[1];
+// Whether the Plasma readiness check passes, as Converge lists it. The player then goes back
+// to Ignite, which reopens paused as a completed step, and resumes it.
+function plasmaReadyOnConverge(game) {
+  click(game, 'step-5'); const ready = !/Plasma: retune required/.test(text(game, 'mission-checks'));
+  click(game, 'step-0'); click(game, 'pause'); return ready;
+}
 // The value a canvas setting, such as 'strokeStyle', has when the command at
 // `index` in the drawing runs, following save and restore.
 function settingAt(drawing, index, name) {
@@ -246,6 +284,33 @@ function holdView(game) {
   const arcs = (edge?.arcs || []).sort((a, b) => a.start - b.start);
   const leaks = arcs.map((arc, i) => norm(arcs[(i + 1) % arcs.length].start - arc.end));
   return { leaks, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
+}
+// The Ignite canvas, one frame: the glass jar and the compression in it, and the words drawn.
+// The jar is the widest whole circle stroked. The compression front is a whole circle stroked
+// inside it about the same centre, and arrows press in on it: lines drawn straight in from
+// the jar's wall toward its middle. `front` is the front's radius as a fraction of the jar's,
+// or null with none drawn; `arrows` are each arrow's tail and head, in jar radii from the
+// jar's centre, in the order drawn.
+function jarView(game) {
+  game.drawing.length = 0; paint(game);
+  const round = n => Math.round(n * 1e6) / 1e6, circles = [], lines = [];
+  let path = [];
+  for (const call of game.drawing) {
+    if (call[0] === 'beginPath') path = [];
+    else if (['arc', 'moveTo', 'lineTo'].includes(call[0])) path.push(call);
+    else if (call[0] === 'stroke') path.forEach(([kind, x, y, r, from, to], i) => {
+      if (kind === 'arc' && to - from >= 2 * Math.PI - 1e-9) circles.push({ x, y, r });
+      if (kind === 'lineTo' && path[i - 1]?.[0] === 'moveTo') lines.push([path[i - 1].slice(1, 3), [x, y]]);
+    });
+  }
+  const jar = circles.reduce((a, c) => !a || c.r > a.r ? c : a, null);
+  const centred = c => Math.abs(c.x - jar.x) < 1e-6 && Math.abs(c.y - jar.y) < 1e-6;
+  const front = circles.filter(c => c !== jar && centred(c) && c.r < jar.r).sort((a, b) => b.r - a.r)[0];
+  const from = ([x, y]) => [x - jar.x, y - jar.y], size = ([x, y]) => Math.hypot(x, y);
+  const arrows = lines.map(([a, b]) => [from(a), from(b)])
+    .filter(([a, b]) => Math.abs(a[0] * b[1] - a[1] * b[0]) < 1e-6 * size(a) * size(b) && a[0] * b[0] + a[1] * b[1] > 0 && size(b) < size(a))
+    .map(ends => ends.map(end => end.map(v => round(v / jar.r))));
+  return { front: front ? round(front.r / jar.r) : null, arrows, words: drawnWords(game) };
 }
 // The Open step's plasma-cavity view, one frame: the plasma bubble and the words drawn.
 // The negative energy is named at the bubble's centre, and the bubble's wall is the
@@ -358,6 +423,135 @@ test('timed practice measures active wall time independently of the physics step
   click(game, 'cv-go'); game.lab.advance(.05, 1.5);
   assert.equal(text(game, 'hud-time'), '0:01');
   assert.equal(text(game, 'cv-k'), '100 %', 'physics moved 0.05 s, not 1.5 s');
+});
+
+test('the Plasma readiness check passes only once a cold plasma has stayed in the pressure band for 3 seconds, and leaving the band first starts the count over', () => {
+  const game = bootFromSavedRun('ready-to-converge');
+  assert.equal(plasmaReadyOnConverge(game), true, 'the saved run held its cold plasma in the band');
+  // Retune at a low drive power, where the plasma stays cold just above the band, so only the band is in question.
+  slide(game, 'ig-power', 30); playWhileInBand(game);
+  assert.equal(pressureNote(game), 'keep pumping'); assert.equal(text(game, 'ig-state'), 'Cold plasma');
+  assert.equal(plasmaReadyOnConverge(game), false, 'a cold plasma above the band');
+  // One stroke brings the pressure back in near the top of the band, and it leaks out again before 3 seconds.
+  press(game, 'ig-pump', ' '); game.lab.advance(0); assert.equal(pressureNote(game), 'in the band');
+  const inBand = playWhileInBand(game);
+  assert.ok(inBand > 1 && inBand < 3, `in the band for ${inBand} s`);
+  assert.equal(plasmaReadyOnConverge(game), false, 'left the band before 3 seconds');
+  // Pumped back in, the count starts over from nothing and needs its full 3 seconds.
+  for (let i = 0; i < 4; i++) press(game, 'ig-pump', ' ');
+  playFor(game, 3 - 1 / 8); assert.equal(pressureNote(game), 'in the band');
+  assert.equal(plasmaReadyOnConverge(game), false, `${3 - 1 / 8} s in the band now, ${inBand + 3 - 1 / 8} s with the stretch before`);
+  playFor(game, 1 / 8);
+  assert.equal(plasmaReadyOnConverge(game), true, '3 seconds in the band');
+});
+
+// Ways to work the Ignite pump, each run until the pressure reads under 1.2 torr and then let
+// go. Held on screen, the pump strokes every 0.2 s; a held key strokes on each repeat, 30 a
+// second. Each returns how many keydowns it took, or null for the on-screen pump.
+const PUMPING = [
+  ['the on-screen pump', game => {
+    pumpButton(game, 'down'); for (let i = 0; i < 1000 && torr(game) >= 1.2; i++) game.lab.advance(1 / 50);
+    pumpButton(game, 'up'); return null;
+  }],
+  ...[['a held Space', ' '], ['a held Enter', 'Enter']].map(([name, key]) => [name, game => {
+    let keydowns = 0;
+    for (; keydowns < 1000 && torr(game) >= 1.2; keydowns++) { press(game, 'ig-pump', key); game.lab.advance(1 / 30); }
+    game.ids.get('ig-pump').onkeyup({ key, preventDefault() {} }); return keydowns;
+  }])
+];
+
+test('a learning run reaches a cold plasma and a met Ignite goal from the on-screen pump or a held Space or Enter, the goal filling over 3 seconds in the band', () => {
+  for (const [way, pump] of PUMPING) {
+    const game = bootFromSavedRun('fresh-run'); slide(game, 'ig-power', 60);
+    const keydowns = pump(game);
+    assert.equal(pressureNote(game), 'in the band', way); assert.equal(text(game, 'ig-state'), 'Cold plasma', way);
+    if (keydowns !== null) assert.equal(cues(game).filter(id => id === 'pump-stroke').length, keydowns, `${way}: every stroke sounds`);
+    const before = goalBar(game); assert.ok(before < 100, `${way}: not yet met`);
+    playFor(game, 1);
+    assert.ok(Math.abs(goalBar(game) - before - 100 / 3) < 1e-5, `${way}: a third of the goal each second, ${before} then ${goalBar(game)}`);
+    playFor(game, 2);
+    assert.equal(goalBar(game), 100, way); assert.match(text(game, 'goaltext'), /\bheld in the pressure band\b/, way);
+    assert.equal(game.ids.get('next').disabled, false, `${way}: the way on to Hold is open`);
+  }
+});
+
+// Where Ignite's compression front stands, frame by frame, while the pump is worked:
+// `strokes` keydowns, one each 1/30 s of play, then `rest` seconds of play. Returns the
+// front each frame, with the pressure readout's note.
+function frontWhilePumping(game, strokes, rest = 0) {
+  const frames = [], look = () => frames.push({ note: pressureNote(game), front: jarView(game).front });
+  for (let i = 0; i < strokes; i++) { press(game, 'ig-pump', ' '); game.lab.advance(1 / 30); look(); }
+  for (let i = 0; i < rest * 8; i++) { game.lab.advance(1 / 8); look(); }
+  return frames;
+}
+// The widest angle round the jar's middle with no arrow in it, in radians.
+function widestGap(arrows) {
+  const turn = 2 * Math.PI, angles = arrows.map(([tail]) => (Math.atan2(tail[1], tail[0]) + turn) % turn).sort((a, b) => a - b);
+  return angles.length ? Math.max(...angles.map((a, i) => i + 1 < angles.length ? angles[i + 1] - a : angles[0] + turn - a)) : turn;
+}
+
+test('the Ignite canvas shows the piston holding the plasma pressed toward the middle of the jar only while the pressure is in its band, and says so', () => {
+  // Saved runs at drive power 60, reloaded at full pressure, above, in and below the band.
+  const at = p => bootFromSavedRun(savedRunOn(0, d => Object.assign(d.stages[0].values, { power: 60, p })));
+  for (const [p, state] of [[760, 'above'], [5, 'above'], [.1, 'below']]) {
+    const game = at(p), view = jarView(game);
+    assert.equal(view.front, null, `${p} torr, ${state} the band: no compression`); assert.deepEqual(view.arrows, [], `${p} torr: nothing presses in`);
+    assert.ok(view.words.includes(`pressure ${state} the band`), view.words.join(' | '));
+    assert.match(description(game), new RegExp(`\\b${state} its band\\b`), description(game));
+    assert.doesNotMatch(description(game), /compress|pressed|piston/i, `${p} torr: the description speaks of no compression`);
+  }
+  const held = at(1), view = jarView(held);
+  assert.ok(view.front > 0 && view.front < .6, `pressed toward the middle: a front at ${view.front} of the jar's radius`);
+  assert.ok(view.arrows.length, 'arrows press in on the front');
+  for (const [tail, head] of view.arrows) assert.ok(Math.hypot(...tail) > .9 && Math.hypot(...head) > view.front, 'each from the wall in to the front');
+  assert.ok(widestGap(view.arrows) <= Math.PI / 2 + 1e-9, `arrows press in all round the jar: the widest gap is ${widestGap(view.arrows)} rad`);
+  assert.ok(view.words.includes('pressure in the band'), view.words.join(' | '));
+  assert.ok(view.words.includes('pump · piston'), 'the pump is drawn as the piston');
+  assert.match(description(held), /\bin its band\b/); assert.match(description(held), /\bpiston\b[^.]*\bplasma pressed toward the middle\b/, description(held));
+});
+
+test('the pump empties the jar, so its strokes never press the Ignite front further in: the front stands where a reloaded run shows it whenever the pressure is in its band, and is gone outside it', () => {
+  const settled = jarView(bootFromSavedRun(savedRunOn(0, d => Object.assign(d.stages[0].values, { power: 60, p: 1 })))).front;
+  const game = bootFromSavedRun('fresh-run'); slide(game, 'ig-power', 60);
+  // Pumped down from 760 torr through the band and below it, then left to leak back in.
+  const frames = frontWhilePumping(game, 40, 6);
+  for (const state of ['in the band', 'too thin: let it leak back']) assert.ok(frames.some(f => f.note === state), `the pressure passes ${state}`);
+  assert.ok(frames.at(-1).note === 'in the band', 'and leaks back into the band');
+  for (const [i, { note, front }] of frames.entries()) {
+    assert.equal(front, note === 'in the band' ? settled : null, `frame ${i + 1}, ${note}`);
+  }
+});
+
+test('under reduced motion the compression picture holds still and still shows the pressure state', () => {
+  const picture = ({ front, arrows }) => ({ front, arrows });
+  const game = bootFromSavedRun('fresh-run', { reduced: true }); slide(game, 'ig-power', 60);
+  for (let i = 0; i < 29; i++) press(game, 'ig-pump', ' ');
+  game.lab.advance(0); assert.equal(pressureNote(game), 'in the band');
+  const first = jarView(game);
+  assert.ok(first.front > 0 && first.front < .6, `pressed toward the middle at once: ${first.front}`);
+  assert.ok(first.words.includes('pressure in the band'));
+  for (let i = 0; i < 8; i++) { playFor(game, 1 / 8); assert.deepEqual(picture(jarView(game)), picture(first), `nothing moves after ${(i + 1) / 8} s of play`); }
+  press(game, 'ig-pump', ' '); assert.deepEqual(picture(jarView(game)), picture(first), 'a stroke does not jolt it');
+  playFor(game, 2); assert.equal(goalBar(game), 100); assert.deepEqual(picture(jarView(game)), picture(first), 'the met goal pauses the step, still compressed');
+  // Resumed, the gas leaks back above the band, and the state still shows.
+  click(game, 'pause'); playWhileInBand(game);
+  const above = jarView(game);
+  assert.equal(above.front, null); assert.ok(above.words.includes('pressure above the band'), above.words.join(' | '));
+});
+
+test('the 3 seconds in the Ignite pressure band count only play: a source card stops the count and the timed-practice clock, and closing the card goes on from where it stopped', () => {
+  const game = bootFromSavedRun({ ...readSavedRun('fresh-run'), mode: 'challenge' });
+  slide(game, 'ig-power', 60);
+  for (let i = 0; i < 29; i++) press(game, 'ig-pump', ' '); // pumped down into the band in an instant
+  game.lab.advance(0); assert.equal(pressureNote(game), 'in the band'); assert.equal(goalBar(game), 0);
+  playFor(game, 1); assert.equal(goalBar(game), 33.333333); assert.equal(text(game, 'hud-time'), '0:01');
+  readSource(game, true); playFor(game, 5);
+  assert.equal(goalBar(game), 33.333333, 'a source card stops the count where it is'); assert.equal(text(game, 'hud-time'), '0:01', 'and stops the clock');
+  readSource(game, false); playFor(game, 1);
+  assert.equal(goalBar(game), 66.666667, 'closing it goes on from there'); assert.equal(text(game, 'hud-time'), '0:02');
+  playFor(game, 1);
+  assert.equal(goalBar(game), 100); assert.match(text(game, 'goaltext'), /\bheld in the pressure band\b/);
+  assert.equal(text(game, 'hud-time'), '0:03', 'a met goal pauses the step, and the clock with it');
 });
 
 test('confinement resets for low beta, high beta, or an off-centre ball', () => {
@@ -496,6 +690,21 @@ test('completed result stays frozen through retuning and reload', () => {
   const score = ledgerScore(game);
   click(game, 'step-4'); slide(game, 'op-w', 100); game.lab.advance(10); assert.equal(ledgerScore(game), score);
   leave(game); const reloaded = boot(game.storage); assert.equal(ledgerScore(reloaded), score);
+});
+
+test('timed practice starts its bests fresh for the 3-second Ignite hold: a best from before it does not show, and new results are kept apart, on this device and on the practice board', async () => {
+  const before = JSON.stringify({ score: 9999, secs: 1 }), host = artifactHost();
+  const storage = new Map([['ipt-best-v2', before]]);
+  const game = bootFromSavedRun(savedRunOn(5, d => { d.mode = 'challenge'; d.elapsed = 20; }), { storage, claude: host.claude });
+  openAfter(game, 2.5); game.lab.advance(1.6);
+  const score = ledgerScore(game), best = text(game, 'panel').match(/<dt>Your best here<\/dt><dd>([^<]+)/)[1];
+  assert.equal(best, score, `the best shown is this run's ${score}, not the 9,999 from before the hold`);
+  const points = Number(score.replace(/,/g, ''));
+  assert.equal(JSON.parse(storage.get('ipt-best-v3')).score, points, 'the new best is saved under its own key');
+  assert.equal(storage.get('ipt-best-v2'), before, 'the best from before stays stored');
+  await settle();
+  assert.deepEqual(host.reads, ['scores-v3'], 'the practice board shows only results from its own collection');
+  assert.deepEqual(host.writes.map(([at, row]) => [at, row.score]), [['scores-v3/player', points]], 'and posts the run there');
 });
 
 test('ordinary reload restores settings, exposure, mode, elapsed time, and paused state', () => {
@@ -670,6 +879,13 @@ function citedPagesTable() {
 const sourceCard = game => text(game, 'panel').match(/<details class="source-card">[\s\S]*?<\/details>/)[0];
 const lessonParagraphs = card => [...card.matchAll(/<p>([\s\S]*?)<\/p>/g)].map(m => m[1]);
 const words = markup => markup.replace(/<[^>]+>/g, '');
+// A lesson, paragraph by paragraph: its source label, its markup after the label, and the words it says.
+function lessonByParagraph(card) {
+  return lessonParagraphs(card).map(p => {
+    const [, label = null, rest = p] = p.match(/^<span class="tag [a-z]+">([^<]+)<\/span>([\s\S]*)$/) || [];
+    return { label, markup: rest, said: words(rest) };
+  });
+}
 
 test('every source card says the sources were checked on the day the register was reviewed, the day its newest source was read', () => {
   const reviewed = register.match(/^Reviewed on (\d{1,2} \w+ \d{4})/m)?.[1];
@@ -729,21 +945,90 @@ test('the Converge source card cites the teleportation page for the constant-spe
   assert.equal(row.reviewed, 'No'); assert.match(row.usedIn, /\bConverge\b/);
 });
 
+// The theory pages that read the ion pumpy schematic, and the reviewed pages that weigh it.
+const DPF_THEORY_PAGE = 'https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/';
+const REACTOR_THEORY_PAGE = 'https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/';
+const MILEY_PAGE = 'https://4orbs.com/research/miley-2016-fusion/';
+const DPF_101_PAGE = 'https://4orbs.com/science/101/dense-plasma-focus/';
+
+// Leaving the pressure band starts the count toward its 3 seconds over.
+const COUNT_STARTS_OVER = /\b(count starts over|starts the count over)\b/;
+
+test("the Ignite source card gives the pump as the piston in full command of the plasma's pressure, so the orbs run continuously, as the 4orbs account, and says leaving the band starts the count over", () => {
+  const game = bootFromSavedRun('fresh-run'), card = sourceCard(game), lesson = lessonByParagraph(card);
+  // One claim, one label: the theory pages' piston, linked where it is said.
+  const reading = lesson.filter(p => fourOrbsPages(p.markup).length);
+  assert.equal(reading.length, 1, 'one lesson paragraph links 4orbs pages');
+  assert.equal(reading[0].label, '4orbs account'); assert.doesNotMatch(reading[0].markup, /class="tag /, 'one source label');
+  assert.match(reading[0].said, /\bpiston\b[^.]*"full command of adiabatic pressure"/, 'it quotes the label Forbes reads on the piston');
+  assert.match(reading[0].said, /\bcontinuously\b/, 'the orbs run continuously');
+  assert.deepEqual(new Set(fourOrbsPages(reading[0].markup)), new Set([DPF_THEORY_PAGE, REACTOR_THEORY_PAGE, DPF_101_PAGE]));
+  // The contrast it draws, a laboratory dense plasma focus that fires once, links the reviewed page that says so.
+  const contrast = reading[0].markup.split(/(?<=\.)\s+/).filter(sentence => /\bfires? once\b/.test(words(sentence)));
+  assert.equal(contrast.length, 1, 'one sentence says a dense plasma focus fires once');
+  assert.match(words(contrast[0]), /\bdense plasma focus\b/); assert.ok(fourOrbsPages(contrast[0]).includes(DPF_101_PAGE), contrast[0]);
+  for (const [page, reviewed] of [[DPF_THEORY_PAGE, 'No'], [REACTOR_THEORY_PAGE, 'No'], [DPF_101_PAGE, 'Yes']]) {
+    const row = citedPagesTable().find(r => r.page === page);
+    assert.equal(row?.reviewed, reviewed, page); assert.match(row.usedIn, /\bIgnite\b/, page);
+  }
+  // The hand pump stays the control: the Game rule, with the 3 seconds in the band and what leaving it does.
+  const rule = lesson.filter(p => p.label === 'Game rule');
+  assert.equal(rule.length, 1, 'one Game rule paragraph');
+  assert.match(rule[0].said, /\bhand pump\b[^.]*\bpiston\b/, 'the hand pump plays the piston');
+  assert.match(rule[0].said, /\b3 seconds\b/);
+  assert.match(rule[0].said, /\bLeav\w* the band\b/i); assert.match(rule[0].said, COUNT_STARTS_OVER);
+  const goalText = text(game, 'goaltext');
+  assert.match(goalText, /\b3 seconds\b/, 'the goal says so, outside the card'); assert.match(goalText, COUNT_STARTS_OVER);
+  for (const said of [rule[0].said, goalText]) assert.doesNotMatch(said, /\bhold\b/i, `the Hold step's name stays the Hold step's: ${said}`);
+  // No sentence claims self-sustaining fusion.
+  const sentences = [...lesson.map(p => p.said), ...words(card).split(/(?<=[.!?])\s+/), description(game), ...jarView(game).words, goalText];
+  for (const sentence of sentences) assert.doesNotMatch(sentence, /self-sustain|sustains? itself|self-heat|ignition/i, sentence);
+  // The premise is taken as given: the reviewed pages' caution stays in the register.
+  assert.doesNotMatch(words(card), /recharge|pulsed|single shots?|no source|open question|unestablished|unreviewed/i);
+});
+
+test('the source register records the Ignite piston as a source choice: both reviewed pages, both theory pages, and why the game takes the theory', () => {
+  const choices = register.split(/^## Source choices$/m)[1]?.split(/^## /m)[0] || '';
+  const entry = choices.split(/^### /m).find(e => /^Ignite\b/.test(e));
+  assert.ok(entry, 'an Ignite entry under Source choices');
+  const rows = citedPagesTable(), pages = [...new Set(fourOrbsPages(entry))], reviewed = page => rows.find(r => r.page === page)?.reviewed;
+  assert.deepEqual(pages.filter(p => !reviewed(p)), [], "every page it links is in the register's 4orbs pages cited table");
+  assert.deepEqual(pages.filter(p => reviewed(p) === 'No').sort(), [REACTOR_THEORY_PAGE, DPF_THEORY_PAGE].sort(), 'both theory pages');
+  assert.deepEqual(pages.filter(p => reviewed(p) === 'Yes').sort(), [MILEY_PAGE, DPF_101_PAGE].sort(), 'both reviewed pages');
+  // What each says, and why the game takes the theory.
+  for (const said of [/full command of adiabatic pressure/, /magnetic piston/, /fire once and then recharge/, /\bTeleport\b/]) assert.match(entry, said);
+  // Neither theory page ties the piston to continuous running itself: the lesson joins their readings.
+  assert.match(entry, /\blesson joins\b/);
+});
+
+// The steps, by name, in order.
+const STEP_NAMES = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge'];
+
+test("the register's 4orbs pages cited table names every step that links each page on its source card, and every step it is weighed for under Source choices", () => {
+  const rows = citedPagesTable(), names = (page, step) => new RegExp(`\\b${step}\\b`).test(rows.find(r => r.page === page)?.usedIn || '');
+  // The table lists the pages beyond the corrected Part Three and the measurement page.
+  const beyond = page => !/\/the-vanishing\/part-3-the-science\/$|\/research\/satellite-videos\/measurements\/$/.test(page);
+  const game = bootFromSavedRun('completed-run');
+  STEP_NAMES.forEach((step, i) => {
+    click(game, `step-${i}`);
+    for (const page of fourOrbsPages(sourceCard(game)).filter(beyond)) assert.ok(names(page, step), `${step}'s source card links ${page}`);
+  });
+  const choices = register.split(/^## Source choices$/m)[1]?.split(/^## /m)[0] || '';
+  // Each choice is a heading that names its steps, then a bullet for each page weighed.
+  for (const entry of choices.split(/^### /m).slice(1)) {
+    const steps = entry.split(':')[0].split(/,\s*/), weighed = entry.split('\n').filter(line => line.startsWith('- ')).join('\n');
+    assert.ok(steps.every(step => STEP_NAMES.includes(step)), `a Source choices heading names its steps: ${entry.split('\n')[0]}`);
+    for (const page of fourOrbsPages(weighed).filter(beyond)) for (const step of steps) assert.ok(names(page, step), `${page} is weighed for ${step}`);
+  }
+});
+
 // The Open step's views, in the order its view control offers them.
 const OPEN_VIEWS = ['op-plates', 'op-throat', 'op-cavity'];
 // The 4orbs theory page the plasma cavity comes from.
 const DYNAMIC_CASIMIR_PAGE = 'https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/';
 
-// The Open lesson, paragraph by paragraph: its source label, its markup after the label, and the words it says.
-function openLesson(card) {
-  return lessonParagraphs(card).map(p => {
-    const [, label = null, rest = p] = p.match(/^<span class="tag [a-z]+">([^<]+)<\/span>([\s\S]*)$/) || [];
-    return { label, markup: rest, said: words(rest) };
-  });
-}
-
 test('the Open source card gives the orbs generating negative energy as the 4orbs account, linking the dynamic Casimir page, and supplying what the throat needs as the Game rule', () => {
-  const game = bootFromSavedRun(savedRunOn(4)), card = sourceCard(game), lesson = openLesson(card);
+  const game = bootFromSavedRun(savedRunOn(4)), card = sourceCard(game), lesson = lessonByParagraph(card);
   // One claim, one label: the orbs generate negative energy by the dynamic Casimir effect (4orbs account), linked where it is said.
   const reading = lesson.filter(p => fourOrbsPages(p.markup).includes(DYNAMIC_CASIMIR_PAGE));
   assert.equal(reading.length, 1, 'one lesson paragraph links the dynamic Casimir page');
@@ -1010,14 +1295,14 @@ test('reduced motion holds the throat-forming glow still', () => {
 });
 
 test('a saved run from the previous source revision starts fresh with a visible explanation, and the register names the current one', () => {
-  // The revision before the Open step gained its plasma-cavity view.
-  const previous = '4orbs-part3-corrected-2026-11-21-transit-speed';
-  const storage = new Map([['ipt-best-v2', '{"score":1234}']]);
+  // The revision before the Ignite pump became the piston.
+  const previous = '4orbs-part3-corrected-2026-11-21-open-cavity';
+  const storage = new Map([['ipt-best-v3', '{"score":1234}']]);
   const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
   assert.equal(game.ids.get('restore-status').hidden, false);
   assert.match(text(game, 'restore-status'), /Source assumptions have changed/);
-  assert.equal(storage.get('ipt-best-v2'), '{"score":1234}');
+  assert.equal(storage.get('ipt-best-v3'), '{"score":1234}');
   assert.equal(register.match(/Source revision: `([^`]+)`/)?.[1], game.lab.SOURCE_REVISION, 'the register states the revision the game uses');
 });
 

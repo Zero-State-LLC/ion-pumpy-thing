@@ -2,7 +2,7 @@
 
 A browser game in six steps, from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the wormhole account set out at [4orbs.com](https://4orbs.com) from the physics it cites, and explains that physics as you go.
 
-1. **Ignite** – work a hand pump to make a cold plasma.
+1. **Ignite** – work a hand pump, the piston in full command of the plasma's pressure, to make a cold plasma and keep it in the pressure band for 3 seconds.
 2. **Hold** – keep a plasma ball near beta one and centred between coils, as in a high-beta cusp trap.
 3. **Fuel** – deuterium-tritium versus hydrogen-boron fusion, the aneutronic fuel for the orbs' power.
 4. **Orbit** – match the measured formation in two camera views.
@@ -27,9 +27,9 @@ Sound is off on every page load until you turn it on. The 29 effects use local E
 
 The pages load Google Fonts. Google Analytics loads only on the production host, as described in the privacy notice. Audio plays from this site with no ElevenLabs runtime connection.
 
-Progress saves on this device and reloads paused. Restarting or switching mode replaces progress, after asking, but keeps your timed best. A changed source revision starts a new run and shows an explanation rather than resuming outdated assumptions. If browser storage is blocked, the game shows that it cannot save. Private browsing or clearing browser data can remove local progress.
+Progress saves on this device and reloads paused. Restarting or switching mode replaces progress, after asking, but keeps your timed best. The 3 seconds in Ignite's pressure band changed timed-practice timing, so timed bests and the practice board started fresh with them; earlier scores stay stored but no longer show. A changed source revision starts a new run and shows an explanation rather than resuming outdated assumptions. If browser storage is blocked, the game shows that it cannot save. Private browsing or clearing browser data can remove local progress.
 
-The optional shared practice board only works in a Claude artifact with database access to `scores-v2`. Elsewhere the board is unavailable and your timed best stays local. Learning runs do not post scores. These are client-reported practice results, not a verified competitive leaderboard.
+The optional shared practice board only works in a Claude artifact with database access to `scores-v3`. Elsewhere the board is unavailable and your timed best stays local. Learning runs do not post scores. These are client-reported practice results, not a verified competitive leaderboard.
 
 ## Checks
 

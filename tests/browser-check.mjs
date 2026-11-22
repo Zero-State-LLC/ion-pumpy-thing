@@ -26,7 +26,7 @@ const WINDOWS = [[390, 844], [320, 640]];
 const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'Ledger'];
 // What a step's own toggle buttons turn on, each checked with its button pressed: the step,
 // the button's id, and a name for what it shows.
-const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
+const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-throat', 'the throat view'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
 // The views drawn in 3D, each checked at a moment of the completed run's replay where it has
 // something to draw: the step, the view's button (null for a step with one view), a name for it,
 // the replay's per cent (null for a step with no replay), and what else the frame must show:

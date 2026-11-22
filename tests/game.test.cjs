@@ -2003,7 +2003,7 @@ test('Open in 3D loads the plate mount prop beside the airliner', async () => {
 test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the area the player sets, as the flat view draws them, each held by a plate mount prop at its real 100 mm', async () => {
   for (const [ld, la] of [[3, 0], [1, 6], [4, 2.5]]) {
     const game = await openIn3D('plates', { 'op-d': ld, 'op-a': la }), frame = nextScene(game);
-    assert.equal(frame.look, 'visible'); assert.equal(frame.views.length, 1);
+    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)'); assert.equal(frame.views.length, 1);
     assert.deepEqual([frame.views[0].left, frame.views[0].width, frame.views[0].origin], [0, 390, [195, 292.5 / 2]]);
     assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
     // The flat view's plates, in pixels: centred 47 % of the way down, the gap and height set by the logarithmic controls.
@@ -2022,7 +2022,7 @@ test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the a
     mounts.forEach((m, i) => {
       assert.equal(m.height, PLATE_MOUNT_HEIGHT, 'at real size');
       assert.deepEqual(m.at, [plates[i].at[0], plates[i].at[1] + plates[i].size[1] / 2, 0], 'its post holds the plate\'s lower edge');
-      assert.equal(m.toward, i ? 1 : -1, 'its base stands away from the gap');
+      assert.equal(m.facing, i ? 1 : -1, 'its base stands out from the gap, on the plate\'s far side');
     });
   }
 });

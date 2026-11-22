@@ -2,7 +2,7 @@
 #   python tools/clean-plate-mount.py RAW.glb assets/plate-mount.glb
 # RAW.glb is the untextured preview mesh of Meshy text-to-3d task 01a201df-0f52-7716-991d-dc55dd6e4b36
 # (sha256 6011987db014edebec6e0f90b2b9ad40b4e28f5d69a487f757633098d005268c; see docs/ASSETS.md).
-# The mount is a round base, a block and a post. Meshy gives it Y up in a unit box. This keeps
+# The mount is a round base, a holder block and a post. Meshy gives it Y up in a unit box. This keeps
 # Y up, puts the origin at the tip of the post, where the mount holds its plate, scales it evenly
 # to 100 mm tall, adds smooth normals, and writes one untextured mesh, the mount.
 # Needs Python 3 and numpy.
@@ -28,7 +28,7 @@ def read_glb(path):
 
 P, I = read_glb(sys.argv[1])
 lo, hi = P.min(0), P.max(0)
-# The post is the only part in the top tenth of the model; its tip is the model's top.
+# The post is the only part in the top tenth of the mesh; its tip is the mesh's top.
 top = P[P[:, 1] > hi[1] - 0.1 * (hi[1] - lo[1])]
 tip = np.array([(top[:, 0].min() + top[:, 0].max()) / 2, hi[1], (top[:, 2].min() + top[:, 2].max()) / 2])
 Q = (P - tip) * (HEIGHT / (hi[1] - lo[1]))

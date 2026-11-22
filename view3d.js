@@ -117,8 +117,8 @@ function bubbleMaterial() {
       void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform vec3 uInside; uniform vec3 uRim; uniform float uRimOpacity; varying vec3 vN;
       void main() {
-        vec3 n = normalize(vN); float out_ = clamp((length(n.xy) - 0.72) / 0.28, 0.0, 1.0);
-        gl_FragColor = vec4(mix(uInside, uRim, out_), mix(1.0, uRimOpacity, out_));
+        vec3 n = normalize(vN); float edge = clamp((length(n.xy) - 0.72) / 0.28, 0.0, 1.0);
+        gl_FragColor = vec4(mix(uInside, uRim, edge), mix(1.0, uRimOpacity, edge));
       }`,
     transparent: true, depthWrite: false
   });
@@ -286,9 +286,9 @@ async function start(canvas, { props, onLost }) {
         return outer;
       });
       g.position.set(...e.at);
-      // Evenly scaled to the list's height, and mirrored so the base stands out the way the list asks.
+      // Evenly scaled to the list's height, and mirrored so the base stands out to the side the list faces.
       const k = e.height / mount.height, inner = g.children[0];
-      inner.scale.set(k * (mount.side === e.toward ? 1 : -1), k, k);
+      inner.scale.set(k * (mount.side === e.facing ? 1 : -1), k, k);
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
     },
     // A wormhole's throat, seen down its length: its mouth, void within and a glowing rim, and

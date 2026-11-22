@@ -2628,3 +2628,33 @@ test('dynamic step goals tell players what to adjust and how to recover', () => 
   click(finale, 'cv-go');
   assert.match(text(finale, 'cv-msg'), /Too early\..*Press Start closing in again/);
 });
+
+
+test('plain-English lessons define unfamiliar physics terms without dropping the sources', () => {
+  const game = bootFromSavedRun('completed-run');
+  click(game, 'step-1');
+  const holdLessons = lessonByParagraph(sourceCard(game));
+  assert.ok(holdLessons.some(p => p.label === 'Theory' &&
+    /Beta compares plasma pressure/.test(p.said) && /β = nkT/.test(p.said)));
+  assert.ok(holdLessons.some(p => p.label === 'Lab physics' &&
+    /openings called cusps/.test(p.said) && /wiffle ball/.test(p.said)));
+
+  click(game, 'step-2');
+  const fuelLessons = lessonByParagraph(sourceCard(game));
+  assert.ok(fuelLessons.some(p => p.label === 'Theory' &&
+    /2003 conference paper/.test(p.said) && /Their model predicted/.test(p.said)));
+
+  click(game, 'step-3');
+  const orbitLessons = lessonByParagraph(sourceCard(game));
+  assert.ok(orbitLessons.some(p => p.label === 'Lab physics' &&
+    /inward acceleration/.test(p.said) && /speed squared/.test(p.said)));
+  assert.ok(orbitLessons.some(p => p.label === 'Measured' &&
+    /4orbs estimates/.test(p.said) && /60 to 70 metres/.test(p.said)));
+
+  click(game, 'step-4');
+  const openLessons = lessonByParagraph(sourceCard(game));
+  assert.ok(openLessons.some(p => p.label === 'Theory' &&
+    /Einstein and Nathan Rosen/.test(p.said) &&
+    /Michael Morris and Kip Thorne/.test(p.said) &&
+    /narrow opening \(the throat\)/.test(p.said)));
+});

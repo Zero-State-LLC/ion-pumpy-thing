@@ -2606,3 +2606,25 @@ test('science, score and safety qualifications appear in the player interface', 
   click(game, 'step-6');
   assert.match(text(game, 'panel'), /not independently verified/);
 });
+
+
+test('dynamic step goals tell players what to adjust and how to recover', () => {
+  const plasma = boot();
+  assert.match(text(plasma, 'goaltext'), /pressure in the marked range/);
+  assert.match(text(plasma, 'goaltext'), /count starts over/);
+
+  const field = bootFromSavedRun(savedRunOn(1));
+  assert.match(text(field, 'goaltext'), /plasma ball centred for 6 seconds/);
+
+  const fuel = bootFromSavedRun(savedRunOn(2));
+  assert.match(text(fuel, 'goaltext'), /Hydrogen \+ boron-11/);
+
+  const formation = bootFromSavedRun(savedRunOn(3));
+  assert.match(text(formation, 'goaltext'), /Match the hollow rings in both views/);
+
+  const finale = bootFromSavedRun('ready-to-converge');
+  assert.match(text(finale, 'goaltext'), /Press Start closing in.*Open it now/);
+  click(finale, 'cv-go');
+  click(finale, 'cv-go');
+  assert.match(text(finale, 'cv-msg'), /Too early\..*Press Start closing in again/);
+});

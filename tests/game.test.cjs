@@ -2533,7 +2533,11 @@ test('where the renderer cannot start, or loses WebGL, the flat view draws and t
   assert.equal(nextScene(failed), null); assert.ok(failed.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
   const lost = await bootIn3D('ready-to-converge');
   assert.ok(nextScene(lost));
+  const savedRunBeforeLoss = lost.storage.get('ipt-run-v2');
+  const savedViewBeforeLoss = lost.storage.get('ion-pumpy-view-v1');
   lost.view3d.given.onLost();
+  assert.equal(lost.storage.get('ipt-run-v2'), savedRunBeforeLoss, 'context loss does not mutate the saved run');
+  assert.equal(lost.storage.get('ion-pumpy-view-v1'), savedViewBeforeLoss, 'context loss does not rewrite the view preference');
   assert.equal(nextScene(lost), null, 'no 3D frame after WebGL is lost'); assert.equal(lost.ids.get('gl').hidden, true);
   assert.match(text(lost, 'view-3d-status'), /lost WebGL, so the flat view is showing/);
   assert.equal(lost.ids.get('view-3d').checked, false);

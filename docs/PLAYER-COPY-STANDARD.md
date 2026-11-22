@@ -30,3 +30,11 @@ Use plain English without removing scientific accuracy. The game teaches the spe
 ## Remaining review
 
 Audit dynamic goal text, status and recovery messages, leaderboard failures, accessibility announcements, and full scientific lesson paragraphs for terminology and readability. Have a science reviewer check every substantive simplification. Keep this work tracked in issue #81.
+
+## Science explanation readability pass, 22 November 2026
+
+The game retains the distinctions between established laboratory findings, published theoretical models, measurements attributed to 4orbs, the 4orbs interpretation, and game rules.
+
+A focused readability pass simplified six explanatory paragraphs in the Hold, Fuel, Orbit, and Open lessons. It defines beta and magnetic cusps, explains circular acceleration and the wormhole throat, divides long source descriptions into shorter sentences, and attributes the measured orbital geometry to 4orbs. The source labels, published names, dates, formulas, units, and numerical ranges remain in the lessons. A game-harness test checks the visible explanations and their classifications.
+
+**Scope limit:** This is a prose and provenance review, not independent validation of the scientific claims or the underlying videos. A qualified science reviewer should check whether every simplification accurately represents its cited source. The rest of the scientific lesson text and real-device screen-reader experience remain open in issue #81.

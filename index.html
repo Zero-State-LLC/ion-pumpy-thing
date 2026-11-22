@@ -389,7 +389,7 @@ function stop3D(state) { view3d.renderer = null; view3d.state = state; paintView
 function load3D() {
   view3d.state = 'loading';
   Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))
-    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb' }, onLost: () => stop3D('lost') }))
+    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb' }, onLost: () => stop3D('lost') }))
     .then(r => { if (view3d.state === 'loading') { view3d.renderer = r; view3d.state = 'ready'; paintViewSwitch(); } })
     .catch(() => { if (view3d.state === 'loading') stop3D('unavailable'); });
 }
@@ -1243,27 +1243,40 @@ const open = stage({
     if (this.view === 'plates' && performance.now() - plateInputAt < 140) snd.bed('plate-adjust', { level: .7 });
     goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open. Negative energy from the orbs holds a throat wide enough for the wings, as Morris and Thorne require.' : !fits ? 'Goal: a throat wide enough for a 60.9 m wingspan, held open.' : 'Wide enough. Now draw negative energy from the orbs to hold it open.');
   },
-  draw() {
-    if (this.view === 'plates') return drawPlates(this);
-    if (this.view === 'cavity') return drawCavity(this);
+  // The scene list for the 3D view (docs/adr/0003). The throat view draws the airliner and the
+  // throat below it, in metres at the flat view's scale; the plates and the plasma cavity are
+  // schematics at the lab's scale (labScale).
+  scene() {
+    if (this.view === 'plates') return platesScene(this);
+    if (this.view === 'cavity') return cavityScene(this);
+    const sc = sceneScale(), rad = this.w / 2 * throatOpenness(this), list = [{ kind: 'sky', colour: COL.sky }];
+    // As the flat view, nothing is drawn of a throat under half a pixel across.
+    if (rad * sc > 0.5) list.push({ kind: 'throat', at: [0, 0, THROAT_DEPTH], radius: rad, colour: COL.void, rim: 'rgba(98,210,232,.8)', fade: 'rgba(98,210,232,0)', rings: '#62d2e8', ringOpacity: .35 });
+    list.push({ kind: 'airliner', at: [0, 0, 0], size: [AIRCRAFT.span, AIRCRAFT.length], colour: '#cfd6e6', engineColour: '#8791ad' });
+    return { look: 'visible', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+  },
+  // `flat` draws the whole flat view. Over the 3D view, which draws the scene list, it draws the
+  // marks and words: here the dashed circle of the width set, the wingtip rings and the labels.
+  draw(flat = true) {
+    if (this.view === 'plates') return drawPlates(this, flat);
+    if (this.view === 'cavity') return drawCavity(this, flat);
     const cx = W / 2, cy = H / 2, sc = sceneScale();
-    const openness = this.assumed ? 1 : Math.max(0, Math.sin(this.t * (reduced ? 0.5 : 1.3)));
-    const rad = this.w / 2 * sc * openness;
-    ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
-    if (rad > 0.5) {
+    const rad = this.w / 2 * sc * throatOpenness(this);
+    if (flat) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
+    if (flat && rad > 0.5) {
       const g = ctx.createRadialGradient(cx, cy, rad * 0.2, cx, cy, rad * 1.25);
       g.addColorStop(0, COL.void); g.addColorStop(0.78, COL.void); g.addColorStop(0.86, 'rgba(98,210,232,.8)'); g.addColorStop(1, 'rgba(98,210,232,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad * 1.25, 0, TAU); ctx.fill();
       ctx.strokeStyle = 'rgba(98,210,232,.35)'; ctx.lineWidth = 1;
       for (let i = 1; i <= 5; i++) { ctx.beginPath(); ctx.arc(cx, cy, rad * Math.pow(1 - i / 6, 1.4), 0, TAU); ctx.stroke(); }
     }
-    ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = 0.92; plane(sc, '#cfd6e6', '#8791ad'); ctx.restore();
+    if (flat) { ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = 0.92; plane(sc, '#cfd6e6', '#8791ad'); ctx.restore(); }
     const fits = this.w >= 61;
     ctx.strokeStyle = fits ? COL.cold : COL.hot; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
     ctx.beginPath(); ctx.arc(cx, cy, this.w / 2 * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     if (!fits) for (const sx of [-1, 1]) ring(cx + sx * 30.45 * sc, cy + 10.7 * sc, 7, COL.hot);
     label(fits ? 'throat clears the 60.9 m wingspan' : 'wingtips outside the throat', cx, H - 18, fits ? COL.cold : COL.hot, 'center');
-    if (!this.assumed) label(openness < 0.06 ? 'pinched shut' : 'no negative energy: it will not stay open', cx, 44, COL.muted, 'center');
+    if (!this.assumed) label(throatOpenness(this) < 0.06 ? 'pinched shut' : 'no negative energy: it will not stay open', cx, 44, COL.muted, 'center');
     else label('held open by the orbs’ negative energy', cx, 44, COL.read, 'center');
     viewTitle('LOOKING DOWN THE THROAT');
   },
@@ -1274,23 +1287,49 @@ const open = stage({
   }
 }, { w: 10, ld: 3, la: 0, assumed: false, t: 0, view: 'plates' });
 
-function drawPlates(st) {
-  const cx = W / 2, cy = H * 0.47;
-  const gap = W * (0.06 + (st.ld - 1) / 3 * 0.32), height = H * (0.22 + st.la / 6 * 0.25);
-  ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createLinearGradient(cx - gap / 2, 0, cx + gap / 2, 0);
-  glow.addColorStop(0, 'rgba(98,210,232,.22)'); glow.addColorStop(0.5, 'rgba(98,210,232,.04)'); glow.addColorStop(1, 'rgba(98,210,232,.22)');
-  ctx.fillStyle = glow; ctx.fillRect(cx - gap / 2, cy - height / 2, gap, height);
+// How open the throat is, from 0 (pinched shut) to 1: held open by the orbs, or pulsing open and shut.
+const throatOpenness = st => st.assumed ? 1 : Math.max(0, Math.sin(st.t * (reduced ? 0.5 : 1.3)));
+// How far below the airliner, in metres, the 3D view puts the throat's mouth.
+const THROAT_DEPTH = 40;
+// The scale of the Open step's lab schematics in 3D, in pixels to the metre: 9 % of the canvas's
+// shorter side to the tenth of a metre, so the plate mount prop, at its real 100 mm, stands that tall.
+const labScale = () => Math.min(W, H) * 0.9;
+// The plate mount prop's real height, in metres.
+const PLATE_MOUNT_HEIGHT = 0.1;
+// The plates' centre, gap and height on the canvas, in pixels, from the logarithmic controls.
+function platesLayout(st) {
+  return { cx: W / 2, cy: H * 0.47, gap: W * (0.06 + (st.ld - 1) / 3 * 0.32), height: H * (0.22 + st.la / 6 * 0.25) };
+}
+// The plates in 3D, where the flat view draws them: square plates 8 px thick, the glow in the
+// gap, and under each a plate mount prop, its post's tip holding the plate's lower edge.
+function platesScene(st) {
+  const sc = labScale(), { cy, gap, height } = platesLayout(st), m = px => px / sc, y = m(cy - H / 2), h = m(height);
+  const list = [{ kind: 'sky', colour: COL.deep }, { kind: 'gap glow', at: [0, y, 0], size: [m(gap), h], colour: 'rgba(98,210,232,.22)', middle: 'rgba(98,210,232,.04)' }];
+  for (const side of [-1, 1]) list.push({ kind: 'plate', at: [side * m(gap) / 2, y, 0], size: [m(8), h, h], colour: COL.muted });
+  // Each mount's base stands away from the gap.
+  for (const side of [-1, 1]) list.push({ kind: 'plate mount', at: [side * m(gap) / 2, y + h / 2, 0], height: PLATE_MOUNT_HEIGHT, toward: side, colour: '#aab3c5' });
+  return { look: 'visible', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+}
+function drawPlates(st, flat = true) {
+  const { cx, cy, gap, height } = platesLayout(st);
+  if (flat) {
+    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+    const glow = ctx.createLinearGradient(cx - gap / 2, 0, cx + gap / 2, 0);
+    glow.addColorStop(0, 'rgba(98,210,232,.22)'); glow.addColorStop(0.5, 'rgba(98,210,232,.04)'); glow.addColorStop(1, 'rgba(98,210,232,.22)');
+    ctx.fillStyle = glow; ctx.fillRect(cx - gap / 2, cy - height / 2, gap, height);
+  } else ctx.clearRect(0, 0, W, H);
   for (const side of [-1, 1]) {
     const x = cx + side * gap / 2;
-    ctx.fillStyle = COL.muted; ctx.fillRect(x - 4, cy - height / 2, 8, height);
+    if (flat) { ctx.fillStyle = COL.muted; ctx.fillRect(x - 4, cy - height / 2, 8, height); }
     ctx.strokeStyle = COL.cold; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x - side * 18, cy);
     ctx.lineTo(x - side * 12, cy - 5); ctx.moveTo(x - side * 18, cy); ctx.lineTo(x - side * 12, cy + 5); ctx.stroke();
   }
-  const y = cy + height / 2 + 18;
+  // The gap's measure line, below the plates; over the 3D view, where the plate mounts stand
+  // below the plates, it moves up into the gap, clear of them.
+  const y = cy + height / 2 + 18, ly = flat ? y : cy + height / 2 - 14;
   ctx.strokeStyle = COL.warm; ctx.lineWidth = 1; ctx.beginPath();
-  ctx.moveTo(cx - gap / 2, y - 4); ctx.lineTo(cx - gap / 2, y + 4); ctx.moveTo(cx - gap / 2, y); ctx.lineTo(cx + gap / 2, y); ctx.lineTo(cx + gap / 2, y - 4); ctx.moveTo(cx + gap / 2, y); ctx.lineTo(cx + gap / 2, y + 4); ctx.stroke();
+  ctx.moveTo(cx - gap / 2, ly - 4); ctx.lineTo(cx - gap / 2, ly + 4); ctx.moveTo(cx - gap / 2, ly); ctx.lineTo(cx + gap / 2, ly); ctx.lineTo(cx + gap / 2, ly - 4); ctx.moveTo(cx + gap / 2, ly); ctx.lineTo(cx + gap / 2, ly + 4); ctx.stroke();
   label('gap ' + fmt(10 ** st.ld) + ' nm', cx, y + 20, COL.warm, 'center');
   label('area ' + sci(10 ** st.la) + ' m²', cx, cy - height / 2 - 16, COL.ink, 'center');
   label('Attraction between the plates', cx, 48, COL.cold, 'center', W < 400 ? 10 : 12);
@@ -1311,24 +1350,45 @@ function cavityCollapse(st) {
   const u = (st.t % CAVITY_SECONDS) / CAVITY_SECONDS;
   return u < .8 ? (u / .8) ** 2 : 1 - (u - .8) / .2;
 }
-function drawCavity(st) {
-  // The bubble and its arrows (17 px past the wall) sit below the title and above the two bottom lines.
-  const top = 30, bottom = H - 52, cx = W / 2, cy = (top + bottom) / 2, c = cavityCollapse(st), small = W < 400;
-  const R = Math.min(W * .3, H * .26, (bottom - top) / 2 - 17), r = R * (1 - .4 * c);
-  ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
-  // The vacuum round the orb, its fluctuations drawn as faint fixed specks.
-  ctx.fillStyle = COL.line;
+// The bubble's centre, whole radius R and radius now r, in pixels, and how far it has collapsed.
+// The bubble and its arrows (17 px past the wall) sit below the title and above the two bottom lines.
+function cavityLayout(st) {
+  const top = 30, bottom = H - 52, c = cavityCollapse(st), R = Math.min(W * .3, H * .26, (bottom - top) / 2 - 17);
+  return { cx: W / 2, cy: (top + bottom) / 2, c, R, r: R * (1 - .4 * c) };
+}
+// The vacuum round the orb, its fluctuations drawn as faint fixed specks: each one's top left, in pixels.
+function cavitySpecks(cx, cy, R) {
+  const specks = [];
   for (let i = 0; i < 40; i++) {
     const x = (i * 37 % 41) / 41 * W, y = 34 + (i * 23 % 43) / 43 * (H - 88);
-    if (Math.hypot(x - cx, y - cy) > R + 24) ctx.fillRect(x, y, 2, 2);
+    if (Math.hypot(x - cx, y - cy) > R + 24) specks.push([x, y]);
   }
-  // Inside the collapsing bubble: negative energy, below that of the empty space outside.
-  const inside = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-  inside.addColorStop(0, COL.void); inside.addColorStop(.72, COL.void); inside.addColorStop(1, 'rgba(185,162,255,.4)');
-  ctx.fillStyle = inside; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
-  // The plasma wall, acting like a moving Casimir surface.
-  ctx.strokeStyle = 'rgba(255,120,175,.95)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  return specks;
+}
+// The plasma cavity in 3D, where the flat view draws it: the specks, and the bubble with its wall.
+function cavityScene(st) {
+  const sc = labScale(), { cx, cy, R, r } = cavityLayout(st), m = px => px / sc;
+  const list = [
+    { kind: 'sky', colour: COL.deep },
+    { kind: 'specks', points: cavitySpecks(cx, cy, R).map(([x, y]) => [m(x + 1 - W / 2), m(y + 1 - H / 2), 0]), size: m(2), colour: COL.line },
+    { kind: 'bubble', at: [0, m(cy - H / 2), 0], radius: m(r), colour: COL.void, rim: '#b9a2ff', rimOpacity: .4, wall: '#ff78af', wallOpacity: .95, wallWidth: m(3) }
+  ];
+  return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+}
+function drawCavity(st, flat = true) {
+  const { cx, cy, c, R, r } = cavityLayout(st), small = W < 400;
+  if (flat) {
+    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = COL.line;
+    for (const [x, y] of cavitySpecks(cx, cy, R)) ctx.fillRect(x, y, 2, 2);
+    // Inside the collapsing bubble: negative energy, below that of the empty space outside.
+    const inside = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    inside.addColorStop(0, COL.void); inside.addColorStop(.72, COL.void); inside.addColorStop(1, 'rgba(185,162,255,.4)');
+    ctx.fillStyle = inside; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+    // The plasma wall, acting like a moving Casimir surface.
+    ctx.strokeStyle = 'rgba(255,120,175,.95)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  } else ctx.clearRect(0, 0, W, H);
   // Arrows on the wall point in, the way it collapses; real photons leave between them.
   ctx.lineWidth = 1.5;
   for (let i = 0; i < 8; i++) {

@@ -35,6 +35,7 @@ const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-cavity', 'th
 // forward fuselage, is past the entrance, the canvas's middle row, so nothing may be drawn in
 // the frame's top half. (Halfway, too little is left on a 320 px phone to count as drawn.)
 const VIEWS_3D = [[3, null, 'Orbit, both cameras', null, 'split'],
+  [4, 'op-plates', 'Open, plates', null, null], [4, 'op-throat', 'Open, throat', null, null], [4, 'op-cavity', 'Open, plasma cavity', null, null],
   [5, 'cv-thermal', 'Converge, thermal view', 10, null], [5, 'cv-visible', 'Converge, visible view', 10, null],
   [5, 'cv-transit', 'Converge, transit diagram', 0, null], [5, 'cv-transit', 'Converge, transit diagram', 30, 'cut']];
 // How many device pixels either side of the entrance the cut check leaves out, for anti-aliasing.

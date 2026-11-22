@@ -144,6 +144,12 @@ a { color: var(--cold); }
 .deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
 .view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
 .view canvas { display: block; width: 100%; height: 100%; }
+/* The 3D view draws behind the 2D canvas, which keeps all text on top. */
+.view #gl { position: absolute; inset: 0; }
+.view #cv { position: relative; }
+.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: 0 0 var(--sp-3); }
+.view-settings label { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.view-settings input[type=checkbox] { width: 20px; height: 20px; }
 .view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
 .view::before { left: var(--sp-2); top: var(--sp-2); border-right: 0; border-bottom: 0; }
 .view::after { right: var(--sp-2); bottom: var(--sp-2); border-left: 0; border-top: 0; }
@@ -266,6 +272,8 @@ footer p { margin: 0; }
   .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; aspect-ratio: auto; height: min(75vw, 38vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
 }
 </style>
+<!-- The 3D view's renderer (view3d.js) imports three.js from the site's own copy. -->
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }</script>
 </head>
 <body>
 <div class="wrap">
@@ -317,9 +325,14 @@ footer p { margin: 0; }
     <p class="note">Mechanical sounds follow the action. Electrical tones use a 7.83 Hz reference shifted into the audible range. Turn off Gentle pulse for steady electrical tones. Sound stays off until you enable it.</p>
     <p id="sound-status" class="statusline" role="status"></p>
   </details>
+  <div class="view-settings">
+    <label for="view-3d"><input id="view-3d" type="checkbox" checked> 3D view</label>
+    <p id="view-3d-status" class="statusline" role="status"></p>
+  </div>
 
   <main class="deck" id="deck">
     <section class="view" aria-label="Simulation view">
+      <canvas id="gl" aria-hidden="true" hidden></canvas>
       <canvas id="cv" role="img" aria-label="Animated physics simulation for the current step"></canvas>
       <div class="scale" id="scale" hidden><b>HOT</b><b>COLD</b></div>
     </section>
@@ -356,6 +369,47 @@ function fit() {
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
 }
 new ResizeObserver(fit).observe(cv);
+
+/* ───────── 3D view ───────── */
+// A step with a scene list (docs/adr/0003) can draw in 3D: view3d.js draws the list with
+// three.js on #gl, behind #cv, and the step draws only its text and diagram marks on #cv. The
+// renderer loads after the first flat frame. The flat view draws while it loads, and wherever
+// the player turns the 3D view off or the renderer can't start or loses WebGL. The switch's
+// setting is kept on this device under its own key, apart from the saved run.
+const VIEW_PREFS = 'ion-pumpy-view-v1', glCanvas = $('#gl'), view3dSwitch = $('#view-3d');
+const view3d = { on: true, state: 'idle', renderer: null }; // state: idle, loading, ready, unavailable or lost
+try { const prefs = JSON.parse(localStorage.getItem(VIEW_PREFS) || 'null'); if (prefs && typeof prefs.on === 'boolean') view3d.on = prefs.on; } catch (_) {}
+function paintViewSwitch() {
+  const failed = view3d.state === 'unavailable' || view3d.state === 'lost';
+  view3dSwitch.checked = view3d.on && !failed; view3dSwitch.disabled = failed;
+  set('view-3d-status', view3d.state === 'unavailable' ? 'The 3D view could not start in this browser, so the flat view is showing.'
+    : view3d.state === 'lost' ? 'The 3D view stopped when this browser lost WebGL, so the flat view is showing.' : '');
+}
+function stop3D(state) { view3d.renderer = null; view3d.state = state; paintViewSwitch(); }
+function load3D() {
+  view3d.state = 'loading';
+  Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))
+    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb' }, onLost: () => stop3D('lost') }))
+    .then(r => { if (view3d.state === 'loading') { view3d.renderer = r; view3d.state = 'ready'; paintViewSwitch(); } })
+    .catch(() => { if (view3d.state === 'loading') stop3D('unavailable'); });
+}
+view3dSwitch.onchange = () => {
+  view3d.on = view3dSwitch.checked;
+  try { localStorage.setItem(VIEW_PREFS, JSON.stringify({ on: view3d.on })); } catch (_) {}
+};
+paintViewSwitch();
+// Draws the current step: its scene list in 3D where it has one and the 3D view is running,
+// then its 2D drawing, which is the whole flat view or, over the 3D view, its text and marks.
+function drawStep() {
+  const st = STAGES[S.stage];
+  let scene = view3d.on && view3d.renderer && st.scene && !document.hidden ? st.scene() : null;
+  if (scene) {
+    try { view3d.renderer.draw({ width: W, height: H, pixelRatio: DPR, ...scene }); }
+    catch (_) { stop3D('unavailable'); scene = null; }
+  }
+  if (glCanvas.hidden !== !scene) glCanvas.hidden = !scene;
+  st.draw(!scene);
+}
 
 const sup = n => String(n).replace(/[-0-9]/g, ch => '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'['-0123456789'.indexOf(ch)]);
 function sci(x) {
@@ -1307,20 +1361,23 @@ function throatFormingAmount(st) {
   if (st.phase !== 'closing') return 0;
   return reduced ? 1 : clamp((1 - st.k) / 0.5, 0, 1);
 }
-function drawTransit(st) {
-  const q = st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
-  const m = transitModel(q, open.w), cx = W / 2, cy = H / 2;
-  const sc = Math.min((W - 56) / Math.max(open.w, 85), (H - 130) / (2 * AIRCRAFT.length));
+// How far through the crossing the transit diagram is: none before the flash, all of it after.
+const transitProgress = st => st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
+// The transit diagram's pixels per metre, which fit the entrance across and the crossing down.
+function transitScale() { return Math.min((W - 56) / Math.max(open.w, 85), (H - 130) / (2 * AIRCRAFT.length)); }
+// `flat` draws the whole diagram. Over the 3D view, which draws the airliner, it draws the marks and text.
+function drawTransit(st, flat = true) {
+  const m = transitModel(transitProgress(st), open.w), cx = W / 2, cy = H / 2;
+  const sc = transitScale();
   const half = open.w * sc / 2;
-  ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+  if (flat) { ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
   // Top-down cutaway: the plane points up and meets a fixed transverse entrance.
   // Only the pre-entrance part is drawn. No exit, destination or transit interior is inferred.
   ctx.fillStyle = 'rgba(185,162,255,.07)'; ctx.fillRect(24, 48, W - 48, cy - 48);
   label('BEYOND ENTRANCE: UNSPECIFIED', cx, 56, COL.read, 'center', W < 400 ? 9 : 10);
   ctx.setLineDash([3, 5]); ctx.strokeStyle = COL.line; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(cx, 70); ctx.lineTo(cx, H - 65); ctx.stroke(); ctx.setLineDash([]);
-  ctx.save(); ctx.beginPath(); ctx.rect(0, cy, W, H - cy); ctx.clip();
-  ctx.translate(cx, cy + m.centreY * sc); plane(sc, COL.ink, COL.warm); ctx.restore();
+  if (flat) { ctx.save(); ctx.beginPath(); ctx.rect(0, cy, W, H - cy); ctx.clip(); ctx.translate(cx, cy + m.centreY * sc); plane(sc, COL.ink, COL.warm); ctx.restore(); }
   ctx.strokeStyle = m.fits ? COL.cold : COL.hot; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(cx - half, cy); ctx.lineTo(cx + half, cy); ctx.stroke();
   for (const x of [cx - half, cx + half]) {
@@ -1333,6 +1390,8 @@ function drawTransit(st) {
   label('4orbs account: constant speed relative to the field', cx, H - 66, COL.read, 'center', W < 440 ? 9 : 11);
   viewTitle('TRANSIT DIAGRAM');
 }
+// The cloud deck far below the visible camera: where each cloud sits as fractions of the view, and its size.
+const CLOUDS = [[.2, .3, .22], [.72, .2, .18], [.8, .75, .26], [.3, .82, .2], [.5, .5, .3]];
 const conv = stage({
   name: 'Converge', title: 'Close in, and open it',
   html: `
@@ -1429,47 +1488,92 @@ const conv = stage({
     set('cv-k', fmt(this.k * 100) + ' %'); set('cv-msg', this.msg || 'Orbiting');
     goal(this.done ? 1 : 0, !missionReady() ? 'Retune the highlighted steps before starting the final sequence.' : this.done ? 'Sequence complete. Switch views or scrub the replay to inspect each moment.' : 'Goal: open it when the triangle is a quarter smaller (71 to 79 %).');
   },
-  draw() {
-    if (this.view === 'transit') return drawTransit(this);
+  // The scene list for the 3D view (docs/adr/0003): everything the flat view draws but its text
+  // and diagram marks, in metres, with the flat view's camera. Sizes the flat view sets in
+  // pixels are given in metres at its scale, so both views draw them alike.
+  scene() {
+    const showing = conv.showing(this), at = [0, 0, 0];
+    if (this.view === 'transit') {
+      const m = transitModel(transitProgress(this), open.w);
+      return { look: 'diagram', camera: { angle: 0, scale: transitScale() }, list: [
+        { kind: 'sky', colour: COL.deep },
+        // Cut at the entrance: nothing past it is drawn, as the flat diagram's clip.
+        { kind: 'airliner', at: [0, m.centreY, 0], size: [AIRCRAFT.span, AIRCRAFT.length], colour: COL.ink, engineColour: COL.warm, cutBeyond: 0 }
+      ] };
+    }
+    const th = this.view === 'thermal', sc = sceneScale(), px = n => n / sc;
+    const list = [{ kind: 'sky', colour: th ? COL.sky : '#1b2333' }];
+    if (!th) for (const [x, y, r] of CLOUDS) list.push({ kind: 'cloud', at: [(x - .5) * W / sc, (y - .5) * H / sc, 300], size: [r * W / sc, r * H * .6 / sc], colour: '#d2daeb', opacity: .1 });
+    if (showing.plane) list.push(th ? { kind: 'airliner', at, size: [AIRCRAFT.span, AIRCRAFT.length], heat: .64, engineHeat: .88 }
+      : { kind: 'airliner', at, size: [AIRCRAFT.span, AIRCRAFT.length], colour: '#d5dbe8', engineColour: '#8b94ad' });
+    const r = orbit.r * this.k, points = formation(r, this.ang, this.tumble);
+    if (showing.orbs) {
+      list.push({ kind: 'triangle', points, colour: '#ffffff', opacity: .25 });
+      points.forEach((p, i) => {
+        if (th) list.push({ kind: 'cold mark', id: i, path: Array.from({ length: 9 }, (_, j) => formation(r, this.ang + .14 + j * .035, this.tumble)[i]), width: px(3), colour: COL.void, opacity: .85 });
+        list.push(th ? { kind: 'orb', id: i, at: p, size: px(4.5), heat: .56, halo: 'rgba(185,112,63,.3)' } : { kind: 'orb', id: i, at: p, size: px(4.5), colour: '#ffffff', halo: 'rgba(255,255,255,.4)' });
+      });
+    }
+    const forming = throatFormingAmount(this);
+    if (forming > 0) list.push({ kind: 'throat forming', amount: forming, points, ring: px(16 + 22 * forming), pad: px(8 + 16 * forming), width: px(1.25 + 2 * forming), colour: th ? COL.void : COL.cold, opacity: .22 + .7 * forming });
+    if (this.phase === 'flash') {
+      const R = (open.w / 2) * (0.4 + Math.sin(Math.PI * this.q));
+      list.push(reduced ? { kind: 'flash', style: 'steady', at, radius: open.w / 2, width: px(1.5), colour: COL.cold }
+        : th ? { kind: 'flash', style: 'dark', at, radius: R, q: this.q, colour: COL.void }
+        : { kind: 'flash', style: 'bright', at, radius: R * 1.5, colour: '#ffffff' });
+    }
+    return { look: th ? 'heat' : 'visible', camera: { angle: th ? orbit.cam : 0, scale: sc }, list };
+  },
+  // What is still in the sky: the airliner goes 18 % of the way through the flash, the orbs at 45 %.
+  showing(st) {
+    const flashing = st.phase === 'flash', gone = st.phase === 'gone';
+    return { plane: !gone && !(flashing && st.q > 0.18), orbs: !gone && !(flashing && st.q > 0.45) };
+  },
+  // `flat` draws the whole flat view. Over the 3D view, which draws the scene list, it draws the text and scale bar.
+  draw(flat = true) {
+    if (this.view === 'transit') return drawTransit(this, flat);
     const cx = W / 2, cy = H / 2, sc = sceneScale(), th = this.view === 'thermal';
     const flashing = this.phase === 'flash', gone = this.phase === 'gone';
-    if (th) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); }
+    if (!flat) ctx.clearRect(0, 0, W, H);
+    else if (th) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); }
     else {
       ctx.fillStyle = '#1b2333'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(210,218,235,.10)';
-      for (const [x, y, r] of [[.2, .3, .22], [.72, .2, .18], [.8, .75, .26], [.3, .82, .2], [.5, .5, .3]]) { ctx.beginPath(); ctx.ellipse(x * W, y * H, r * W, r * H * 0.6, 0, 0, TAU); ctx.fill(); }
+      for (const [x, y, r] of CLOUDS) { ctx.beginPath(); ctx.ellipse(x * W, y * H, r * W, r * H * 0.6, 0, 0, TAU); ctx.fill(); }
     }
-    const showPlane = !gone && !(flashing && this.q > 0.18), showOrbs = !gone && !(flashing && this.q > 0.45);
+    const { plane: showPlane, orbs: showOrbs } = conv.showing(this);
     const project = p => th ? camB(p, orbit.cam) : [p[0], p[1]];
-    if (showPlane) { ctx.save(); ctx.translate(cx, cy); th ? plane(sc, '#e59a4a', COL.hot, Math.cos(orbit.cam * Math.PI / 180)) : plane(sc, '#d5dbe8', '#8b94ad'); ctx.restore(); }
+    if (flat && showPlane) { ctx.save(); ctx.translate(cx, cy); th ? plane(sc, '#e59a4a', COL.hot, Math.cos(orbit.cam * Math.PI / 180)) : plane(sc, '#d5dbe8', '#8b94ad'); ctx.restore(); }
     const r = orbit.r * this.k, points = formation(r, this.ang, this.tumble);
     if (showOrbs) {
-      ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.beginPath();
-      points.forEach((p, i) => { const q = project(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); }); ctx.closePath(); ctx.stroke();
+      if (flat) {
+        ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.beginPath();
+        points.forEach((p, i) => { const q = project(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); }); ctx.closePath(); ctx.stroke();
+      }
       for (let i = 0; i < 3; i++) {
         const q = project(points[i]), x = cx + q[0] * sc, y = cy + q[1] * sc;
-        if (th) {
+        if (th && flat) {
           ctx.strokeStyle = 'rgba(1,3,10,.85)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
           ctx.beginPath();
           for (let j = 0; j <= 8; j++) { const p = project(formation(r, this.ang + .14 + j * .035, this.tumble)[i]); j ? ctx.lineTo(cx + p[0] * sc, cy + p[1] * sc) : ctx.moveTo(cx + p[0] * sc, cy + p[1] * sc); }
           ctx.stroke(); ctx.lineCap = 'butt';
           orb(x, y, 4.5, '#b9703f', 'rgba(185,112,63,.3)');
-          if (i === 0 && this.phase !== 'flash') label('cold mark leads', x + 10, y - 8, COL.muted);
-        } else orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
+        } else if (flat) orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
+        if (th && i === 0 && this.phase !== 'flash') label('cold mark leads', x + 10, y - 8, COL.muted);
       }
     }
     const forming = throatFormingAmount(this);
     if (forming > 0) {
       // The heat camera sees the convergence cold, as the lesson measures: the glow is darker than the sky there.
-      orbGlow(cx, cy, sc, points.map(project), { ring: 16 + 22 * forming, pad: 8 + 16 * forming, alpha: .22 + .7 * forming, width: 1.25 + 2 * forming, colour: th ? COL.void : COL.cold });
+      if (flat) orbGlow(cx, cy, sc, points.map(project), { ring: 16 + 22 * forming, pad: 8 + 16 * forming, alpha: .22 + .7 * forming, width: 1.25 + 2 * forming, colour: th ? COL.void : COL.cold });
       label('throat forming', cx, 44, COL.cold, 'center', W < 420 ? 10 : 12);
     }
     if (flashing) {
       const s = Math.sin(Math.PI * this.q), R = (open.w / 2) * (0.4 + s) * sc;
       if (reduced) {
-        ring(cx, cy, open.w / 2 * sc, COL.cold);
+        if (flat) ring(cx, cy, open.w / 2 * sc, COL.cold);
         label('wormhole aperture', cx, cy, COL.cold, 'center');
-      } else if (th) {
+      } else if (!flat) { /* the 3D view draws the flash */ } else if (th) {
         ctx.fillStyle = COL.void; ctx.beginPath();
         for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU, rr = R * (1 + 0.12 * Math.sin(a * 5 + this.q * 6) + 0.07 * Math.sin(a * 9)); i ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
         ctx.fill();
@@ -1878,7 +1982,8 @@ function frame(now) {
   advance(dt, elapsed);
   // advance() reconciles audio after all state changes, including automatic pause.
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  STAGES[S.stage].draw();
+  drawStep();
+  if (view3d.on && view3d.state === 'idle') load3D(); // after the first flat frame
   saveElapsed += dt; if (saveElapsed >= 1) { saveProgress(); saveElapsed = 0; }
   requestAnimationFrame(frame);
 }

@@ -9,6 +9,7 @@
     "dev": "python3 -m http.server 8080"
   },
   "devDependencies": {
+    "@types/three": "0.187.0",
     "typescript": "6.0.3"
   },
   "engines": {

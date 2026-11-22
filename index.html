@@ -1326,7 +1326,7 @@ const orbit = stage({
     } else ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
-    const looks = [[p => [p[0], p[1]], 1, 'CAMERA 1 · VISIBLE'], [p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAM 2 · THERMAL · ${this.cam}°`]];
+    const looks = [[p => [p[0], p[1]], 1, 'CAMERA 1 · VISIBLE'], [p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAMERA 2 · THERMAL`]];
     looks.forEach(([proj, sy, title], vi) => {
       const [cx, cy] = views[vi].origin, tp = vi ? p => camB(p, TRUE_CAM) : proj;
       if (flat) {

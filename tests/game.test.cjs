@@ -1821,9 +1821,11 @@ async function bootIn3D(fixture, options = {}) {
   const game = bootFromSavedRun(fixture, { view3d: {}, ...options });
   paint(game); await settle(); return game;
 }
-// The frame the 3D view draws next, and the entries of one kind in it.
+// The frame the 3D view draws next, and the entries of one kind in one of its views: a frame
+// holds a view for each camera on screen, side by side, each with its own camera and list.
 const nextScene = game => { const before = game.scenes.length; paint(game); return game.scenes.length > before ? game.scenes.at(-1) : null; };
-const entries = (frame, kind) => frame.list.filter(e => e.kind === kind);
+const entries = (frame, kind, view = 0) => frame.views[view].list.filter(e => e.kind === kind);
+const cameraOf = (frame, view = 0) => frame.views[view].camera;
 const near = (a, b, why) => assert.ok(Math.abs(a - b) < 1e-9, `${why}: ${a} is not ${b}`);
 const distance = (p, q = [0, 0, 0]) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
 // ready-to-converge: a learning run, Formation at 67 m and 134° between the cameras, a 66 m throat.
@@ -1832,9 +1834,10 @@ const READY = { r: 67, cam: 134, w: 66 };
 test('Converge in 3D draws the airliner at the origin at 63.7 by 60.9 m, and three orbs at the Formation for the current triangle size, from the thermal camera', async () => {
   const game = await bootIn3D('ready-to-converge');
   const frame = nextScene(game);
-  assert.equal(frame.look, 'heat');
-  assert.equal(frame.camera.angle, READY.cam, 'the thermal camera keeps the angle between the cameras');
-  near(frame.camera.scale, Math.min(390, 292.5) / 2 / 122, 'and the flat view\'s pixels per metre');
+  assert.equal(frame.look, 'heat'); assert.equal(frame.views.length, 1, 'one camera, over the whole canvas');
+  assert.deepEqual([frame.views[0].left, frame.views[0].width, frame.views[0].origin], [0, 390, [195, 292.5 / 2]]);
+  assert.equal(cameraOf(frame).angle, READY.cam, 'the thermal camera keeps the angle between the cameras');
+  near(cameraOf(frame).scale, Math.min(390, 292.5) / 2 / 122, 'and the flat view\'s pixels per metre');
   const [airliner] = entries(frame, 'airliner');
   assert.deepEqual(airliner.at, [0, 0, 0]); assert.deepEqual(airliner.size, [60.9, 63.7]);
   closeThrough(game, [100, 90, 80], shown => {
@@ -1888,7 +1891,7 @@ test('Converge in 3D: the transit diagram draws the airliner crossing at constan
   for (const to of [0, 0.25, 0.5, 0.75]) {
     game.lab.advance((to - q) * 1.6); q = to;
     const f = nextScene(game), [airliner] = entries(f, 'airliner');
-    assert.equal(f.look, 'diagram'); assert.equal(f.camera.angle, 0);
+    assert.equal(f.look, 'diagram'); assert.equal(cameraOf(f).angle, 0);
     assert.deepEqual(airliner.size, [60.9, 63.7]);
     near(airliner.at[1], 63.7 * (0.5 - q), `centred on the entrance's line ${q * 100} % through`);
     assert.equal(airliner.cutBeyond, 0, 'nothing past the entrance is drawn');
@@ -1898,7 +1901,7 @@ test('Converge in 3D: the transit diagram draws the airliner crossing at constan
 test('with reduced motion, the 3D view holds still as the flat view does: no camera drift, and a steady aperture instead of a pulse', async () => {
   const game = await bootIn3D('ready-to-converge', { reduced: true });
   const first = nextScene(game); game.lab.advance(1);
-  assert.deepEqual(nextScene(game).camera, first.camera, 'the camera stays put');
+  assert.deepEqual(nextScene(game).views.map(v => v.camera), first.views.map(v => v.camera), 'the camera stays put');
   openAfter(game, 5);
   const looks = [0.1, 0.5].map(q => { game.lab.advance(0.2 * 1.6); return entries(nextScene(game), 'flash')[0]; });
   for (const flash of looks) { assert.equal(flash.style, 'steady'); assert.equal(flash.radius, READY.w / 2); }
@@ -1916,6 +1919,96 @@ test('over the 3D view the 2D canvas draws the flat view\'s words and scale bar,
     for (const shape of ['ellipse', 'arc', 'fillRect'].filter(k => view !== 'transit' || k !== 'fillRect')) assert.ok(!in3D.drawing.some(c => c[0] === shape), `${view}: no ${shape} on the 2D canvas`);
     assert.equal(in3D.ids.get('gl').hidden, false, `${view}: the 3D canvas shows`);
   }
+});
+
+// Orbit's two cameras, side by side as the flat view draws them: camera 1 looks from above on
+// the left half, camera 2 on the right, each centred 6 px below the canvas's middle.
+const ORBIT_SCALE = Math.min(195, 292.5) / 2 / 104, ORBIT_CENTRE_Y = 292.5 / 2 + 6;
+// The Orbit step of a run whose earlier steps are done, with the Formation set as given.
+async function orbitIn3D(settings = {}, options = {}) {
+  const game = await bootIn3D(savedRunOn(3), options);
+  for (const [id, value] of Object.entries(settings)) slide(game, id, value);
+  return game;
+}
+const orbAts = (frame, view) => entries(frame, 'orb', view).map(o => o.at);
+
+test('Orbit in 3D draws both cameras side by side: camera 1 from above, camera 2 turned by the angle between the cameras the player sets', async () => {
+  const game = await orbitIn3D();
+  const frame = nextScene(game);
+  assert.equal(frame.look, 'visible'); assert.equal(frame.views.length, 2);
+  frame.views.forEach((v, i) => {
+    assert.deepEqual([v.left, v.width, v.origin], [195 * i, 195, [195 * (i + .5), ORBIT_CENTRE_Y]], `camera ${i + 1} has its half of the canvas`);
+    near(v.camera.scale, ORBIT_SCALE, `camera ${i + 1} keeps the flat view's pixels per metre`);
+  });
+  assert.equal(cameraOf(frame, 0).angle, 0, 'camera 1 looks from above');
+  assert.equal(cameraOf(frame, 1).angle, 40, 'camera 2 at the fresh step\'s 40°');
+  for (const cam of [123, 134, 180]) { slide(game, 'or-c', cam); assert.equal(cameraOf(nextScene(game), 1).angle, cam, `camera 2 follows the slider to ${cam}°`); }
+});
+
+test('Orbit in 3D holds the airliner prop and three orbs at the Formation in both cameras, and each camera shows the orbs where the flat view draws them', async () => {
+  const game = await orbitIn3D({ 'or-r': 66, 'or-c': 129 });
+  playFor(game, 0.75);
+  const frame = nextScene(game);
+  for (const view of [0, 1]) {
+    const [airliner] = entries(frame, 'airliner', view);
+    assert.deepEqual(airliner.at, [0, 0, 0]); assert.deepEqual(airliner.size, [60.9, 63.7]);
+    const ats = orbAts(frame, view);
+    assert.equal(ats.length, 3);
+    for (const at of ats) near(distance(at), 66, `an orb 66 m out in camera ${view + 1}`);
+    for (let i = 0; i < 3; i++) near(distance(ats[i], ats[(i + 1) % 3]), 66 * Math.sqrt(3), 'the triangle is equilateral');
+    assert.deepEqual(entries(frame, 'triangle', view)[0].points, ats, 'the triangle joins the orbs');
+  }
+  assert.deepEqual(orbAts(frame, 1), orbAts(frame, 0), 'both cameras see one Formation');
+  // The same moment in the flat view: each camera's orbs sit where its camera puts them.
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  const flat = orbitCameras(game);
+  frame.views.forEach((v, i) => {
+    orbAts(frame, i).forEach((at, j) => {
+      const [x, y] = game.lab.camB(at, v.camera.angle);
+      near(flat[i][j].x, v.origin[0] + x * v.camera.scale, `camera ${i + 1}, orb ${j + 1} across`);
+      near(flat[i][j].y, v.origin[1] + y * v.camera.scale, `camera ${i + 1}, orb ${j + 1} down`);
+    });
+  });
+});
+
+test('Orbit in 3D: the matched Formation\'s glow builds over the hold in both cameras as the flat view\'s, and reduced motion shows it settled at once', async () => {
+  const ranges = formationRanges(), matched = Object.fromEntries(Object.entries(ranges).map(([id, [lo, hi]]) => [id, (lo + hi) / 2]));
+  const px = n => n / ORBIT_SCALE;
+  const glows = frame => [0, 1].map(view => entries(frame, 'formation glow', view));
+  const expect = (glow, amount, why) => {
+    near(glow.amount, amount, why);
+    near(glow.ring, px(12 + 18 * amount), `${why}: rings`); near(glow.pad, px(10 + 14 * amount), `${why}: outline`);
+    near(glow.width, px(1.25 + 1.75 * amount), `${why}: line width`); near(glow.opacity, .28 + .67 * amount, `${why}: opacity`);
+  };
+  const unmatched = await orbitIn3D();
+  for (const g of glows(nextScene(unmatched))) assert.equal(g.length, 0, 'no glow while the Formation is off');
+  const game = await orbitIn3D(matched);
+  let heldSoFar = 0;
+  for (const [held, amount] of [[0.5, 1 / 3], [1, 2 / 3], [1.5, 1]]) {
+    playFor(game, held - heldSoFar); heldSoFar = held;
+    const frame = nextScene(game);
+    glows(frame).forEach(([glow], view) => {
+      expect(glow, amount, `camera ${view + 1} after ${held} s held`);
+      assert.deepEqual(glow.points, orbAts(frame, view), 'round the orbs');
+    });
+  }
+  const still = await orbitIn3D(matched, { reduced: true });
+  playFor(still, 0.125);
+  for (const [glow] of glows(nextScene(still))) expect(glow, 1, 'reduced motion');
+});
+
+test('over Orbit\'s 3D view the 2D canvas draws the titles, scale bar, divider and tracked rings, and no orbs or airliner', async () => {
+  const flat = bootFromSavedRun(savedRunOn(3)); scene(flat);
+  const in3D = await orbitIn3D(); scene(in3D);
+  assert.deepEqual(drawnWords(in3D), drawnWords(flat));
+  assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+  for (const shape of ['ellipse', 'fillRect', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas`);
+  // The tracked rings are diagram marks: the 2D canvas draws them where the flat view does, and no other circles.
+  const rings = game => game.drawing.filter(c => c[0] === 'arc' && c[3] === 7);
+  assert.equal(rings(flat).length, 6, 'three tracked rings in each camera');
+  assert.deepEqual(rings(in3D), rings(flat));
+  assert.equal(in3D.drawing.filter(c => c[0] === 'arc').length, 6, 'no orbs or glow on the 2D canvas');
+  assert.equal(in3D.ids.get('gl').hidden, false, 'the 3D canvas shows');
 });
 
 test('the 3D view switch starts on where the renderer starts, is remembered on this device apart from the saved run, and turning it off draws the flat view', async () => {

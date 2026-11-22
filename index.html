@@ -398,6 +398,11 @@ view3dSwitch.onchange = () => {
   try { localStorage.setItem(VIEW_PREFS, JSON.stringify({ on: view3d.on })); } catch (_) {}
 };
 paintViewSwitch();
+// A step's scene is a look and a view for each camera on screen. Each view gives the part of the
+// canvas it fills (from `left`, `width` wide, the full height, in CSS pixels), where on the canvas
+// its camera centres (`origin`, where the scene's origin falls), its camera and its scene list.
+// Most steps have one camera, centred on the canvas.
+function wholeCanvas(camera, list) { return { left: 0, width: W, origin: [W / 2, H / 2], camera, list }; }
 // Draws the current step: its scene list in 3D where it has one and the 3D view is running,
 // then its 2D drawing, which is the whole flat view or, over the 3D view, its text and marks.
 function drawStep() {
@@ -1079,9 +1084,19 @@ const FORMATION_RANGES = { r: [60, 70], T: [2.3, 2.7], cam: [123, 141] };
 const inRange = (x, [lo, hi]) => x >= lo && x <= hi;
 // The Formation is matched inside all three: the check Formation readiness uses.
 function formationMatched(o) { return Object.entries(FORMATION_RANGES).every(([k, range]) => inRange(o[k], range)); }
+// Orbit's two cameras, side by side, each in its half of the canvas and centred 6 px below its
+// middle, at one scale. Camera 1 looks from above; camera 2 is turned about the airliner's
+// across axis by the angle between the cameras, as camB.
+function orbitViews(o) {
+  const hw = W / 2, scale = Math.min(hw, H) / 2 / 104;
+  return [0, o.cam].map((angle, i) => ({ left: hw * i, width: hw, origin: [hw * (i + .5), H / 2 + 6], camera: { angle, scale } }));
+}
 // How far the matched Formation's glow has built, from 0 to 1: over the hold that
 // completes the step, or at once under reduced motion and once Orbit is done.
 function formationGlowAmount(o) { return reduced || o.done ? 1 : clamp(o.hold / 1.5, 0, 1); }
+// The matched Formation's glow at an amount, in pixels: the flat view draws it with orbGlow, the
+// 3D view's scene list gives the same sizes in metres.
+function formationGlowLook(glow) { return { ring: 12 + 18 * glow, pad: 10 + 14 * glow, alpha: .28 + .67 * glow, width: 1.25 + 1.75 * glow, colour: COL.cold }; }
 const orbit = stage({
   name: 'Orbit', title: 'Fly the formation',
   html: `
@@ -1121,21 +1136,43 @@ const orbit = stage({
     set('or-ftr', fmt(2 * v * v / (9.81 * Math.sqrt(80))) + ' m<small>circle width at 9 g</small>');
     goal(this.hold / 1.5, this.hold >= 1.5 ? 'About 600 km/h round a circle 130 m across: about forty g, far past any airliner or fighter. 4orbs reads them as machines under someone’s control.' : 'Goal: 60 to 70 m out, a lap in 2.3 to 2.7 s, cameras 123 to 141° apart.');
   },
-  draw() {
-    const hw = W / 2, sc = Math.min(hw, H) / 2 / 104, cy = H / 2 + 6, matched = formationMatched(this), glow = formationGlowAmount(this);
-    ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H);
+  // The scene list for the 3D view (docs/adr/0003): a view for each camera, each drawing the
+  // airliner, the player's orbs and their triangle, and the matched Formation's glow, in metres.
+  // The tracked rings are diagram marks, so the 2D canvas draws them over the 3D view.
+  scene() {
+    const views = orbitViews(this), px = n => n / views[0].camera.scale, points = formation(this.r, this.ang, this.tumble);
+    const list = [
+      { kind: 'sky', colour: COL.sky },
+      { kind: 'airliner', at: [0, 0, 0], size: [AIRCRAFT.span, AIRCRAFT.length], colour: '#cfd6e6', engineColour: '#8791ad' },
+      { kind: 'triangle', points, colour: '#ece6d6', opacity: .4 },
+      ...points.map((at, id) => ({ kind: 'orb', id, at, size: px(3.6), colour: '#ffffff', halo: 'rgba(255,255,255,.35)' }))
+    ];
+    if (formationMatched(this)) {
+      const glow = formationGlowAmount(this);
+      const g = formationGlowLook(glow);
+      list.push({ kind: 'formation glow', amount: glow, points, ring: px(g.ring), pad: px(g.pad), width: px(g.width), colour: g.colour, opacity: g.alpha });
+    }
+    return { look: 'visible', views: views.map(v => ({ ...v, list })) };
+  },
+  // `flat` draws the whole flat view. Over the 3D view, which draws the scene list, it draws the
+  // divider, the tracked rings, the camera titles and the scale bar.
+  draw(flat = true) {
+    const views = orbitViews(this), hw = W / 2, sc = views[0].camera.scale, matched = formationMatched(this), glow = formationGlowAmount(this);
+    if (flat) { ctx.fillStyle = COL.sky; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hw, 34); ctx.lineTo(hw, H - 12); ctx.stroke();
     const mine = formation(this.r, this.ang, this.tumble), truth = formation(65, this.ghost, this.tumble);
-    const views = [[hw / 2, p => [p[0], p[1]], 1, 'CAMERA 1 · FROM ABOVE'], [hw * 1.5, p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAMERA 2 · ${this.cam}° ROUND`]];
-    views.forEach(([cx, proj, sy, title], vi) => {
-      const tp = vi ? p => camB(p, TRUE_CAM) : proj;
-      ctx.save(); ctx.translate(cx, cy); plane(sc, '#cfd6e6', '#8791ad', Math.abs(sy) < 0.04 ? 0.04 : sy); ctx.restore();
+    const looks = [[p => [p[0], p[1]], 1, 'CAMERA 1 · FROM ABOVE'], [p => camB(p, this.cam), Math.cos(this.cam * Math.PI / 180), `CAMERA 2 · ${this.cam}° ROUND`]];
+    looks.forEach(([proj, sy, title], vi) => {
+      const [cx, cy] = views[vi].origin, tp = vi ? p => camB(p, TRUE_CAM) : proj;
+      if (flat) { ctx.save(); ctx.translate(cx, cy); plane(sc, '#cfd6e6', '#8791ad', Math.abs(sy) < 0.04 ? 0.04 : sy); ctx.restore(); }
       truth.forEach(p => { const q = tp(p); ring(cx + q[0] * sc, cy + q[1] * sc, 7, COL.warm); });
-      ctx.strokeStyle = 'rgba(236,230,214,.4)'; ctx.lineWidth = 1; ctx.beginPath();
-      mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
-      ctx.closePath(); ctx.stroke();
-      mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
-      if (matched) orbGlow(cx, cy, sc, mine.map(proj), { ring: 12 + 18 * glow, pad: 10 + 14 * glow, alpha: .28 + .67 * glow, width: 1.25 + 1.75 * glow, colour: COL.cold });
+      if (flat) {
+        ctx.strokeStyle = 'rgba(236,230,214,.4)'; ctx.lineWidth = 1; ctx.beginPath();
+        mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
+        ctx.closePath(); ctx.stroke();
+        mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
+        if (matched) orbGlow(cx, cy, sc, mine.map(proj), formationGlowLook(glow));
+      }
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });
     scaleBarDraw(sc);
@@ -1503,11 +1540,11 @@ const conv = stage({
     const showing = conv.showing(this), at = [0, 0, 0];
     if (this.view === 'transit') {
       const m = transitModel(transitProgress(this), open.w);
-      return { look: 'diagram', camera: { angle: 0, scale: transitScale() }, list: [
+      return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: transitScale() }, [
         { kind: 'sky', colour: COL.deep },
         // Cut at the entrance: nothing past it is drawn, as the flat diagram's clip.
         { kind: 'airliner', at: [0, m.centreY, 0], size: [AIRCRAFT.span, AIRCRAFT.length], colour: COL.ink, engineColour: COL.warm, cutBeyond: 0 }
-      ] };
+      ])] };
     }
     const th = this.view === 'thermal', sc = sceneScale(), px = n => n / sc;
     const list = [{ kind: 'sky', colour: th ? COL.sky : '#1b2333' }];
@@ -1530,7 +1567,7 @@ const conv = stage({
         : th ? { kind: 'flash', style: 'dark', at, radius: R, edge: flashEdge(R, this.q), colour: COL.void }
         : { kind: 'flash', style: 'bright', at, radius: R * 1.5, colour: '#ffffff' });
     }
-    return { look: th ? 'heat' : 'visible', camera: { angle: th ? orbit.cam : 0, scale: sc }, list };
+    return { look: th ? 'heat' : 'visible', views: [wholeCanvas({ angle: th ? orbit.cam : 0, scale: sc }, list)] };
   },
   // What is still in the sky: the airliner goes 18 % of the way through the flash, the orbs at 45 %.
   showing(st) {

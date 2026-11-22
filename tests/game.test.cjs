@@ -2626,5 +2626,5 @@ test('dynamic step goals tell players what to adjust and how to recover', () => 
   assert.match(text(finale, 'goaltext'), /Press Start closing in.*Open it now/);
   click(finale, 'cv-go');
   click(finale, 'cv-go');
-  assert.match(text(finale, 'cv-msg'), /Too early\..*try again/);
+  assert.match(text(finale, 'cv-msg'), /Too early\..*Press Start closing in again/);
 });

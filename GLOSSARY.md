@@ -72,6 +72,10 @@ A simplification made for play.
 **Source revision**:
 The version of the sources a saved run was made against. A changed source revision starts a new run instead of resuming the saved run.
 
+**Prop**:
+A solid object drawn for looks only, such as the airliner or the lab hardware. It is drawn at the real object's size and makes no claim of its own.
+_Avoid_: model, asset
+
 ## Physics in play
 
 **Pressure band**:

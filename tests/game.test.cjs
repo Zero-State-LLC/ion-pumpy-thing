@@ -2628,3 +2628,18 @@ test('dynamic step goals tell players what to adjust and how to recover', () => 
   click(finale, 'cv-go');
   assert.match(text(finale, 'cv-msg'), /Too early\..*Press Start closing in again/);
 });
+
+
+test('mobile control shortcut targets the current step and hides on the Ledger', () => {
+  const game = bootFromSavedRun('completed-run');
+  const jump = game.ids.get('jump-to-controls');
+  assert.equal(jump.attributes.href, '#controls');
+  for (let i = 0; i < 6; i++) {
+    click(game, 'step-' + i);
+    assert.equal(jump.hidden, false, 'step ' + (i + 1) + ' offers shortcut');
+    assert.match(text(game, 'panel'), /<div class="ctl" id="controls" tabindex="-1">/,
+      'step ' + (i + 1) + ' has an accessible anchor target');
+  }
+  click(game, 'step-6');
+  assert.equal(jump.hidden, true, 'the Ledger has no controls');
+});

@@ -52,3 +52,22 @@ If Chrome or Node is missing, a local browser-test skip is **not a pass**. Run i
 ## Change control
 
 Keep fixes in a separate PR, require fresh CI and independent review, and report exact head SHA, base SHA, merge method, and target before asking for merge approval. Deployment is a separate approval, with target host, artifact/commit, rollback and smoke-test plan. **Do not merge or deploy from this qualification document alone.**
+
+## Accepted qualification policy, 22 November 2026 (PT)
+
+The owner accepted [ADR 0005](adr/0005-meshy-rights-evidence-before-qualification.md) and [ADR 0006](adr/0006-physical-device-qualification-before-audit-closure.md). **The policy decision has passed; the underlying evidence gates have not.** Do not close #75, #79 or #81 on the strength of CI, screenshots from headless Chrome or a deployed Pages commit alone. Do not infer a device test or license proof from this document.
+
+### Physical-device test record, unperformed
+
+| Matrix item | Expected pass evidence | Current status |
+| --- | --- | --- |
+| iOS Safari, portrait and landscape | Physical iPhone model, iOS/Safari versions, screenshot/video, no broken touch/scroll | **Not tested** |
+| iOS VoiceOver with keyboard and touch | All six steps, labels, sliders, source cards, live descriptions, shortcut focus and Ledger navigation | **Not tested** |
+| Android Chrome, portrait and landscape | Physical Android model, version and browser build, 2D/3D operation, no clipping or overflow | **Not tested** |
+| Android TalkBack and keyboard | Sequential focus, 44px targets, actions, source labels, restart/resume and error narration | **Not tested** |
+| WebGL unsupported or initialization failure | Flat view remains operable; user sees readable failure text and no lost progress | **Not tested on devices** |
+| Deliberate WebGL loss and restoration | 3D falls back to flat, saved run unchanged, 3D can safely return | **Not tested on devices** |
+| Reduced motion and background/resume | No motion-only instructions; frozen replay and saved progress behave as documented | **Not tested on devices** |
+| Mobile Go to step controls | Link visible on each active step, focuses and reveals controls below sticky scene, absent on Ledger | **Not tested on devices** |
+
+A complete test report records: **tester, date/time PT, device, OS version, browser and assistive-technology version, build SHA, procedure, expected result, observed result, evidence link, and pass/fail/blocker**. The tester signs each row. An independent reviewer reconciles failed rows and explicitly accepts closure only when the required scope passes. Do not include private account identifiers, login credentials or unrelated user data in screenshots.

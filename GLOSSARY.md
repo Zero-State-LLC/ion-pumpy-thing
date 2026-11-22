@@ -86,6 +86,10 @@ _Avoid_: WebGL mode, 3D mode
 A step's 2D drawing, shown when the 3D view is switched off or can't run. It draws the same state as the 3D view.
 _Avoid_: 2D mode, fallback
 
+**Thermal scale**:
+The heat-camera colour key used to distinguish warmer and cooler regions in the game's illustrated scenes. It is not a measurement of the source videos' original temperatures.
+_Avoid_: decorative gradient, rainbow theme
+
 ## Physics in play
 
 **Pressure band**:

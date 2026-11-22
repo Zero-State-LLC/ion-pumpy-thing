@@ -1,11 +1,11 @@
 # Open decisions and review: Grill with Docs
 
-Status: **review draft, no new decisions accepted**  
+Status: **Round 1 decisions accepted by owner on 22 November 2026 (PT); downstream review and evidence are still open**  
 Reviewed: 22 November 2026 (PT)  
 Baseline: `main` at `037e1ce371d9287646beb726bf2251c5788c7441`  
 Scope: [3D qualification #75](https://github.com/Zero-State-LLC/ion-pumpy-thing/issues/75), [Hallmark #79](https://github.com/Zero-State-LLC/ion-pumpy-thing/issues/79), and [plain-English copy #81](https://github.com/Zero-State-LLC/ion-pumpy-thing/issues/81).
 
-This review uses Matt Pocock's `grill-with-docs` method: inspect facts in code and documentation first, ask the owner only for genuine choices, update the glossary when a term is settled, and write an ADR only for an accepted, consequential, non-obvious trade-off. **Recommendations below are not approvals.**
+This review uses Matt Pocock's `grill-with-docs` method: inspect facts in code and documentation first, ask the owner only for genuine choices, update the glossary when a term is settled, and write an ADR only for an accepted, consequential, non-obvious trade-off. **Owner acceptance record:** In the 22 November 2026 (PT) ChatGPT review, the owner replied **“Yes to all”** to Q1, Q2 and Q3. This records those three decisions, **not** completion of their evidence gates, permission to skip tests, or authorization to merge or deploy this draft.
 
 ## Evidence and decisions already settled
 
@@ -16,33 +16,40 @@ This review uses Matt Pocock's `grill-with-docs` method: inspect facts in code a
 - [GLOSSARY.md](../GLOSSARY.md) already distinguishes **Measured** (video measurements attributed to 4orbs), **4orbs account** (the narrative), **Theory**, **Lab physics**, and **Game rule**. No new domain term needs to be introduced by this review.
 - As of this review, there are **no open GitHub pull requests**. The latest `main` CI and production smoke checks succeeded on the baseline SHA; those automated results do **not** satisfy physical-device QA or rights verification.
 
-## Independent decision frontier (owner answers required)
+## Round 1: accepted owner decisions
 
 ### Q1. Thermal science scale versus Hallmark's generic gradient rule
 
 **Context:** [Hallmark evidence](HALLMARK-AUDIT.md) records a static Floor-2a finding against the scientific multicolour thermal legend. A real-Chrome audit after contrast fixes reports **zero rendered floor failures**, six Reflex findings and one Finish warning, but **static Hallmark does not pass**. ADR 0004 already commits to thermal shading and orthographic camera consistency. Changing the palette to satisfy an aesthetic rule could alter the conveyed meaning of heat.
 
-**Recommended choice:** **Keep the scientific thermal scale and record its explicit nonconformance to Hallmark's static Floor-2a rule.** Require scientific legibility, ordered heat mapping and a clean rendered accessibility audit as independent release checks. Never label the Hallmark static result as passing. If a new single-hue palette is desired later, require side-by-side scientific and accessibility validation before changing it.
+**Accepted 22 Nov 2026 (PT):** **Keep the scientific thermal scale and record its explicit nonconformance to Hallmark's static Floor-2a rule.** Require scientific legibility, ordered heat mapping and a clean rendered accessibility audit as independent release checks. Never label the Hallmark static result as passing. If a new single-hue palette is desired later, require side-by-side scientific and accessibility validation before changing it.
 
 **Alternate:** Replace the current gradient with a tested single-hue thermal mapping after design and domain review. This is a product/science change, not a lint-only fix.
 
-**Decision documentation:** An accepted choice could be added as a short amendment to ADR 0004 or a separate ADR if the cross-cutting quality-gate priority is deliberately changed. Do not create an *accepted* ADR before the owner answers.
+**Decision record:** The owner accepted this exception. It is documented in [amended ADR 0004](adr/0004-3d-views-keep-each-views-camera.md). The generic static Hallmark finding remains a recorded FAIL, not a waived or passed finding.
 
 ### Q2. Meshy-generated GLB usage rights evidence
 
 **Context:** [ASSETS.md](ASSETS.md) lists five GLBs, generating tasks, prompts and SHA-256 hashes. It *asserts* paid-plan generation and ownership, but the repository alone does not demonstrate the actual account entitlement at the time of each generation. Meshy's published [Terms of Use, section 3.2](https://www.meshy.ai/terms-of-use) and [ownership guidance](https://help.meshy.ai/en/articles/10137554-what-is-the-ownership-of-the-generated-models) distinguish paid output ownership from free-plan CC BY 4.0 licensing, subject to source-material rights and publication conditions. The current contract is not proof of this specific account's historical rights.
 
-**Recommended choice:** **Keep the licensing qualification gate open until there is dated, private evidence matching all five task IDs to the generating account and applicable plan/terms, plus confirmation that the original input rights and Community-sharing status do not impair the intended use.** Store a non-secret receipt reference or attestation in the asset register, never credentials or private billing information. Do not change or publicly redistribute GLBs merely to make the checklist appear complete.
+**Accepted 22 Nov 2026 (PT):** **Keep the licensing qualification gate open until there is dated, private evidence matching all five task IDs to the generating account and applicable plan/terms, plus confirmation that the original input rights and Community-sharing status do not impair the intended use.** Store a non-secret receipt reference or attestation in the asset register, never credentials or private billing information. Do not change or publicly redistribute GLBs merely to make the checklist appear complete.
 
-**Alternate:** Replace or attribute assets under a separately verified permissible licence, after review. Either course requires provenance, not assumption.
+**Decision record:** [ADR 0005](adr/0005-meshy-rights-evidence-before-qualification.md). Evidence is **pending** for all five asset task IDs. **Alternate only if evidence proves insufficient:** Seek owner approval for attribution, replacement or regeneration under separately verified rights. No such remedial path is authorized in this round.
 
 ### Q3. Real-device and assistive-technology exit gate
 
 **Context:** CI verifies Node tests, type checks, and Chrome/SwiftShader browser checks at phone widths. It cannot demonstrate VoiceOver on iOS, TalkBack on Android, actual phone GPU/WebGL recovery, or touch and keyboard focus under Safari/Android Chrome. [3D-QUALIFICATION.md](3D-QUALIFICATION.md) lists those as separate acceptance gates.
 
-**Recommended choice:** **Require documented iPhone Safari and Android Chrome tests, including VoiceOver/TalkBack, before closing #75, #79 or #81 or declaring full cross-platform qualification.** Test mobile shortcut focus and sticky-canvas clearance, step actions, 2D fallback, deliberate WebGL loss/recovery, reduced motion, source cards, saved-run roundtrip, completion/replay, and portrait/landscape. Record device, OS/browser versions, observed result, screenshots or recording and tester. This does not retroactively erase the verified CI/production release, and is not an instruction to roll back the live site.
+**Accepted 22 Nov 2026 (PT):** **Require documented iPhone Safari and Android Chrome tests, including VoiceOver/TalkBack, before closing #75, #79 or #81 or declaring full cross-platform qualification.** Test mobile shortcut focus and sticky-canvas clearance, step actions, 2D fallback, deliberate WebGL loss/recovery, reduced motion, source cards, saved-run roundtrip, completion/replay, and portrait/landscape. Record device, OS/browser versions, observed result, screenshots or recording and tester. This does not retroactively erase the verified CI/production release, and is not an instruction to roll back the live site.
 
-**Alternate:** Narrow the qualification claim explicitly (for example, desktop/automated Chrome only) and keep the untested device matrix as an open release limitation. Do not report untested devices as passed.
+**Decision record:** [ADR 0006](adr/0006-physical-device-qualification-before-audit-closure.md). The physical-device and assistive-technology checks have **not** been performed here. A future change to qualification scope requires a separate owner decision, not a silent exception.
+
+## Round 2 frontier and evidence-dependent work
+
+- **F1, now actionable:** Establish who will perform the physical-device session and record the results. Recommended: one iOS Safari/VoiceOver tester and one Android Chrome/TalkBack tester, with independent signoff using [3D-QUALIFICATION.md](3D-QUALIFICATION.md). No person's identity or available device is assumed.
+- **F2, evidence collection rather than a policy vote:** Request the generation-time Meshy plan/rights records from the account operator for each of the five IDs. Recommended: keep billing and identity details in private storage; link only a sanitized receipt reference. If rights cannot be verified, the next owner decision is whether to replace, credit or regenerate the affected models.
+- **F3, confirm facts before deciding:** Inspect both Orbit camera renders against the corrected source and ADR 0004, and measure the Ignite handle at phone widths. Ask the owner about appearance changes only if a real mismatch is demonstrated.
+- **F4, independently review claims:** Ask a qualified science reviewer to check the remaining lesson explanations against the corrected 4orbs source register and cited papers. Maintain the already approved game premise and do not silently convert speculative interpretations to lab observations.
 
 ## Follow-on questions, conditional on evidence
 
@@ -58,13 +65,13 @@ This review uses Matt Pocock's `grill-with-docs` method: inspect facts in code a
 | --- | --- | --- |
 | PR/merge review | **No open PRs** as of the baseline review | New PRs must receive independent review, green checks and explicit merge approval |
 | Production deployment | **Previously verified** for the baseline SHA | Do not trigger deployment solely from this document |
-| Science thermal legend | **Existing ADR 0004 preserved**; Hallmark static conflict unresolved | Owner's quality-rule decision, recorded as an accepted ADR amendment if approved |
+| Science thermal legend | **Preserved by accepted ADR 0004 amendment**; Hallmark static Floor-2a still FAIL | Rendered legibility/contrast check remains the independent quality gate |
 | 3D scene-list/fallback | **Automated tests present**; issue #75 still open | Physical-device loss/recovery, manual scene comparison |
 | Asset hashes/three.js | **Tracked and test-covered** in repo | Fresh SHA/license receipt on the target commit |
-| Meshy rights | **Claimed in register, not independently proven here** | Generation-time account rights evidence |
+| Meshy rights | **ADR 0005 accepted; generation-time rights unverified** | Matching rights evidence for five task IDs and reviewer signoff |
 | Plain-English science | **Targeted revisions merged**; issue #81 remains open | Independent science reviewer and screen-reader wording checks |
-| Cross-platform accessibility | **Automated Chrome checks passed, physical devices unverified** | iOS/Android and assistive-tech matrix |
+| Cross-platform accessibility | **ADR 0006 accepted; automated Chrome checks passed, physical devices unverified** | iOS/Android and assistive-tech matrix |
 
 ## Change-control rules
 
-This draft does not authorize further merges, deployments, asset replacements, or acceptance of open decisions. Owner answers become the design-tree inputs for the next round. Keep #75, #79 and #81 open until their specific proof is recorded. Update settled terms in `GLOSSARY.md` only if terminology changes, and create an ADR only when the owner accepts a consequential trade-off.
+The owner approved **Q1-Q3 only** in Round 1. This draft does not authorize a merge, deployment, asset replacement, or answers to the Round 2 questions. Keep #75, #79 and #81 open until their specific proof is recorded. The settled project-specific term **Thermal scale** is captured in `GLOSSARY.md`; ADRs 0004-0006 record the three accepted trade-offs.

@@ -387,8 +387,8 @@ try { const prefs = JSON.parse(localStorage.getItem(VIEW_PREFS) || 'null'); if (
 function paintViewSwitch() {
   const failed = view3d.state === 'unavailable' || view3d.state === 'lost';
   view3dSwitch.checked = view3d.on && !failed; view3dSwitch.disabled = failed;
-  set('view-3d-status', view3d.state === 'unavailable' ? '3D graphics could not start in this browser. The flat view is available, and your progress is unchanged.'
-    : view3d.state === 'lost' ? 'The browser lost its 3D graphics connection. The flat view is available while 3D recovers. Your progress is unchanged.' : '');
+  set('view-3d-status', view3d.state === 'unavailable' ? '3D graphics could not start in this browser. The flat view is showing, and your progress is unchanged.'
+    : view3d.state === 'lost' ? 'The browser lost WebGL, so the flat view is showing. WebGL is the browser's 3D graphics system. Your progress is unchanged.' : '');
 }
 function stop3D(state) { view3d.renderer = null; view3d.state = state; paintViewSwitch(); }
 // After the browser restores WebGL, allow a fresh renderer to start on the next frame.
@@ -720,7 +720,7 @@ const ignite = stage({
     const mk = $('#ig-mark'); if (mk) mk.style.left = clamp(this.pos(m.p), 0, 100) + '%';
     const held = this.done && plasmaHeld(this);
     goal(held ? 1 : this.hold / PLASMA_HOLD_SECONDS, held ? 'Cold plasma held in the pressure band: electrons at tens of thousands of kelvin, ions at room temperature.'
-      : `Keep the gas glowing, the ions below 47 °C, and the pressure in the marked range for ${PLASMA_HOLD_SECONDS} seconds. If pressure leaves the range, the timer restarts.`);
+      : `Keep the gas glowing, the ions below 47 °C, and the pressure in the marked range for ${PLASMA_HOLD_SECONDS} seconds. If pressure leaves the range, the count starts over.`);
   },
   // The glass jar and the hand pump in 3D where the flat view draws them: the piston's travel
   // with each stroke and, while the pressure is in its band, the plasma pressed in to its front,

@@ -22,7 +22,9 @@ const REFERENCE = /\b(?:closes|fixes|part[ \t]+of)[ \t]+#\d+\b/i;
 // Then, within each paragraph, since neither crosses a blank line, it drops inline code spans
 // and HTML comments, whichever starts first. Lists aren't followed: an indented paragraph in a
 // list item counts as code here, and the failure message asks for a line outside code.
-const INLINE = /<!--[\s\S]*?-->|(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
+// A code span's delimiters are whole backtick runs: the opening one starts where its run
+// starts, and the closing one, the same length, ends where its run ends (#49).
+const INLINE = /<!--[\s\S]*?-->|(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
 function withoutCode(body) {
   const kept = [];
   let fence = null, comment = false, paragraph = false;

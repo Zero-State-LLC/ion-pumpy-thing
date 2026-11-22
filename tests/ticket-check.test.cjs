@@ -75,6 +75,16 @@ test('a one-line ```js``` is inline code, not a fence: a ticket named inside it 
 });
 
 // GitHub shows nothing of an HTML comment, so a reference inside one doesn't count.
+// A code span opens at the start of a backtick run, never inside one (#49, from Codex on #48).
+test('a ticket named only in a code span after an unmatched longer backtick run fails', () => {
+  assertFails(runWithBody('Use `` as a delimiter; `Closes #12`.'));
+  assertFails(runWithBody('Use ``` as a fence marker; `Fixes #9` inline.'));
+});
+
+test('a ticket named after an unmatched backtick run, outside code, passes', () => {
+  assertPasses(runWithBody('Use `` as a delimiter. Closes #12'), 'Closes #12');
+});
+
 test('a ticket named only inside an HTML comment, on one line, across lines or within a line, fails', () => {
   assertFails(runWithBody('<!-- Closes #12 -->\nTidies the copy.\n'));
   assertFails(runWithBody('<!--\nPart of #25\n\nwith a blank line inside\n-->\nTidies the copy.\n'));

@@ -2611,7 +2611,7 @@ test('science, score and safety qualifications appear in the player interface', 
 test('dynamic step goals tell players what to adjust and how to recover', () => {
   const plasma = boot();
   assert.match(text(plasma, 'goaltext'), /pressure in the marked range/);
-  assert.match(text(plasma, 'goaltext'), /timer restarts/);
+  assert.match(text(plasma, 'goaltext'), /count starts over/);
 
   const field = bootFromSavedRun(savedRunOn(1));
   assert.match(text(field, 'goaltext'), /plasma ball centred for 6 seconds/);

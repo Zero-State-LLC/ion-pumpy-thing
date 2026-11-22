@@ -224,13 +224,8 @@ async function start(canvas, { props, onLost }) {
       const f = take('flash ' + e.style, make);
       f.material.color.set(e.colour); f.renderOrder = 8; facing(f).position.set(...e.at);
       if (e.style === 'steady') { swapGeometry(f, new THREE.RingGeometry(e.radius - e.width / 2, e.radius + e.width / 2, 96)); return; }
-      // 'dark': the heat camera's black flash, its edge rippling as it opens.
-      const shape = new THREE.Shape();
-      for (let i = 0; i <= 40; i++) {
-        const a = i / 40 * TAU, rr = e.radius * (1 + 0.12 * Math.sin(a * 5 + e.q * 6) + 0.07 * Math.sin(a * 9));
-        i ? shape.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : shape.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
-      }
-      swapGeometry(f, new THREE.ShapeGeometry(shape));
+      // 'dark': the heat camera's black flash, filled to the edge the list gives, in metres about its centre.
+      swapGeometry(f, new THREE.ShapeGeometry(new THREE.Shape(e.edge.map(([x, y]) => new THREE.Vector2(x, y)))));
     }
   };
 

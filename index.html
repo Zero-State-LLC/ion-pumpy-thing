@@ -1361,6 +1361,14 @@ function throatFormingAmount(st) {
   if (st.phase !== 'closing') return 0;
   return reduced ? 1 : clamp((1 - st.k) / 0.5, 0, 1);
 }
+// The heat camera's dark flash: its edge, rippling as it opens, as 41 points round a circle of
+// radius R about its centre, in R's units. Both views draw this edge.
+function flashEdge(R, q) {
+  return Array.from({ length: 41 }, (_, i) => {
+    const a = i / 40 * TAU, rr = R * (1 + 0.12 * Math.sin(a * 5 + q * 6) + 0.07 * Math.sin(a * 9));
+    return [Math.cos(a) * rr, Math.sin(a) * rr];
+  });
+}
 // How far through the crossing the transit diagram is: none before the flash, all of it after.
 const transitProgress = st => st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
 // The transit diagram's pixels per metre, which fit the entrance across and the crossing down.
@@ -1519,7 +1527,7 @@ const conv = stage({
     if (this.phase === 'flash') {
       const R = (open.w / 2) * (0.4 + Math.sin(Math.PI * this.q));
       list.push(reduced ? { kind: 'flash', style: 'steady', at, radius: open.w / 2, width: px(1.5), colour: COL.cold }
-        : th ? { kind: 'flash', style: 'dark', at, radius: R, q: this.q, colour: COL.void }
+        : th ? { kind: 'flash', style: 'dark', at, radius: R, edge: flashEdge(R, this.q), colour: COL.void }
         : { kind: 'flash', style: 'bright', at, radius: R * 1.5, colour: '#ffffff' });
     }
     return { look: th ? 'heat' : 'visible', camera: { angle: th ? orbit.cam : 0, scale: sc }, list };
@@ -1575,7 +1583,7 @@ const conv = stage({
         label('wormhole aperture', cx, cy, COL.cold, 'center');
       } else if (!flat) { /* the 3D view draws the flash */ } else if (th) {
         ctx.fillStyle = COL.void; ctx.beginPath();
-        for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU, rr = R * (1 + 0.12 * Math.sin(a * 5 + this.q * 6) + 0.07 * Math.sin(a * 9)); i ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+        flashEdge(R, this.q).forEach(([x, y], i) => i ? ctx.lineTo(cx + x, cy + y) : ctx.moveTo(cx + x, cy + y));
         ctx.fill();
       } else {
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.5);

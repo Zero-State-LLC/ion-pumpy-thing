@@ -10,7 +10,7 @@ const crypto = require('node:crypto');
 const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file));
 const register = read('docs/ASSETS.md').toString('utf8');
-const FLIGHT_NAMES = /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i;
+const FLIGHT_NAMES = require('./flight-names.cjs');
 const walk = dir => fs.readdirSync(path.join(root, dir), { withFileTypes: true })
   .flatMap(e => e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]);
 const shipped = [...walk('vendor'), ...walk('assets').filter(f => f.endsWith('.glb'))];

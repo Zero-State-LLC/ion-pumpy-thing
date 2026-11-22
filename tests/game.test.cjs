@@ -9,7 +9,7 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 // The source register (docs/SOURCES.md): the list of 4orbs pages the lessons cite.
 const register = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SOURCES.md'), 'utf8');
 // Common ways of naming the flight. The airliner is only ever its make and model.
-const FLIGHT_NAMES = /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i;
+const FLIGHT_NAMES = require('./flight-names.cjs');
 
 // The page's colour tokens (`--sky: #0b1330;`), so the canvas draws in the colours a player sees.
 const colourTokens = new Map([...html.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{3,8})\s*;/gi)].map(m => [m[1], m[2]]));
@@ -1842,7 +1842,12 @@ test('Converge in 3D: the flash grows as the flat view\'s, the airliner leaves a
       assert.equal(entries(f, 'airliner').length, airliner, `airliner at ${q * 100} %, ${view}`);
       assert.equal(entries(f, 'orb').length, orbs, `orbs at ${q * 100} %, ${view}`);
       // The heat camera sees the flash black, colder than the sky; from above it is bright.
-      if (view === 'thermal') { assert.equal(flash.style, 'dark'); near(flash.radius, R, 'the dark flash'); }
+      if (view === 'thermal') {
+        assert.equal(flash.style, 'dark'); near(flash.radius, R, 'the dark flash');
+        // Its rippling edge stays within a fifth of the radius, as the flat view's.
+        assert.equal(flash.edge.length, 41);
+        for (const [x, y] of flash.edge) assert.ok(Math.abs(Math.hypot(x, y) - R) <= R * 0.19 + 1e-9, 'the dark flash\'s edge');
+      }
       else { assert.equal(flash.style, 'bright'); near(flash.radius, R * 1.5, 'the bright flash, to the edge of its glow'); }
     }
   }

@@ -9,6 +9,9 @@
 import json, struct, sys, hashlib
 import numpy as np
 
+# The GLB container's magic number and chunk types (glTF 2.0, section 4.4).
+GLB_MAGIC, CHUNK_JSON, CHUNK_BIN = 0x46546C67, 0x4E4F534A, 0x004E4942
+
 def read_glb(path):
     b = open(path, 'rb').read(); jl = struct.unpack('<I', b[12:16])[0]
     j = json.loads(b[20:20 + jl]); binary = b[20 + jl + 8:]
@@ -94,8 +97,8 @@ gltf = {
     + [{'bufferView': 2 + k, 'componentType': ct, 'count': int(p.size), 'type': 'SCALAR'} for k, (_, p) in enumerate(parts)],
 }
 js = json.dumps(gltf, separators=(',', ':')).encode(); js += b' ' * (-len(js) % 4)
-out = struct.pack('<III', 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(binary))
-out += struct.pack('<II', len(js), 0x4E4F534A) + js + struct.pack('<II', len(binary), 0x004E4942) + binary
+out = struct.pack('<III', GLB_MAGIC, 2, 12 + 8 + len(js) + 8 + len(binary))
+out += struct.pack('<II', len(js), CHUNK_JSON) + js + struct.pack('<II', len(binary), CHUNK_BIN) + binary
 dst = sys.argv[2]
 open(dst, 'wb').write(out)
 print('wrote', dst, len(out), 'B', 'verts', len(Q), 'tris', len(I), [(n, len(p)) for n, p in parts], 'sha256', hashlib.sha256(out).hexdigest())

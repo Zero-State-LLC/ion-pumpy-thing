@@ -28,8 +28,14 @@ const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'Ledger'];
 // the button's id, and a name for what it shows.
 const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
 // The views drawn in 3D, each checked at a moment of the completed run's replay where it has
-// something to draw: the step, the view's button, a name for it, and the replay's per cent.
-const VIEWS_3D = [[5, 'cv-thermal', 'Converge, thermal view', 10], [5, 'cv-visible', 'Converge, visible view', 10], [5, 'cv-transit', 'Converge, transit diagram', 0]];
+// something to draw: the step, the view's button, a name for it, the replay's per cent, and
+// whether the frame is cut at the entrance. 30 % of the way through, the front of the airliner,
+// its nose and forward fuselage, is past the entrance, the canvas's middle row, so nothing may
+// be drawn in the frame's top half. (Halfway, too little is left on a 320 px phone to count as drawn.)
+const VIEWS_3D = [[5, 'cv-thermal', 'Converge, thermal view', 10, false], [5, 'cv-visible', 'Converge, visible view', 10, false],
+  [5, 'cv-transit', 'Converge, transit diagram', 0, false], [5, 'cv-transit', 'Converge, transit diagram', 30, true]];
+// How many device pixels either side of the entrance the cut check leaves out, for anti-aliasing.
+const CUT_MARGIN = 2;
 // The 3D view's setting, kept apart from the saved run.
 const VIEW_PREFS = 'ion-pumpy-view-v1';
 // How long, in milliseconds, the 3D view may take to start before the check fails.
@@ -257,7 +263,7 @@ async function main() {
       // The same views in 3D. Each waits for the 3D canvas to show, which it does once WebGL has
       // started and the renderer has drawn the view's scene list.
       await loadSavedRun('completed-run', undefined, true);
-      for (const [step, button, name, at] of VIEWS_3D) {
+      for (const [step, button, name, at, cut] of VIEWS_3D) {
         const view = `Completed run, ${name} in 3D at ${at} % of the replay`;
         await evaluate(`document.getElementById('step-${step}').click(); document.getElementById('${button}').click();
           (s => { s.value = '${at}'; s.dispatchEvent(new Event('input', { bubbles: true })); })(document.getElementById('cv-scrub'))`);
@@ -275,10 +281,15 @@ async function main() {
           const c = document.getElementById('gl'), gl = c.getContext('webgl2') || c.getContext('webgl');
           const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(w * h * 4);
           gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
-          let differ = 0; for (let i = 0; i < px.length; i += 4) if (px[i] !== px[0] || px[i + 1] !== px[1] || px[i + 2] !== px[2]) differ++;
-          r(differ / (w * h));
+          // Rows count up from the bottom, so the rows above the middle are the frame's top half.
+          let differ = 0, beyond = 0;
+          for (let i = 0; i < px.length; i += 4) if (px[i] !== px[0] || px[i + 1] !== px[1] || px[i + 2] !== px[2]) {
+            differ++; if (Math.floor(i / 4 / w) > h / 2 + ${CUT_MARGIN}) beyond++;
+          }
+          r({ fraction: differ / (w * h), beyond });
         }))`);
-        if (!(drawn >= DRAWN_FRACTION)) failures.push(`${where(view)}: the 3D frame is blank (${(drawn * 100).toFixed(2)} % of its pixels differ from its corner)`);
+        if (!(drawn.fraction >= DRAWN_FRACTION)) failures.push(`${where(view)}: the 3D frame is blank (${(drawn.fraction * 100).toFixed(2)} % of its pixels differ from its corner)`);
+        if (cut && drawn.beyond) failures.push(`${where(view)}: ${drawn.beyond} pixels of the airliner are drawn past the entrance`);
         views3d++;
       }
       // The views draw labels, so measuring none means the measuring has stopped working, not that all is well.

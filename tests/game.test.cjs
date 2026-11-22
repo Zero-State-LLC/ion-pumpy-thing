@@ -2564,3 +2564,45 @@ test('the 3D view draws nothing while the tab is hidden, and steps without a sce
   const done = await bootIn3D('completed-run'); click(done, 'step-6');
   assert.equal(nextScene(done), null, 'the Ledger has no scene list'); assert.equal(done.ids.get('gl').hidden, true);
 });
+
+
+// Copy acceptance checks follow ADR 0001: verify what the game actually renders
+// at each unlocked step instead of matching JavaScript source formatting.
+test('all six stages render actionable plain-English instructions and a source card', () => {
+  const game = bootFromSavedRun('completed-run');
+  const expected = [
+    /Hold Pump[\s\S]*marked range for 3 seconds/,
+    /Use the control pad[\s\S]*6 seconds/,
+    /Choose Hydrogen \+ boron-11/,
+    /Move the orbs onto the hollow rings[\s\S]*both camera views/,
+    /This is a game model, not a demonstrated method\./,
+    /open the gate when the indicator enters the marked range/,
+  ];
+  for (let i = 0; i < expected.length; i++) {
+    click(game, 'step-' + i);
+    const panel = text(game, 'panel');
+    const brief = panel.match(/<p class="brief">([\s\S]*?)<\/p>/);
+    assert.ok(brief, 'Step ' + (i + 1) + ' renders a brief for the player');
+    assert.match(brief[1], expected[i], 'Step ' + (i + 1) + ' gives a useful next action');
+    assert.match(sourceCard(game), /<summary>Explanation and sources<\/summary>/,
+      'Step ' + (i + 1) + ' keeps scientific explanation available');
+  }
+});
+
+test('science, score and safety qualifications appear in the player interface', () => {
+  const game = bootFromSavedRun('completed-run');
+  click(game, 'step-1');
+  assert.match(text(game, 'panel'), /Beta compares plasma pressure with magnetic pressure\./);
+  click(game, 'step-2');
+  const hint = game.ids.get('fu-screen-note').textContent;
+  assert.match(hint, /\bOptional\b/);
+  assert.match(hint, /\bgame rule\b/i);
+  assert.match(hint, /\blesson\b/i);
+  assert.match(text(game, 'panel'), /not a real radiation dose/);
+  click(game, 'step-4');
+  assert.match(text(game, 'panel'), /This follows a simplified rule based on the report\./);
+  click(game, 'step-5');
+  assert.match(text(game, 'panel'), /This final step uses the settings you chose earlier/);
+  click(game, 'step-6');
+  assert.match(text(game, 'panel'), /not independently verified/);
+});

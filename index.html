@@ -327,7 +327,7 @@ footer p { margin: 0; }
       <label for="sound-ambience">Background <input id="sound-ambience" type="range" min="0" max="100" value="35"></label>
       <label class="pulse-option"><input id="sound-pulse" type="checkbox" checked> Gentle pulse</label>
     </div>
-    <p class="note">Mechanical sounds follow the action. Electrical tones use a 7.83 Hz reference shifted into the audible range. Turn off Gentle pulse for steady electrical tones. Sound stays off until you enable it.</p>
+    <p class="note">Sounds play when you use the controls. The electrical tones use a 7.83 Hz reference, shifted to a pitch you can hear. Turn off Gentle pulse to hear a steady tone. Sound stays off until you turn it on.</p>
     <p id="sound-status" class="statusline" role="status"></p>
   </details>
   <div class="view-settings">
@@ -629,7 +629,7 @@ const ignite = stage({
       <p><span class="tag read">4orbs account</span>Ashton Forbes reads the three objects in the videos as "cold plasma". That is a real term: the electrons are hot while the heavy ions stay cool. A neon sign works this way. Hydrogen glows pink and argon violet.</p>
       <p><span class="tag read">4orbs account</span>On the ion pumpy schematic, an anonymous drawing of a compact fusion reactor, Forbes reads <a href="${ION_PUMPY_DPF_URL}" target="_blank" rel="noopener">a piston with "full command of adiabatic pressure"</a>. The piston compresses the plasma in full command of its pressure, so the reactor that <a href="${ION_PUMPY_REACTOR_URL}" target="_blank" rel="noopener">powers the orbs</a> can run continuously. It does not fire once, as <a href="${DPF_101_URL}" target="_blank" rel="noopener">a laboratory dense plasma focus</a> does.</p>
       <p><span class="tag scen">Game rule</span>Your hand pump plays the piston. Keep a cold plasma with the pressure in its band for ${PLASMA_HOLD_SECONDS} seconds to pass the Plasma readiness check. Leave the band before then and the count starts over.</p>
-      <p class="note">At full pressure, electrons hit atoms so often that everything heats together and you get an arc. Pump most of the gas out and the electrons run hot on their own. The seal leaks, so the pressure creeps back up. Pump too far and there's too little gas left to glow.</p>
+      <p class="note">When gas pressure is high, collisions heat the whole gas and can create an electric arc. Lower the pressure to keep the electrons hot while the heavier particles stay cooler. The seal leaks, so pressure rises again. If you pump out too much gas, the glow stops.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Gas">
@@ -893,7 +893,7 @@ const hold = stage({
       <div class="assist" id="ho-assist-row">
         <button type="button" class="btn" id="ho-assist" aria-pressed="false" aria-describedby="ho-assist-note">Assist: keep the ball centred</button>
         <button type="button" class="btn engage" id="ho-show" aria-describedby="ho-assist-note" hidden>Show me</button>
-        <p class="note" id="ho-assist-note">Learning runs only. The assist trims the coils for you; Show me runs the whole hold. The ledger notes an assisted hold.</p>
+        <p class="note" id="ho-assist-note">Only available in Learning mode. Assist adjusts the coils to keep the plasma ball centred. Show me completes the hold for you. The final record marks this step as assisted.</p>
       </div>
       <div>
         <div class="meter" aria-hidden="true"><div class="band" style="left:37.5%;width:12.5%"></div><div class="mark" id="ho-mark"></div></div>
@@ -1083,11 +1083,11 @@ const fuel = stage({
       <label for="fu-t"><span id="fu-t-l">Plasma temperature</span> <output id="fu-t-o"></output><input id="fu-t" aria-labelledby="fu-t-l" type="range" min="0" max="3" step="0.05"></label>
       <div class="assist">
         <button type="button" class="btn" id="fu-screen" aria-pressed="false" aria-describedby="fu-screen-note">Electron screening</button>
-        <p class="note" id="fu-screen-note">Optional. How much it helps is a game rule, set out in the lesson.</p>
+        <p class="note" id="fu-screen-note">Electron screening is optional. In this game, it makes fusion easier by a fixed amount. Open Explanation and sources to see the rule. This is not a measured result.</p>
       </div>
       <div>
         <div class="meter" aria-hidden="true"><div class="fill bad" id="fu-dose"></div></div>
-        <div class="mlabels"><span>0</span><span>cumulative neutron exposure</span><span>full scale</span></div><p class="note">Exposure is simplified for play and stays recorded for this run. Impact flashes fade; exposure does not.</p>
+        <div class="mlabels"><span>0</span><span>cumulative neutron exposure</span><span>full scale</span></div><p class="note">Neutron exposure means how much neutron radiation has built up during this run. The game uses a simplified exposure scale, not a real radiation dose. The flashes fade, but the recorded exposure stays.</p>
       </div>
     </div>
     <dl class="reads">
@@ -1661,14 +1661,14 @@ const conv = stage({
       <div class="actions"><button type="button" class="btn primary" id="cv-go"></button></div>
       <div id="cv-replay" hidden>
         <label for="cv-scrub"><span id="cv-scrub-l">Inspect the completed sequence</span> <output id="cv-scrub-o"></output><input id="cv-scrub" aria-labelledby="cv-scrub-l" type="range" min="0" max="100" step="1" value="100" disabled aria-describedby="cv-replay-note"></label>
-        <p class="note" id="cv-replay-note">Drag or use the arrow keys to inspect a moment. Scrubbing pauses playback. Views use current settings; your saved result stays fixed.</p>
+        <p class="note" id="cv-replay-note">Drag the replay control or press the arrow keys to move through the sequence. Moving the control pauses playback. The views show your current settings, but your saved result does not change.</p>
       </div>
       <div class="seg" role="group" aria-label="Final sequence view">
         <button type="button" id="cv-thermal" data-view="thermal">Thermal, from the side</button>
         <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
         <button type="button" id="cv-transit" data-view="transit">Transit diagram</button>
       </div>
-      <div class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</div>
+      <div class="note" id="cv-view-note">The camera views are computer reconstructions with added colours, not original footage. The transit diagram shows the aircraft entering the proposed wormhole opening (the throat).</div>
       <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
       <p class="note">Completed steps keep their saved settings. To change a setting, return to that step.</p>
     </div>
@@ -1947,10 +1947,10 @@ const ledger = stage({
       <div class="sect">
         <p class="tally">Three links ran on lab physics, two on measurement and two on wormhole theory. <b>The 4orbs account joins them into one chain.</b></p>
         <ul class="ledger">${rows.map(r => `<li><span class="tag ${r[0]}">${r[1]}</span><span>${r[2]}</span></li>`).join('')}</ul>
-        <p class="note">4orbs reads the pieces this way: the orbs are "beyond anything published", and not beyond physics.</p>
+        <p class="note">The 4orbs account describes the orbs as "beyond anything published" but argues that the idea is physically possible. That is an interpretation, not a demonstrated result.</p>
       </div>
       <div class="sect">
-        <h3>Timed practice board</h3><p class="note">Separate from learning runs and earlier game versions. Scores are client-reported practice results.</p>
+        <h3>Timed practice board</h3><p class="note">This board shows Timed mode practice scores only. It does not include Learning mode or scores from older versions. Scores come from players' browsers and are not independently verified.</p>
         <ol class="board" id="board"></ol>
         <p class="note" id="board-note"></p>
       </div>

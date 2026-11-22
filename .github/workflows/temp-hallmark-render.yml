@@ -1,0 +1,43 @@
+name: Temporary Hallmark rendered audit
+on:
+  push:
+    branches:
+      - audit/hallmark-render-20261122
+    paths:
+      - .github/workflows/temp-hallmark-render.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+      - name: Install browser driver
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund puppeteer-core@24
+      - name: Audit source and rendered product
+        shell: bash
+        run: |
+          set +e
+          node .agents/skills/hallmark/scripts/sloplint.mjs index.html --scope app --genre playful --json > hallmark-static.json 2>hallmark-static-error.txt
+          static_status=$?
+          python3 -m http.server 8080 >/tmp/hallmark-http.log 2>&1 &
+          sleep 2
+          node .agents/skills/hallmark/scripts/sloplint.mjs --url http://127.0.0.1:8080/ --scope app --genre playful --render --json > hallmark-render.json 2>hallmark-render-error.txt
+          render_status=$?
+          echo "static_exit=$static_status render_exit=$render_status"
+          cat hallmark-static-error.txt hallmark-render-error.txt
+          cat hallmark-static.json hallmark-render.json
+          echo "Browser: $(command -v google-chrome || command -v chromium || echo missing)"
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hallmark-render-audit
+          path: |
+            hallmark-static.json
+            hallmark-static-error.txt
+            hallmark-render.json
+            hallmark-render-error.txt
+            .hallmark/shots/

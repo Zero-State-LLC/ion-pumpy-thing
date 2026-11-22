@@ -1,6 +1,6 @@
 # Tests see what the player sees
 
-Status: accepted
+Status: accepted, amended by ADR 0003 (3D views add a scene list to what tests check)
 
 Game tests act only through the page's controls and the test clock (`advance`), set up a mid-run state by loading a saved run from `tests/fixtures/`, and check only what a player could notice: page content and attributes, canvas drawing, which sound cues play, and what is saved. The physics models behind the source-labelled claims (`plasmaPressure`, `formation`, `camB`, `transitModel`, `fuelActivity`) are a second seam that tests may call directly, because their numbers are the claims. We chose this so that a change a player can't notice can't break a test, and because agents write new tests by copying the ones they find.
 

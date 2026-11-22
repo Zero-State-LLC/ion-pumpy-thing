@@ -20,3 +20,14 @@ test('Hallmark label typography avoids tracked uppercase on provenance and reado
     assert.doesNotMatch(rule, /text-transform:\s*uppercase/, selector);
   }
 });
+
+test('Hallmark display head avoids cap collision and small labels stay untracked', () => {
+  const css = styles.at(-1);
+  const head = css.split('\n').find(line => line.trim().startsWith('.top h1 {'));
+  assert.match(head, /line-height:\s*1\s*;/);
+  for (const selector of ['.scale b', '.padlabels', '.mlabels']) {
+    const rule = css.split('\n').find(line => line.trim().startsWith(selector + ' {'));
+    assert.ok(rule, 'rule exists: ' + selector);
+    assert.doesNotMatch(rule, /letter-spacing:\s*var\(--track-label\)/, selector);
+  }
+});

@@ -23,6 +23,8 @@ All 46 Node tests pass (39 game, 7 SEO). The build was also played through in he
 
 `assist` and `assisted` were added to the Hold stage as optional booleans. Older saves without them still restore. The source revision is unchanged because no model or number changed.
 
+`screening` (#42) and `completedScreened` (#43) were added to the Fuel step the same way: whether electron screening is on, and whether the Fuel step was completed with it on. A saved run without them restores with both off, so its Ledger leaves out the electron-screening row. #42 changed the source revision, so a run saved before it starts fresh; #43 keeps the revision, so a run saved between the two restores with `completedScreened` off.
+
 # Earlier edition: connected learning run and inspectable finale
 
 ## Purpose and scope
@@ -66,7 +68,7 @@ Later, the Ignite step's 3 seconds in the pressure band (#32) changed timed-prac
 
 Run `node --test tests/game.test.cjs tests/seo.test.cjs` with Node 22 or later. The game tests execute the shipped inline JavaScript in a minimal DOM and canvas boundary. They cover lesson state, score isolation, pause behaviour, continuous confinement, persistent exposure, readiness, final-sequence aborts, frozen results, local reload, malformed saves, blocked storage, projection geometry, transit units, clipping, replay gating, event bubbling, deterministic scrubbing, reduced-motion drawing and source-revision migration.
 
-These are model and integration checks, not screenshot tests. `npm run test:browser` covers one browser baseline automatically: every step and the ledger in a 390 px phone window in real Chrome, with no sideways scrolling and no page errors. Before release, perform an actual desktop and phone playthrough, keyboard and touch checks, audio checks, reduced-motion checks, and a visual inspection of both camera views and the plate diagram. Suggested phone baseline: 390 px width, no horizontal overflow, all controls reachable without a sticky scene covering them.
+These are model and integration checks, not screenshot tests. `npm run test:browser` checks two phone windows automatically, 390 × 844 and 320 × 640: in each, every step and the Ledger in real Chrome, with no sideways scrolling, no canvas text outside its canvas and no page errors. Before release, perform an actual desktop and phone playthrough, keyboard and touch checks, audio checks, reduced-motion checks, and a visual inspection of both camera views and the plate diagram. Suggested phone baselines: 390 px and 320 px widths, no horizontal overflow, no canvas text cut off at the canvas edge, all controls reachable without a sticky scene covering them.
 
 
 ## Deploy

@@ -1,0 +1,24 @@
+# Fails a pull request whose description names no ticket (see issue #44). Its
+# own workflow, so editing a description reruns this and not the game checks.
+name: Ticket check
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+permissions:
+  contents: read
+jobs:
+  ticket:
+    runs-on: ubuntu-latest
+    steps:
+      # The check needs only the files: no token is left in the checkout's git config.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # The description is untrusted: it reaches the check only through PR_BODY.
+      - name: The description names a ticket
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node tests/ticket-check.mjs

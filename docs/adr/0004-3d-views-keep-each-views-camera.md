@@ -12,4 +12,5 @@ A 3D view uses the camera its flat view already draws: the same angle, and an or
 ## Consequences
 
 - Where a camera is part of a claim, such as Orbit's two cameras and the angle between them, the 3D view uses exactly that camera.
+- Only heat-camera views use the thermal scale. Converge's Visible view stays visible light, where the flash is bright as its Measured lesson says, and diagrams such as the transit diagram stay schematic.
 - Props bring shape only. Heat-camera views colour them by temperature, so Meshy is asked for untextured models.

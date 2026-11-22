@@ -1094,6 +1094,9 @@ function orbitViews(o) {
 // How far the matched Formation's glow has built, from 0 to 1: over the hold that
 // completes the step, or at once under reduced motion and once Orbit is done.
 function formationGlowAmount(o) { return reduced || o.done ? 1 : clamp(o.hold / 1.5, 0, 1); }
+// The matched Formation's glow at an amount, in pixels: the flat view draws it with orbGlow, the
+// 3D view's scene list gives the same sizes in metres.
+function formationGlowLook(glow) { return { ring: 12 + 18 * glow, pad: 10 + 14 * glow, alpha: .28 + .67 * glow, width: 1.25 + 1.75 * glow, colour: COL.cold }; }
 const orbit = stage({
   name: 'Orbit', title: 'Fly the formation',
   html: `
@@ -1146,7 +1149,8 @@ const orbit = stage({
     ];
     if (formationMatched(this)) {
       const glow = formationGlowAmount(this);
-      list.push({ kind: 'formation glow', amount: glow, points, ring: px(12 + 18 * glow), pad: px(10 + 14 * glow), width: px(1.25 + 1.75 * glow), colour: COL.cold, opacity: .28 + .67 * glow });
+      const g = formationGlowLook(glow);
+      list.push({ kind: 'formation glow', amount: glow, points, ring: px(g.ring), pad: px(g.pad), width: px(g.width), colour: g.colour, opacity: g.alpha });
     }
     return { look: 'visible', views: views.map(v => ({ ...v, list })) };
   },
@@ -1167,7 +1171,7 @@ const orbit = stage({
         mine.forEach((p, i) => { const q = proj(p); i ? ctx.lineTo(cx + q[0] * sc, cy + q[1] * sc) : ctx.moveTo(cx + q[0] * sc, cy + q[1] * sc); });
         ctx.closePath(); ctx.stroke();
         mine.forEach(p => { const q = proj(p); orb(cx + q[0] * sc, cy + q[1] * sc, 3.6, '#fff', 'rgba(255,255,255,.35)'); });
-        if (matched) orbGlow(cx, cy, sc, mine.map(proj), { ring: 12 + 18 * glow, pad: 10 + 14 * glow, alpha: .28 + .67 * glow, width: 1.25 + 1.75 * glow, colour: COL.cold });
+        if (matched) orbGlow(cx, cy, sc, mine.map(proj), formationGlowLook(glow));
       }
       label(title, cx, 24, COL.muted, 'center', W < 420 ? 9.5 : 11);
     });

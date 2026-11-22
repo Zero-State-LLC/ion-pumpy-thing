@@ -204,6 +204,8 @@ async function start(canvas, { props, onLost }) {
         g.add(halo, ball);
         // Heat views ring each orb in the outline colour, so it reads as a schematic mark too.
         if (world.look === 'heat') g.add(facing(new THREE.Mesh(new THREE.RingGeometry(1, 1, 32), new THREE.MeshBasicMaterial({ color: world.outline[0], transparent: true, opacity: world.outline[1], side: THREE.DoubleSide }))));
+        // The flat view draws the orbs over the airliner, so an orb the airframe would hide stays in view.
+        g.children.forEach(c => { /** @type {any} */ (c).material.depthTest = false; c.renderOrder = 4; });
         return g;
       });
       const [halo, ball, ring] = o.children;

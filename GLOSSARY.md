@@ -98,6 +98,12 @@ The anonymous labelled drawing of a compact fusion reactor that Forbes was sent 
 A pulsed fusion machine: a capacitor bank drives a current sheet between two nested electrodes, and the sheet's own field pinches the gas into a small, hot, dense knot of plasma.
 _Avoid_: DPF, dense plasma fusion device
 
+**Coulomb barrier**:
+The electric push that keeps two positively charged nuclei apart. They fuse only if they get through it, which takes high temperatures unless the barrier is screened.
+
+**Electron screening**:
+Flooding a fusion fuel with electrons whose charge screens the Coulomb barrier, so the fuel burns at lower temperatures. The Fuel step offers it as an optional control; how much it helps is a Game rule.
+
 **Formation**:
 The rigid triangle of orbs matched in the Orbit step and projected in both finale cameras.
 _Avoid_: lock-in

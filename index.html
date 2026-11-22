@@ -417,7 +417,7 @@ $('#snd').onclick = async e => {
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
-const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-ignite-piston';
+const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-fuel-screening';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
 const ION_PUMPY_DPF_URL = 'https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/';
@@ -425,11 +425,13 @@ const ION_PUMPY_REACTOR_URL = 'https://4orbs.com/library/theories/ion-pumpy-thin
 const DPF_101_URL = 'https://4orbs.com/science/101/dense-plasma-focus/';
 const TELEPORTATION_URL = 'https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/';
 const DYNAMIC_CASIMIR_URL = 'https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/';
+const ELECTRON_SCREENING_URL = 'https://4orbs.com/library/theories/electron-screening-for-low-temperature-fusion/';
 // Papers the 4orbs pages cite, linked where the lesson uses them.
 const PAPERS = {
   park: { label: 'Park et al., High Energy Electron Confinement in a Magnetic Cusp Configuration (Physical Review X, 2015)', url: 'https://arxiv.org/abs/1406.0133' },
   miley: { label: 'Miley, Inertial Electrostatic Confinement Fusion (DIA report, March 2010)', url: 'https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D125_AAWSA-DIRD-Inertial-Electrostatic-Confinement-Fusion-March-10-2010.pdf' },
   knecht: { label: 'Knecht, Thomas, Mead, Miley and Froning, Propulsion and Power Generation Capabilities of a Dense Plasma Focus (DPF) Fusion System for Future Military Aerospace Vehicles (AIP Conference Proceedings, 2006)', url: 'https://doi.org/10.1063/1.2169306' },
+  luo: { label: 'Luo, Shrestha, Miley and Violante, Enhancement of Nuclear Reactions Due to Screening Effects of Core Electrons (Condensed Matter Nuclear Science, World Scientific, 2005)', url: 'https://doi.org/10.1142/9789812701510_0061' },
   morris: { label: 'Morris and Thorne, Wormholes in spacetime and their use for interstellar travel: A tool for teaching general relativity (American Journal of Physics, 1988)', url: 'https://doi.org/10.1119/1.15620' },
   lamoreaux: { label: 'Lamoreaux, Demonstration of the Casimir Force in the 0.6 to 6 μm Range (Physical Review Letters, 1997)', url: 'https://doi.org/10.1103/PhysRevLett.78.5' },
   gjw: { label: 'Gao, Jafferis and Wall, Traversable Wormholes via a Double Trace Deformation (JHEP, 2017)', url: 'https://arxiv.org/abs/1608.05687' },
@@ -439,7 +441,7 @@ const PAPERS = {
 const SOURCES = [
   { url: SCIENCE_URL, section: '6:07, What are they made of?', note: 'Pressure, temperature response and glow thresholds are simplified for play. The compression toward the middle of the jar is a schematic.', refs: [] },
   { url: SCIENCE_URL, section: '7:40 and 10:15, confinement and the Polywell', note: 'Beta is plasma pressure divided by magnetic pressure. The coils are a simplified cusp after Bussard’s Polywell. The drift and the six-second target are game rules.', refs: ['park'] },
-  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play.', refs: ['miley', 'knecht'] },
+  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play. How much electron screening helps is a game rule.', refs: ['miley', 'knecht', 'luo'] },
   { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Built from the reported ranges. The 24° tilt and the tumble period are simplified for play.', refs: [] },
   { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole. The plasma cavity is a schematic, not to scale.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
   { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence opens the throat, as in the 4orbs account. Thermal false colour and the flash are drawn for viewing. The transit uses a 63.7 m aircraft, its 60.9 m span and the measurement page’s 250 m/s cruise speed.', refs: ['davis'] }
@@ -885,6 +887,9 @@ const fuel = stage({
       <p><span class="tag lab">Lab physics</span>The Polywell is a fusion machine as well as a trap. Its trapped electrons form a virtual cathode, a well about 10 kV deep on Bussard's sixth machine. Positive ions fall into the well, speed up toward the centre, collide and fuse. George Miley's 2010 report for the Defense Intelligence Agency surveys this family, inertial electrostatic confinement.</p>
       <p><span class="tag lab">Lab physics</span>Most fusion work burns two heavy forms of hydrogen. That reaction lights at the lowest temperature, but it throws out neutrons. No magnetic field can steer a neutron, so it goes straight into the wall and makes it radioactive.</p>
       <p><span class="tag lab">Lab physics</span>Hydrogen and boron-11 make three helium nuclei and almost no neutrons. The energy comes out on charged particles, so it could in principle be turned straight into electricity. The catch: it needs far higher temperatures to burn. Boron fuel is being tested in experiments now.</p>
+      <p><span class="tag read">4orbs account</span>The orbs burn it cooler. <a href="${ELECTRON_SCREENING_URL}" target="_blank" rel="noopener">Flooding the fuel with electrons</a> lets fusion go at lower temperatures: the electrons screen the Coulomb barrier, the electric push that keeps two nuclei apart. That is how a compact orb keeps fusion going with far less heat than it would otherwise need.</p>
+      <p><span class="tag model">Theory</span>In a 2003 conference paper, George Miley's group at the University of Illinois and a colleague at the ENEA fusion centre in Frascati, Italy, calculated how the inner electrons of metal atoms screen the barrier, for deuterium fusion and for protons captured by metal nuclei. Both reactions came out significantly enhanced.</p>
+      <p><span class="tag scen">Game rule</span>How much screening helps is set for play. Below a fuel's peak temperature, switching it on makes the fuel burn as it would at three times the temperature, capped at the peak temperature. At or above its peak, screening changes nothing.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Fuel">
@@ -892,6 +897,10 @@ const fuel = stage({
         <button type="button" id="fu-pb" data-fuel="pb">Hydrogen + boron-11</button>
       </div>
       <label for="fu-t"><span id="fu-t-l">Plasma temperature</span> <output id="fu-t-o"></output><input id="fu-t" aria-labelledby="fu-t-l" type="range" min="0" max="3" step="0.05"></label>
+      <div class="assist">
+        <button type="button" class="btn" id="fu-screen" aria-pressed="false" aria-describedby="fu-screen-note">Electron screening</button>
+        <p class="note" id="fu-screen-note">Optional. How much it helps is a game rule, set out in the lesson.</p>
+      </div>
       <div>
         <div class="meter" aria-hidden="true"><div class="fill bad" id="fu-dose"></div></div>
         <div class="mlabels"><span>0</span><span>cumulative neutron exposure</span><span>full scale</span></div><p class="note">Exposure is simplified for play and stays recorded for this run. Impact flashes fade; exposure does not.</p>
@@ -908,10 +917,14 @@ const fuel = stage({
     const paint = () => fs.forEach(b => b.setAttribute('aria-pressed', b.dataset.fuel === this.fuel));
     fs.forEach(b => b.onclick = () => { if (this.fuel !== b.dataset.fuel) snd.play('ui-toggle', { kind: 'ui' }); this.fuel = b.dataset.fuel; paint(); });
     paint();
+    const screenToggle = $('#fu-screen'), paintScreen = () => screenToggle.setAttribute('aria-pressed', this.screening);
+    screenToggle.onclick = () => { this.screening = !this.screening; snd.play('ui-toggle', { kind: 'ui' }); paintScreen(); };
+    paintScreen();
   },
   update(dt) {
-    const F = FUELS[this.fuel], keV = 10 ** this.lt, x = Math.log10(keV / F.peak) / F.width;
-    const rate = this.rate = F.k * Math.exp(-x * x), lit = this.lit = rate >= 0.15;
+    // The activity the player sees is the one the Fuel readiness check reads.
+    const F = FUELS[this.fuel], keV = 10 ** this.lt;
+    const rate = this.rate = fuelActivity(this), lit = this.lit = rate >= 0.15;
     this.acc += rate * 16 * dt;
     while (this.acc >= 1 && this.ev.length < 220) {
       this.acc -= 1;
@@ -934,13 +947,15 @@ const fuel = stage({
     this.hold = lit && this.fuel === 'pb' ? this.hold + dt : 0;
     if (this.hold >= 3) complete(this);
     snd.bed('fusion-bed', { level: .2 + rate * .6, brightness: 900 + this.lt * 800 });
-    const K = keV * 11.6e6;
-    out('fu-t', K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K');
-    set('fu-rate', lit ? 'Burning<small>simplified temperature response</small>' : 'Low activity<small>simplified temperature response</small>');
+    const K = keV * 11.6e6, shown = K >= 1e9 ? fmt(K / 1e9, 1) + ' billion K' : fmt(K / 1e6) + ' million K';
+    out('fu-t', shown);
+    const response = `<small>${this.screening ? 'screened; ' : ''}simplified temperature response</small>`;
+    set('fu-rate', (lit ? 'Burning' : 'Low activity') + response);
     set('fu-out', F.out);
     set('fu-n', this.fuel === 'dt' ? 'Most<small>neutrons carry much of the energy</small>' : 'Almost none<small>the main reaction makes none; side reactions make a few</small>');
     const d = $('#fu-dose'); if (d) d.style.width = this.dose * 100 + '%';
-    goal(this.hold / 3, this.hold >= 3 ? 'Burning boron: the energy stays on charged particles the field can catch. It took billions of kelvin.' : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: sustain the hydrogen-boron demonstration for three seconds.');
+    const burned = 'Burning boron: the energy stays on charged particles the field can catch. ' + (this.screening ? `With the barrier screened, it burns at ${shown}.` : 'It took billions of kelvin.');
+    goal(this.hold / 3, this.hold >= 3 ? burned : this.dose > 0.5 && this.fuel === 'dt' ? 'It burns, and the wall is paying for it. Try the other fuel.' : 'Goal: sustain the hydrogen-boron demonstration for three seconds.');
   },
   draw() {
     const cx = W / 2, cy = H / 2 - 4, R = Math.min(W, H) * 0.34, hotness = clamp(this.lt / 3, 0, 1);
@@ -952,6 +967,15 @@ const fuel = stage({
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.34);
     g.addColorStop(0, `rgba(255,${Math.round(150 + 105 * hotness)},${Math.round(120 + 135 * hotness)},${0.25 + 0.7 * hotness})`); g.addColorStop(1, 'rgba(255,120,175,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 0.34, 0, TAU); ctx.fill();
+    // Screening electrons fill the core inside the field edge. They are drawn in fixed
+    // places, so they hold still under reduced motion as at any time.
+    if (this.screening) {
+      ctx.fillStyle = COL.ink;
+      for (let i = 0; i < 36; i++) {
+        const r = R * 0.56 * Math.sqrt((i + 0.5) / 36), a = i * 2.39996;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1.3, 0, TAU); ctx.fill();
+      }
+    }
     this.ev.forEach(q => {
       ctx.fillStyle = q.k === 'n' ? COL.hot : COL.cold;
       ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, q.k === 'n' ? 2.2 : 2.8, 0, TAU); ctx.fill();
@@ -960,12 +984,13 @@ const fuel = stage({
     label('field edge', cx + R * 0.6 * 0.71 + 6, cy - R * 0.6 * 0.71 - 4, COL.cold);
     ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 34, 2.8, 0, TAU); ctx.fill(); label('helium (charged)', 48, H - 30);
     ctx.fillStyle = COL.hot; ctx.beginPath(); ctx.arc(38, H - 18, 2.2, 0, TAU); ctx.fill(); label('neutron', 48, H - 14);
-    viewTitle('REACTOR CORE · ' + (this.fuel === 'dt' ? 'D-T' : 'P-B11'));
+    if (this.screening) { ctx.fillStyle = COL.ink; ctx.beginPath(); ctx.arc(38, H - 50, 1.3, 0, TAU); ctx.fill(); label('electron', 48, H - 46); }
+    viewTitle('REACTOR CORE · ' + (this.fuel === 'dt' ? 'D-T' : 'P-B11') + (this.screening ? ' · SCREENED' : ''));
   },
   describe() {
-    return `Reactor core burning ${FUELS[this.fuel].name.toLowerCase()}: ${this.lit ? 'burning, ' + (this.fuel === 'pb' ? 'charged helium nuclei curling in the field' : 'neutrons striking the wall') : 'low activity'}. Wall exposure ${fmt(this.dose * 100)} percent.`;
+    return `Reactor core burning ${FUELS[this.fuel].name.toLowerCase()}${this.screening ? ', flooded with electrons that screen the Coulomb barrier' : ''}: ${this.lit ? 'burning, ' + (this.fuel === 'pb' ? 'charged helium nuclei curling in the field' : 'neutrons striking the wall') : 'low activity'}. Wall exposure ${fmt(this.dose * 100)} percent.`;
   }
-}, { fuel: 'dt', lt: 0.3, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
+}, { fuel: 'dt', lt: 0.3, screening: false, hold: 0, dose: 0, acc: 0, rate: 0, lit: false, ev: [], spots: [] });
 
 /* ───────── Shared scene helpers ───────── */
 function sceneScale() { return Math.min(W, H) / 2 / 122; }
@@ -1224,15 +1249,24 @@ function drawCavity(st) {
     ctx.globalAlpha = 1;
   }
   label('negative energy', cx, cy + 4, COL.read, 'center', small ? 9 : 10);
-  label('real photons', cx + R + 18, cy - R * .55, COL.warm, 'left', small ? 9 : 10);
+  // Beside the bubble, but kept 6 px inside the canvas on the narrowest phones, reckoning a
+  // monospace character at 0.6 of the font size.
+  const photons = 'real photons', photonSize = small ? 9 : 10;
+  label(photons, Math.min(cx + R + 18, W - 6 - photons.length * photonSize * .6), cy - R * .55, COL.warm, 'left', photonSize);
   // The view's 4orbs account claim, in that label's colour. At 9 px it fits a 320 px phone's canvas.
   label('4orbs account: real photons and negative energy', cx, H - 42, COL.read, 'center', small ? 9 : 11);
   label(reduced ? 'Schematic · held mid-collapse · not to scale' : 'Schematic · not to scale', cx, H - 22, COL.muted, 'center', small ? 9 : 10);
   viewTitle('PLASMA CAVITY · DYNAMIC CASIMIR');
 }
 
+// Electron screening (Game rule): below a fuel's peak temperature, a screened fuel burns as it
+// would at SCREENING_GAIN times the temperature, capped at the peak temperature. At or above
+// the peak, and unscreened, the curve is as before.
+const SCREENING_GAIN = 3;
 function fuelActivity(st) {
-  const f = FUELS[st.fuel], x = Math.log10(10 ** st.lt / f.peak) / f.width;
+  const f = FUELS[st.fuel], peak = Math.log10(f.peak);
+  const lt = st.screening && st.lt < peak ? Math.min(st.lt + Math.log10(SCREENING_GAIN), peak) : st.lt;
+  const x = Math.log10(10 ** lt / f.peak) / f.width;
   return f.k * Math.exp(-x * x);
 }
 function plasmaPressure(t) { return 100 + 26 * Math.sin(t * .8) + 16 * Math.sin(t * .37 + 1) + 8 * Math.sin(t * 1.5 + 2); }
@@ -1671,7 +1705,7 @@ const RUN_KEY = 'ipt-run-v2';
 const RUN_FIELDS = [
   { gas: ['h', 'ar'], power: [0, 100], p: [.05, 760], hold: [0, 86400], t: [0, 1e9] },
   { B: [0, 1], trim: [-1, 1], x: [-1, 1], lock: [0, 6], t: [0, 1e9], assist: 'boolean?', assisted: 'boolean?' },
-  { fuel: ['dt', 'pb'], lt: [0, 3], hold: [0, 86400], dose: [0, 1] },
+  { fuel: ['dt', 'pb'], lt: [0, 3], screening: 'boolean?', hold: [0, 86400], dose: [0, 1] },
   { r: [30, 100], T: [1, 8], cam: [0, 180], ang: [-1e9, 1e9], ghost: [-1e9, 1e9], tumble: [-1e9, 1e9], hold: [0, 86400] },
   { w: [1, 200], ld: [1, 4], la: [0, 6], assumed: 'boolean', view: OPEN_VIEWS.map(([, view]) => view) },
   { k: [.5, 1], ang: [-1e9, 1e9], tumble: [-1e9, 1e9], startAng: [-1e9, 1e9], startTumble: [-1e9, 1e9], view: ['thermal', 'visible', 'transit'] }
@@ -1818,7 +1852,7 @@ panel.addEventListener('input', e => {
 });
 panel.addEventListener('pointerdown', e => { if (e.target.closest('#ig-pump, #ho-pad')) S.paused = false; });
 panel.addEventListener('keydown', e => { if (e.target.closest('#ig-pump, #ho-pad') && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter'].includes(e.key)) S.paused = false; });
-panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #op-assume, #ho-assist, #ho-show')) { S.paused = false; syncAudioMode(); } saveProgress(); });
+panel.addEventListener('click', e => { if (e.target.closest('[data-gas], [data-fuel], #fu-screen, #op-assume, #ho-assist, #ho-show')) { S.paused = false; syncAudioMode(); } saveProgress(); });
 $('#pause').onclick = () => { S.paused = !S.paused; ignite.pumping = false; hold.drag = false; syncAudioMode(); snd.play('ui-toggle', { kind: 'ui' }); saveProgress(); };
 $('#restart').onclick = e => askRestart(S.mode, e && e.currentTarget);
 $('#mode-learn').onclick = e => { if (S.mode !== 'learn') askRestart('learn', e && e.currentTarget); };

@@ -4,7 +4,7 @@ A browser game in six steps, from a jar of glowing gas to an airliner that isn't
 
 1. **Ignite** – work a hand pump, the piston in full command of the plasma's pressure, to make a cold plasma and keep it in the pressure band for 3 seconds.
 2. **Hold** – keep a plasma ball near beta one and centred between coils, as in a high-beta cusp trap.
-3. **Fuel** – deuterium-tritium versus hydrogen-boron fusion, the aneutronic fuel for the orbs' power.
+3. **Fuel** – deuterium-tritium versus hydrogen-boron fusion, the aneutronic fuel for the orbs' power, with optional electron screening to burn it at lower temperatures.
 4. **Orbit** – match the measured formation in two camera views.
 5. **Open** – meet negative energy in Casimir plates, size a wormhole throat, and hold it open with negative energy from the orbs.
 6. **Converge** – close the triangle and open the gate.

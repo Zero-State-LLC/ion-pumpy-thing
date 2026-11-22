@@ -822,6 +822,184 @@ test('hydrogen + boron-11 passes its readiness check only far above the deuteriu
   assert.ok(kelvin >= 2 * DT_PEAK_KEV * KELVIN_PER_KEV, `ready from ${coolestReady}`);
 });
 
+// Electron screening (#33): the Fuel step's optional control floods the fuel with electrons
+// that screen the Coulomb barrier, so fusion goes at lower temperatures (4orbs account). How
+// much it helps is a Game rule: a fuel burns as it would hotter, never faster than at its peak.
+// Below a fuel's published peak, screening must help; above it, the fuel burns as without it.
+test('with electron screening on, each fuel is more active at every temperature below its published peak, as active above it, and never past its peak', () => {
+  const { lab } = boot(), slider = temperatureSlider();
+  for (const [fuel, [lo, hi]] of [['pb', PB_PEAK_BAND], ['dt', DT_PEAK_BAND]]) {
+    const off = lt => lab.fuelActivity({ fuel, lt }), on = lt => lab.fuelActivity({ fuel, lt, screening: true });
+    const below = slider.filter(lt => 10 ** lt < lo), above = slider.filter(lt => 10 ** lt > hi);
+    assert.ok(below.length && above.length, `${fuel}: the slider reaches both sides of the published peak`);
+    for (const lt of below) assert.ok(on(lt) > off(lt), `${fuel} at ${(10 ** lt).toFixed(1)} keV: ${on(lt)} screened, ${off(lt)} not`);
+    for (const lt of above) assert.equal(on(lt), off(lt), `${fuel} at ${(10 ** lt).toFixed(0)} keV`);
+    // The peak found on a 0.001 grid of log10 keV, so within a part in 10⁵ of the true one.
+    const best = off(Math.log10(peakKeV(lab, fuel)));
+    for (const lt of slider) assert.ok(on(lt) <= best * (1 + 1e-5), `${fuel} at ${(10 ** lt).toFixed(1)} keV is no more active than at its peak`);
+  }
+});
+
+// Small counts as the lessons write them.
+const NUMBER_WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, ten: 10 };
+// Electron screening's Game rule as a text states it: how many times the temperature a screened
+// fuel burns as below its peak, capped at the peak temperature, and no change at or above the peak.
+function screeningRule(said) {
+  const gain = NUMBER_WORDS[said.match(/\bas it would at (\w+) times the temperature\b/)?.[1]];
+  assert.ok(gain, `it says how many times the temperature: ${said}`);
+  assert.match(said, /\bBelow (a|the|its) fuel's peak temperature\b/i, said);
+  assert.match(said, /\bcapped at (the|its) peak temperature\b/, said);
+  assert.match(said, /\bAt or above (the|its) peak\b[^.]*\bchanges nothing\b/i, said);
+  return gain;
+}
+
+test("electron screening's Game rule, as the Fuel lesson and the register state it, is fuel activity's: below a fuel's peak, screened activity is unscreened activity at three times the temperature, capped at the peak; at or above the peak, unchanged", () => {
+  const rule = lessonByParagraph(sourceCard(bootFromSavedRun(savedRunOn(2)))).filter(p => p.label === 'Game rule' && /\bscreening\b/.test(p.said));
+  assert.equal(rule.length, 1, 'one Game rule paragraph for screening');
+  const gain = screeningRule(rule[0].said);
+  const fuelRow = register.split(/^## Stage mapping$/m)[1]?.split(/^## /m)[0].split('\n').find(line => line.startsWith('| Fuel |')) || '';
+  assert.equal(screeningRule(fuelRow), gain, "the register's Stage mapping states the same rule");
+  const { lab } = boot(), step = Math.log10(gain), close = (a, b) => Math.abs(a - b) <= 1e-12 * Math.abs(b);
+  for (const fuel of ['dt', 'pb']) {
+    const off = lt => lab.fuelActivity({ fuel, lt }), on = lt => lab.fuelActivity({ fuel, lt, screening: true });
+    // The peak as found on a 0.001 grid of log10 keV, and the rate there: slider positions that close to it, or
+    // whose stated multiple of the temperature is, could fall either side of the true peak, so they are left out.
+    const peak = Math.log10(peakKeV(lab, fuel)), top = off(peak), clear = lt => Math.abs(lt - peak) > .001;
+    const seen = { below: 0, capped: 0, above: 0 };
+    for (const lt of temperatureSlider().filter(lt => clear(lt) && clear(lt + step))) {
+      const at = `${fuel} at ${(10 ** lt).toFixed(1)} keV`;
+      if (lt > peak) { seen.above++; assert.equal(on(lt), off(lt), `${at}: above the peak, unchanged`); }
+      else if (lt + step < peak) { seen.below++; assert.ok(close(on(lt), off(lt + step)), `${at}: as at ${gain} times the temperature`); }
+      else { seen.capped++; assert.ok(on(lt) >= top && on(lt) <= top * (1 + 1e-5), `${at}: ${gain} times the temperature passes the peak, so the peak rate`); }
+    }
+    assert.ok(seen.below && seen.capped && seen.above, `${fuel}: the slider reaches each part of the rule: ${JSON.stringify(seen)}`);
+  }
+});
+
+const pressed = (game, id) => game.ids.get(id).attributes['aria-pressed'] === 'true';
+// A temperature as the Fuel step shows it ("2.9 billion K", "921 million K"), in kelvin.
+function shownKelvin(shown) {
+  const [, n, unit] = shown.match(/([\d.,]+) (million|billion) K/);
+  return parseFloat(n.replace(/,/g, '')) * (unit === 'billion' ? 1e9 : 1e6);
+}
+// Through the page: choose hydrogen + boron-11 with electron screening on or off, set each
+// slider position from the coolest up, and read the Fuel readiness check on Converge. Returns
+// the temperature shown at the coolest position that passes, leaving the run there on Converge.
+function coolestReady(game, screening) {
+  for (const position of temperatureSlider()) {
+    click(game, 'step-2'); click(game, 'fu-pb');
+    if (pressed(game, 'fu-screen') !== screening) click(game, 'fu-screen');
+    slide(game, 'fu-t', position); game.lab.advance(0);
+    const shown = text(game, 'fu-t-o');
+    click(game, 'step-5');
+    if (!/Fuel: retune required/.test(text(game, 'mission-checks'))) return shown;
+  }
+  return null;
+}
+
+test('with electron screening on, hydrogen + boron-11 passes its Fuel readiness check at a lower slider temperature than with it off', () => {
+  const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-2');
+  const control = game.ids.get('fu-screen');
+  assert.ok(control, 'the Fuel step offers electron screening');
+  assert.deepEqual([control.attributes.type, control.textContent, control.attributes['aria-pressed']], ['button', 'Electron screening', 'false'], 'off by default');
+  const off = coolestReady(game, false), on = coolestReady(game, true);
+  assert.ok(off && on, `hydrogen + boron-11 passes somewhere on the slider: ${off} without screening, ${on} with it`);
+  assert.ok(shownKelvin(on) < shownKelvin(off), `ready from ${on} with screening, from ${off} without`);
+});
+
+test('turning electron screening off where only it lets hydrogen + boron-11 burn fails the Fuel check on Converge, and Fuel stays complete', () => {
+  const game = bootFromSavedRun('ready-to-converge');
+  const on = coolestReady(game, true);
+  assert.ok(on, 'ready with screening somewhere on the slider');
+  assert.equal(game.ids.get('cv-go').disabled, false, `ready on Converge at ${on} with screening`);
+  click(game, 'step-2'); click(game, 'fu-screen'); assert.equal(pressed(game, 'fu-screen'), false);
+  click(game, 'step-5');
+  assert.match(text(game, 'mission-checks'), /Fuel: retune required/);
+  assert.equal(game.ids.get('cv-go').disabled, true);
+  assert.match(game.ids.get('step-2').attributes.class, /\bdone\b/, 'the Fuel step keeps its mastery');
+});
+
+test('electron screening leaves neutron exposure cumulative and which fuel sends neutrons into the wall unchanged', () => {
+  const game = bootFromSavedRun(savedRunOn(2));
+  // What the player is told about the products, at a temperature where the fuel burns either way.
+  const products = (fuel, lt, screening) => {
+    click(game, `fu-${fuel}`); if (pressed(game, 'fu-screen') !== screening) click(game, 'fu-screen');
+    slide(game, 'fu-t', lt); game.lab.advance(1);
+    return { out: text(game, 'fu-out'), neutrons: text(game, 'fu-n'), wall: /neutrons striking the wall/.test(description(game)), curling: /charged helium nuclei curling in the field/.test(description(game)) };
+  };
+  // Each fuel at its published peak: deuterium + tritium's, and the middle of hydrogen + boron-11's band.
+  const dtPeak = Math.log10(DT_PEAK_KEV), pbPeak = Math.log10(Math.sqrt(PB_PEAK_BAND[0] * PB_PEAK_BAND[1]));
+  const dt = products('dt', dtPeak, true);
+  assert.deepEqual(dt, { ...products('dt', dtPeak, false), wall: true, curling: false }, 'deuterium + tritium sends neutrons into the wall, screened or not');
+  const dose = game.ids.get('fu-dose').style.width; assert.notEqual(dose, '0%');
+  const pb = products('pb', pbPeak, true);
+  assert.deepEqual(pb, { ...products('pb', pbPeak, false), wall: false, curling: true }, 'hydrogen + boron-11 keeps its energy on charged helium, screened or not');
+  click(game, 'fu-screen'); slide(game, 'fu-t', 0);
+  for (let i = 0; i < 600; i++) game.lab.advance(1 / 60);
+  assert.equal(game.ids.get('fu-dose').style.width, dose, 'exposure does not heal');
+});
+
+test('electron screening saves with the run and reloads, and a saved run from before the control loads with it off', () => {
+  const saved = savedRunOn(2);
+  assert.equal(saved.stages[2].values.screening, undefined, 'the fixtures predate the control');
+  const game = bootFromSavedRun(saved);
+  assert.equal(currentStep(game), 2, 'the older saved run resumes'); assert.equal(pressed(game, 'fu-screen'), false);
+  click(game, 'fu-screen'); leave(game);
+  assert.equal(lastSave(game).stages[2].values.screening, true);
+  const reloaded = boot(game.storage);
+  assert.equal(currentStep(reloaded), 2); assert.equal(pressed(reloaded, 'fu-screen'), true);
+  saved.stages[2].values.screening = 'on';
+  assert.equal(currentStep(bootFromSavedRun(saved)), 0, 'a saved run with a malformed setting starts fresh');
+});
+
+// The Fuel canvas, one frame: the electrons drawn, as the legend's electron dot marks them
+// (dots of its colour and size, the legend's own dot aside), and the words drawn.
+function fuelView(game) {
+  game.drawing.length = 0; paint(game);
+  const d = game.drawing, named = d.findIndex(c => c[0] === 'fillText' && /^electron\b/.test(c[1]));
+  const dot = named < 0 ? -1 : d.slice(0, named).map(c => c[0]).lastIndexOf('arc');
+  const like = i => d[i][0] === 'arc' && d[i][3] === d[dot][3] && settingAt(d, i, 'fillStyle') === settingAt(d, dot, 'fillStyle');
+  const electrons = dot < 0 ? [] : d.map((c, i) => i !== dot && like(i) ? [c[1], c[2]] : null).filter(Boolean);
+  return { electrons, words: drawnWords(game) };
+}
+
+test('with electron screening on, the Fuel canvas fills the core with electrons and the description says they screen the Coulomb barrier', () => {
+  const game = bootFromSavedRun(savedRunOn(2)); click(game, 'fu-pb'); game.lab.advance(1);
+  const before = description(game), reaction = text(game, 'fu-rate');
+  assert.deepEqual(fuelView(game).electrons, [], 'screening off: no electrons drawn');
+  assert.doesNotMatch(before + reaction, /electron|screen/i);
+  click(game, 'fu-screen'); game.lab.advance(1);
+  assert.match(text(game, 'fu-rate'), /<small>screened; simplified temperature response<\/small>$/);
+  const { electrons, words } = fuelView(game);
+  assert.ok(electrons.length >= 12, `the core fills with electrons: ${electrons.length}`);
+  assert.ok(words.includes('electron'), words.join(' | '));
+  assert.ok(words.includes('REACTOR CORE · P-B11 · SCREENED'), words.join(' | '));
+  assert.match(description(game), /^Reactor core burning hydrogen \+ boron-11, flooded with electrons that screen the Coulomb barrier: /);
+  click(game, 'fu-screen'); game.lab.advance(1);
+  assert.deepEqual(fuelView(game).electrons, [], 'off again: gone');
+  assert.equal(description(game), before, 'and the description is as before');
+});
+
+test('a hydrogen + boron-11 burn won with electron screening names the temperature it burns at', () => {
+  const game = bootFromSavedRun(savedRunOn(2)); click(game, 'fu-pb'); click(game, 'fu-screen');
+  let shown = null;
+  for (const position of temperatureSlider()) {
+    slide(game, 'fu-t', position); game.lab.advance(3.2);
+    if (goalBar(game) === 100) { shown = text(game, 'fu-t-o'); break; }
+  }
+  assert.ok(shown, 'the screened burn is won somewhere on the slider');
+  assert.equal(text(game, 'goaltext'), `Burning boron: the energy stays on charged particles the field can catch. With the barrier screened, it burns at ${shown}.`);
+});
+
+test('under reduced motion the screening electrons hold still', () => {
+  const game = bootFromSavedRun(savedRunOn(2), { reduced: true });
+  click(game, 'fu-pb'); click(game, 'fu-screen'); game.lab.advance(0);
+  assert.equal(game.ids.get('pause').textContent, 'Pause', 'play runs');
+  const first = fuelView(game).electrons;
+  assert.ok(first.length, 'the electrons show');
+  for (let i = 0; i < 8; i++) { game.lab.advance(.25); assert.deepEqual(fuelView(game).electrons, first, `nothing moves after ${(i + 1) / 4} s of play`); }
+});
+
 test('plate controls change drawn geometry and the ideal-model energy magnitude', () => {
   const game = bootFromSavedRun('ready-to-converge'); click(game, 'step-4');
   slide(game, 'op-d', 2); slide(game, 'op-a', 0); game.lab.advance(0);
@@ -887,6 +1065,16 @@ function lessonByParagraph(card) {
   });
 }
 
+test("no lesson paragraph repeats its own source label in its words: the label says it once", () => {
+  const game = bootFromSavedRun('completed-run');
+  for (let i = 0; i < 6; i++) {
+    click(game, `step-${i}`);
+    for (const { label, said } of lessonByParagraph(sourceCard(game)).filter(p => p.label)) {
+      assert.ok(!said.toLowerCase().includes(label.toLowerCase()), `step ${i + 1}, a ${label} paragraph: ${said}`);
+    }
+  }
+});
+
 test('every source card says the sources were checked on the day the register was reviewed, the day its newest source was read', () => {
   const reviewed = register.match(/^Reviewed on (\d{1,2} \w+ \d{4})/m)?.[1];
   assert.ok(reviewed, 'the register says when it was reviewed');
@@ -930,6 +1118,38 @@ test("the Fuel source card gives Forbes's dense plasma focus reading as 4orbs ac
   }
   // The premise is taken as given: the reviewed page's caution stays in the register.
   assert.doesNotMatch(words(paragraphs.join(' ')), /unestablished|chain of custody|compilation|authenticat|alleged/i);
+});
+
+// The 4orbs theory page electron screening comes from.
+const ELECTRON_SCREENING_PAGE = 'https://4orbs.com/library/theories/electron-screening-for-low-temperature-fusion/';
+
+test("the Fuel source card gives electron screening as the 4orbs account, linking its theory page, Miley's core-electron screening paper as Theory, and how much it helps as the Game rule", () => {
+  const game = bootFromSavedRun(savedRunOn(2)), card = sourceCard(game), lesson = lessonByParagraph(card);
+  // One claim, one label: flooding the fuel with electrons screens the Coulomb barrier (4orbs account), linked where it is said.
+  const reading = lesson.filter(p => fourOrbsPages(p.markup).includes(ELECTRON_SCREENING_PAGE));
+  assert.equal(reading.length, 1, 'one lesson paragraph links the electron-screening page');
+  assert.equal(reading[0].label, '4orbs account');
+  assert.doesNotMatch(reading[0].markup, /class="tag /, 'one source label');
+  for (const said of [/\bflood(s|ing)? the fuel with electrons\b/i, /\bscreen the Coulomb barrier\b/, /\blower temperatures\b/]) assert.match(reading[0].said, said);
+  // It stays true beside the Game rule, where a screened burn still takes hundreds of millions of kelvin: less heat, not none.
+  assert.doesNotMatch(reading[0].said, /\bwithout\b[^.]*\bheat\b|\bno heat\b|\bcold\b/i, reading[0].said);
+  const row = citedPagesTable().find(r => r.page === ELECTRON_SCREENING_PAGE);
+  assert.equal(row?.reviewed, 'No', 'the register lists the page as unreviewed'); assert.match(row.usedIn, /\bFuel\b/);
+  // Miley's paper, as the page names it: labelled Theory and cited to the paper on the card, which the register lists.
+  const papers = [...card.matchAll(/<li><a href="([^"]+)"[^>]*>([^<]+)<\/a><\/li>/g)].filter(m => /Screening Effects of Core Electrons/i.test(m[2]));
+  assert.equal(papers.length, 1, 'the card cites the core-electron screening paper');
+  assert.match(papers[0][2], /\bMiley\b/); assert.ok(register.includes(papers[0][1]), `the register lists ${papers[0][1]}`);
+  assert.deepEqual(lesson.filter(p => /\bMiley\b/.test(p.said) && /screen/.test(p.said)).map(p => p.label), ['Theory']);
+  // How much screening helps is the Game rule, in the lesson, the card's note and beside the control; no screening claim is Lab physics.
+  assert.deepEqual(lesson.filter(p => /\bHow much (electron )?screening helps\b/.test(p.said)).map(p => p.label), ['Game rule']);
+  assert.deepEqual(lesson.filter(p => /screen/i.test(p.said) && p.label === 'Lab physics'), []);
+  assert.match(card.match(/<p class="source">([\s\S]*?)<\/p>/)[1], /How much electron screening helps is a game rule\./);
+  // The note beside the control is about the control: optional, with how much it helps left to the lesson's Game rule. It makes no claim of its own.
+  const note = game.ids.get('fu-screen-note').textContent;
+  assert.match(note, /\bOptional\b/); assert.match(note, /\bgame rule\b/i); assert.match(note, /\blesson\b/);
+  assert.doesNotMatch(note, /electron|Coulomb|barrier|temperature|burn|fusion/i, note);
+  // The premise is taken as given: the page's review status stays in the register.
+  assert.doesNotMatch(words(card), /speculative|unreviewed|editorial review|auto-generated/i);
 });
 
 test('the Converge source card cites the teleportation page for the constant-speed crossing, and the register lists it as unreviewed', () => {
@@ -1295,8 +1515,8 @@ test('reduced motion holds the throat-forming glow still', () => {
 });
 
 test('a saved run from the previous source revision starts fresh with a visible explanation, and the register names the current one', () => {
-  // The revision before the Ignite pump became the piston.
-  const previous = '4orbs-part3-corrected-2026-11-21-open-cavity';
+  // The revision before the Fuel step gained its electron-screening control.
+  const previous = '4orbs-part3-corrected-2026-11-21-ignite-piston';
   const storage = new Map([['ipt-best-v3', '{"score":1234}']]);
   const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');

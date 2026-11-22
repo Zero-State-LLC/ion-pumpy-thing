@@ -2681,8 +2681,9 @@ test('Orbit thermal Camera 2 is an explicitly illustrated look, not a temperatur
   const frame = nextScene(game);
   assert.deepEqual(frame.views.map(v => v.look), ['visible', 'heat']);
   const [visible, thermal] = frame.views;
-  assert.deepEqual(visible.camera, thermal.camera.angle === 130
-    ? { angle: 0, scale: thermal.camera.scale } : visible.camera);
+  assert.equal(visible.camera.angle, 0, 'camera 1 stays overhead');
+  assert.equal(thermal.camera.angle, 130, 'camera 2 follows its angular control');
+  assert.equal(visible.camera.scale, thermal.camera.scale, 'camera scale is shared');
   assert.equal(entries(frame, 'sky', 1)[0].colour, '#01030a');
   const air = entries(frame, 'airliner', 1)[0];
   assert.equal(air.heat, .64);
@@ -2695,4 +2696,9 @@ test('Orbit thermal Camera 2 is an explicitly illustrated look, not a temperatur
   assert.match(text(game, 'panel'), /illustrative thermal colours, not measured temperatures/);
   assert.match(description(game), /Camera 2 thermal from the side/);
   assert.match(drawnWords(game).join(' '), /CAMERA 2 · THERMAL/);
+  const flat = bootFromSavedRun(savedRunOn(3));
+  paint(flat);
+  assert.ok(flat.drawing.some(c => c[0] === 'fillStyle' && c[1] === '#01030a'),
+    'the flat thermal camera uses the dark end of the preserved thermal scale');
+  assert.match(drawnWords(flat).join(' '), /CAMERA 2 · THERMAL/);
 });

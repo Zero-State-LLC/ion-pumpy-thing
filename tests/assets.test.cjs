@@ -1,6 +1,6 @@
 // The assets register (docs/ASSETS.md) and the files it lists: every vendored or generated
-// file the site ships is listed with the hash of the file as committed, and the airliner and
-// plate mount props are what issues #56 and #58 ask for.
+// file the site ships is listed with the hash of the file as committed, and the airliner, plate
+// mount and vacuum chamber props are what issues #56, #58 and #59 ask for.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -86,4 +86,26 @@ test('the plate mount prop is untextured, 30,000 triangles or fewer, 1 MB or les
   assert.ok(Math.abs(pos.max[1] - pos.min[1] - 0.1) < 1e-6, `${pos.max[1] - pos.min[1]} m tall`);
   assert.ok(Math.abs(pos.max[1]) < 1e-6, 'the post tip, its top, at the origin');
   for (const i of [0, 2]) assert.ok(pos.max[i] - pos.min[i] > 0.05 && pos.max[i] - pos.min[i] < 0.2, 'a base about as wide as it is tall');
+});
+
+test('the vacuum chamber prop is untextured, 30,000 triangles or fewer, 1 MB or less, Y up at its real size, its side wall 0.5 m from its axis, with its origin on its axis at half its height', () => {
+  const file = 'assets/vacuum-chamber.glb', j = gltf(file);
+  assert.ok(read(file).length <= 1024 * 1024, 'at most 1 MB');
+  for (const key of ['images', 'textures', 'materials', 'samplers', 'extensionsUsed']) assert.equal(j[key], undefined, `no ${key}`);
+  assert.deepEqual(j.nodes.map(n => n.name), ['chamber']);
+  for (const key of ['matrix', 'rotation', 'scale', 'translation']) assert.equal(j.nodes[0][key], undefined, 'already in place');
+  // The renderer sizes the chamber by its side wall, so the file says where that is.
+  assert.deepEqual(j.nodes[0].extras, { wallRadius: 0.5 });
+  const [prim] = j.meshes[0].primitives, pos = j.accessors[prim.attributes.POSITION];
+  assert.ok(j.accessors[prim.indices].count / 3 <= 30000, 'at most 30,000 triangles');
+  assert.ok(prim.attributes.NORMAL !== undefined, 'with normals, for lighting');
+  for (let i = 0; i < 3; i++) assert.ok(Math.abs(pos.max[i] + pos.min[i]) < 2e-3, 'centred on the origin');
+  const height = pos.max[1] - pos.min[1];
+  assert.ok(height > 0.5 && height < 2, `${height} m tall, a lab vessel's height`);
+  // The side wall: the nearest the mesh comes to the axis in the middle three fifths of its height.
+  const b = read(file), binStart = 20 + b.readUInt32LE(12) + 8, view = j.bufferViews[pos.bufferView];
+  const xyz = new Float32Array(b.buffer.slice(b.byteOffset + binStart + (view.byteOffset || 0), b.byteOffset + binStart + (view.byteOffset || 0) + pos.count * 12));
+  let wall = Infinity;
+  for (let i = 0; i < pos.count; i++) if (Math.abs(xyz[i * 3 + 1]) < 0.3 * height) wall = Math.min(wall, Math.hypot(xyz[i * 3], xyz[i * 3 + 2]));
+  assert.ok(Math.abs(wall - 0.5) < 1e-4, `side wall ${wall} m from the axis`);
 });

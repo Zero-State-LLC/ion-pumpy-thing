@@ -2533,10 +2533,27 @@ test('where the renderer cannot start, or loses WebGL, the flat view draws and t
   assert.equal(nextScene(failed), null); assert.ok(failed.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
   const lost = await bootIn3D('ready-to-converge');
   assert.ok(nextScene(lost));
+  const savedRunBeforeLoss = lost.storage.get('ipt-run-v2');
+  const savedViewBeforeLoss = lost.storage.get('ion-pumpy-view-v1');
   lost.view3d.given.onLost();
+  assert.equal(lost.storage.get('ipt-run-v2'), savedRunBeforeLoss, 'context loss does not mutate the saved run');
+  assert.equal(lost.storage.get('ion-pumpy-view-v1'), savedViewBeforeLoss, 'context loss does not rewrite the view preference');
   assert.equal(nextScene(lost), null, 'no 3D frame after WebGL is lost'); assert.equal(lost.ids.get('gl').hidden, true);
   assert.match(text(lost, 'view-3d-status'), /lost WebGL, so the flat view is showing/);
   assert.equal(lost.ids.get('view-3d').checked, false);
+  assert.equal(lost.ids.get('view-3d').disabled, true, 'disabled until browser restores WebGL');
+  lost.ids.get('gl').listeners.webglcontextrestored();
+  assert.equal(lost.ids.get('view-3d').disabled, false, 'restoration unlocks the switch');
+  assert.equal(lost.ids.get('view-3d').checked, true, 'original preference is preserved');
+  assert.equal(lost.storage.get('ipt-run-v2'), savedRunBeforeLoss, 'restoration does not rewrite the saved run');
+  assert.equal(lost.storage.get('ion-pumpy-view-v1'), savedViewBeforeLoss, 'restoration does not rewrite preference');
+  paint(lost); await settle();
+  assert.ok(nextScene(lost), 'a fresh 3D renderer draws after context restoration');
+  lost.view3d.given.onLost();
+  assert.equal(nextScene(lost), null, 'a second loss falls back to flat again');
+  lost.ids.get('gl').listeners.webglcontextrestored();
+  paint(lost); await settle();
+  assert.ok(nextScene(lost), 'repeated loss and restoration can recover');
 });
 
 test('the 3D view draws nothing while the tab is hidden, and steps without a scene list draw flat', async () => {

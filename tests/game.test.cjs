@@ -2547,7 +2547,7 @@ test('where the renderer cannot start, or loses WebGL, the flat view draws and t
   assert.equal(lost.ids.get('view-3d').checked, true, 'original preference is preserved');
   assert.equal(lost.storage.get('ipt-run-v2'), savedRunBeforeLoss, 'restoration does not rewrite the saved run');
   assert.equal(lost.storage.get('ion-pumpy-view-v1'), savedViewBeforeLoss, 'restoration does not rewrite preference');
-  lost.lab.advance(0.016); await settle();
+  paint(lost); await settle();
   assert.ok(nextScene(lost), 'a fresh 3D renderer draws after context restoration');
 });
 

@@ -121,6 +121,21 @@ async function loadVacuumChamber(url) {
   return { geometry, edges: new THREE.EdgesGeometry(geometry, 60), height: box.max.y - box.min.y, wallRadius };
 }
 
+/* ── The pump props: Y up at their real size in metres, the piston housing's origin on its axis at
+   half its height and its side wall's distance from the axis in its node's extras, the pump
+   handle's origin at its grip bar's middle and the bar's length in its; sized by the list ── */
+async function loadPumpPart(url, name, measure) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  /** @type {THREE.BufferGeometry | null} */
+  let geometry = null, size = 0;
+  gltf.scene.traverse(o => { if (o instanceof THREE.Mesh && o.name === name) { geometry = o.geometry; size = o.userData[measure]; } });
+  if (!geometry) throw new Error(`The ${name} prop has no ${name} mesh.`);
+  if (!(size > 0)) throw new Error(`The ${name} prop gives no ${measure}.`);
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 60), height: box.max.y - box.min.y, [measure]: size };
+}
+
 // A colour as three.js shader uniforms take it, unconverted, so it matches the flat view's.
 const shaderColour = hex => new THREE.Vector3(...rgb(hex).map(v => v / 255));
 // The plasma bubble: void inside, its rim, the outer 28 % of its radius on screen, turning to the
@@ -158,15 +173,17 @@ function plasmaMaterial() {
 /**
  * Starts WebGL on `canvas` and loads the props. Rejects where WebGL can't start.
  * @param {HTMLCanvasElement} canvas
- * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string }, onLost: () => void }} options
+ * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string }, onLost: () => void }} options
  */
 async function start(canvas, { props, onLost }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.localClippingEnabled = true;
   canvas.addEventListener('webglcontextlost', () => onLost(), { once: true });
-  const [airliner, mount, chamber] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber)]);
+  const [airliner, mount, chamber, housing, handle] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber),
+    loadPumpPart(props.pistonHousing, 'housing', 'wallRadius'), loadPumpPart(props.pumpHandle, 'handle', 'span')]);
   // The props' geometry is shared by every world, so it stays when a world goes.
-  const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges, chamber.geometry, chamber.edges]);
+  const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges, chamber.geometry, chamber.edges,
+    housing.geometry, housing.edges, handle.geometry, handle.edges]);
   const ramp = rampTexture();
   // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
   let worlds = [], world = null, size = '';
@@ -478,6 +495,109 @@ async function start(canvas, { props, onLost }) {
         swapGeometry(outline, tube(plume.getPoints(12).map(p => [p.x, p.y, 0]), e.plumeWidth / 2, true));
         for (const m of [fill, outline]) { m.material.color.set(e.colour); m.material.opacity = e.plumeOpacity; }
       });
+    },
+    // Ignite's pipe from the jar to the pump: a tube as wide as the flat view's stroke.
+    pipe(e) {
+      const p = take('pipe', () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial()));
+      p.material.color.set(e.colour); swapGeometry(p, tube([e.from, e.to], e.width / 2));
+    },
+    // The pump's barrel, cut away as the vacuum chamber is: only its far half, so the piston inside shows.
+    'piston housing'(e) {
+      const g = take('piston housing', () => {
+        const outer = new THREE.Group(), inner = new THREE.Group();
+        // Into the game's frame: the file's up (+Y) is the game's -y, up the canvas in a side-on view.
+        inner.rotation.x = Math.PI; outer.add(inner);
+        const far = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)];
+        const body = new THREE.Mesh(housing.geometry, surface('#ffffff')), edges = new THREE.LineSegments(housing.edges, lineMaterial());
+        for (const o of [body, edges]) /** @type {any} */ (o.material).clippingPlanes = far;
+        inner.add(body, edges); return outer;
+      });
+      g.position.set(...e.at);
+      // Its side wall at the list's radius and its whole height the list's: sized by the list (docs/adr/0003).
+      const inner = g.children[0], across = e.radius / housing.wallRadius; inner.scale.set(across, e.height / housing.height, across);
+      // The cut follows the barrel's axis, wherever the list stands it.
+      for (const o of inner.children) /** @type {any} */ (o).material.clippingPlanes[0].constant = -e.at[2];
+      paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
+    },
+    // The pump's handle, evenly scaled so its grip bar is the list's span.
+    'pump handle'(e) {
+      const g = take('pump handle', () => {
+        const outer = new THREE.Group(), inner = new THREE.Group();
+        inner.rotation.x = Math.PI; outer.add(inner);
+        inner.add(new THREE.Mesh(handle.geometry, surface('#ffffff')), new THREE.LineSegments(handle.edges, lineMaterial()));
+        return outer;
+      });
+      g.position.set(...e.at); g.children[0].scale.setScalar(e.span / handle.span);
+      paint(/** @type {any} */ (g.children[0].children[0]).material, e, 'heat', 'colour');
+    },
+    // The piston, built each frame where the stroke has it: a disc of a head and a rod up from it.
+    piston(e) {
+      const p = take('piston', () => {
+        const g = new THREE.Group();
+        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff')));
+        return g;
+      });
+      const [head, rod] = /** @type {any[]} */ (p.children);
+      head.position.set(...e.at); head.scale.set(e.radius, e.thickness, e.radius);
+      // From the rod's top down to the head's top face.
+      const length = e.at[1] - e.thickness / 2 - e.rodTop[1];
+      rod.visible = length > 0; rod.position.set(e.rodTop[0], e.rodTop[1] + length / 2, e.rodTop[2]); rod.scale.set(e.rodWidth / 2, Math.max(length, 1e-6), e.rodWidth / 2);
+      for (const part of [head, rod]) paint(part.material, e, 'heat', 'colour');
+    },
+    // Ignite's plasma glow: a disc fading through the list's stops, [at, colour, opacity], out to
+    // its radius, as the flat view's gradient. The stops change with the pressure, so the disc
+    // repaints its own texture rather than cache one per value.
+    'plasma glow'(e) {
+      const g = take('plasma glow', () => {
+        const c = document.createElement('canvas'); c.width = c.height = 128;
+        const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+        disc.renderOrder = 1; return disc;
+      });
+      const key = JSON.stringify(e.stops), map = /** @type {THREE.CanvasTexture} */ (g.material.map);
+      if (map.userData.key !== key) {
+        const c = /** @type {HTMLCanvasElement} */ (map.image), g2 = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
+        const gradient = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+        for (const [at, colour, opacity] of e.stops) gradient.addColorStop(at, `rgba(${rgb(colour)},${opacity})`);
+        g2.clearRect(0, 0, 128, 128); g2.fillStyle = gradient; g2.fillRect(0, 0, 128, 128);
+        map.userData.key = key; map.needsUpdate = true;
+      }
+      facing(g).position.set(...e.at); g.scale.setScalar(e.radius);
+    },
+    // The glass jar: the gas left in it, a ball of haze `inside` across, and its outline, a ring
+    // facing the camera as wide as the flat view's stroke.
+    'glass jar'(e) {
+      const j = take('glass jar', () => {
+        const haze = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+        // Drawn with the see-through things, in order, so the glow lies under it as in the flat view.
+        const rim = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide }));
+        haze.renderOrder = 2; rim.renderOrder = 3;
+        const g = new THREE.Group(); g.add(haze, rim); return g;
+      });
+      const [haze, rim] = /** @type {any[]} */ (j.children);
+      j.position.set(...e.at);
+      haze.scale.setScalar(e.inside); haze.material.color.set(e.hazeColour); haze.material.opacity = e.haze;
+      rim.material.color.set(e.colour); facing(rim);
+      swapGeometry(rim, new THREE.RingGeometry(e.radius - e.width / 2, e.radius + e.width / 2, 128));
+    },
+    // The front the piston presses the plasma in to: a dashed ring facing the camera, in front of
+    // everything, its dashes and gaps as long round it as the list gives, from the ring's right.
+    'compression front'(e) {
+      const f = take('compression front', () => {
+        const m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+        m.renderOrder = 6; return m;
+      });
+      f.material.color.set(e.colour); f.material.opacity = e.opacity;
+      const [dash, gap] = e.dash, around = TAU * e.radius, parts = [];
+      for (let s = 0; s < around; s += dash + gap) {
+        const ring = new THREE.RingGeometry(e.radius - e.width / 2, e.radius + e.width / 2, 8, 1, s / e.radius, Math.min(dash, around - s) / e.radius);
+        parts.push(ring.toNonIndexed()); ring.dispose();
+      }
+      const positions = parts.flatMap(p => Array.from(p.getAttribute('position').array));
+      parts.forEach(p => p.dispose());
+      const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      // Screen y runs down, so the ring is turned to run clockwise on screen, as the canvas's arcs do.
+      swapGeometry(f, geometry); facing(f).position.set(...e.at); f.scale.set(1, -1, 1);
     },
     'throat forming': roundGlow('throat'),
     'formation glow': roundGlow('formation glow'),

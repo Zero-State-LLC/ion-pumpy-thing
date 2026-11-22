@@ -389,7 +389,7 @@ function stop3D(state) { view3d.renderer = null; view3d.state = state; paintView
 function load3D() {
   view3d.state = 'loading';
   Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))
-    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb' }, onLost: () => stop3D('lost') }))
+    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb', pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb' }, onLost: () => stop3D('lost') }))
     .then(r => { if (view3d.state === 'loading') { view3d.renderer = r; view3d.state = 'ready'; paintViewSwitch(); } })
     .catch(() => { if (view3d.state === 'loading') stop3D('unavailable'); });
 }
@@ -589,6 +589,26 @@ function plasmaHeld(st) {
 // in its band, a front stands pressed in from the jar's wall toward its middle, at this
 // fraction of the jar's radius. The pump empties the jar, so its strokes never move it.
 const FRONT_RADIUS = 0.45;
+// Where the flat and 3D views draw the jar (centred at cx, cy, R across) and the hand pump: its
+// barrel `pw` wide and `ph` tall at `px`, its top at `top`, the piston's head at `py`, which a
+// stroke lifts to the barrel's top and the piston then lowers.
+function igniteLayout(st) {
+  const cx = W * 0.42, cy = H / 2 + 6, R = Math.min(W * 0.36, H * 0.37);
+  const px = Math.min(W - 44, cx + R + (W - cx - R) * 0.55), ph = H * 0.34, pw = 24, top = cy - ph / 2;
+  return { cx, cy, R, px, ph, pw, top, py: top + 8 + (1 - st.anim) * (ph - 26) };
+}
+// The plasma's glow, as the stops of a radial gradient out to 1.25 times the jar's radius:
+// [at, [r, g, b], opacity], in the gas's colour, whiter as the ions heat; or null when it is too
+// faint to draw.
+function igniteGlow(st) {
+  const m = st.m, rgb = GASES[st.gas][1];
+  if (!(m.glow > 0.01)) return null;
+  const hot = clamp((m.Ti - 2000) / 15000, 0, 1);
+  return [[0, rgb.map(v => Math.round(v + (255 - v) * hot)), 0.85 * m.glow], [0.7, rgb, 0.35 * m.glow], [1, rgb, 0]];
+}
+// The gas left in the jar, a haze that thins as you pump: its colour and how opaque it is.
+const JAR_HAZE_RGB = [154, 166, 201];
+const jarHaze = st => clamp(Math.log10(st.m.p / 0.05) / 4.2, 0, 1) * 0.12;
 const ignite = stage({
   name: 'Ignite', title: 'Pump it down, light it up',
   html: `
@@ -690,40 +710,67 @@ const ignite = stage({
     goal(held ? 1 : this.hold / PLASMA_HOLD_SECONDS, held ? 'Cold plasma held in the pressure band: electrons at tens of thousands of kelvin, ions at room temperature.'
       : `Goal: a glowing plasma whose ions stay below 47 °C, with the pressure in its band for ${PLASMA_HOLD_SECONDS} seconds. Leaving the band starts the count over.`);
   },
-  draw() {
-    const m = this.m, cx = W * 0.42, cy = H / 2 + 6, R = Math.min(W * 0.36, H * 0.37), rgb = GASES[this.gas][1];
-    ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
-    // pump: pipe, cylinder, piston
-    const px = Math.min(W - 44, cx + R + (W - cx - R) * 0.55), ph = H * 0.34, pw = 24, top = cy - ph / 2;
-    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(cx + R, cy + ph / 2 - 8); ctx.lineTo(px - pw / 2, cy + ph / 2 - 8); ctx.stroke();
-    ctx.strokeRect(px - pw / 2, top, pw, ph);
-    const py = top + 8 + (1 - this.anim) * (ph - 26);
-    ctx.fillStyle = COL.cold; ctx.fillRect(px - pw / 2 + 2, py, pw - 4, 8);
-    ctx.fillRect(px - 2, top - 14, 4, py - top + 14); ctx.fillRect(px - 9, top - 18, 18, 5);
+  // The glass jar and the hand pump in 3D where the flat view draws them: the piston's travel
+  // with each stroke and, while the pressure is in its band, the plasma pressed in to its front,
+  // from the step's pressure each frame (docs/adr/0003). Side on, at the lab's scale, as a
+  // diagram (docs/adr/0004).
+  scene() {
+    const sc = labScale(), m = px => px / sc, { cx, cy, R, px, ph, pw, top, py } = igniteLayout(this);
+    // A point on the canvas, `x`, `y` px from its top left, in metres from the scene's origin.
+    const pt = (x, y) => [m(x - W / 2), m(y - H / 2), 0], glow = igniteGlow(this);
+    const specks = (of, qs, size, colour) => ({ kind: 'specks', of, points: qs.map(q => pt(cx + q.x * R, cy + q.y * R)), size: m(size), colour, round: true });
+    const list = [
+      { kind: 'sky', colour: COL.deep },
+      { kind: 'pipe', from: pt(cx + R, cy + ph / 2 - 8), to: pt(px - pw / 2, cy + ph / 2 - 8), width: m(1.5), colour: COL.muted },
+      // Kind, place, size and colour only (docs/adr/0003): the barrel and handle where the flat view's are.
+      { kind: 'piston housing', at: pt(px, cy), radius: m(pw / 2), height: m(ph), colour: COL.line },
+      { kind: 'pump handle', at: pt(px, top - 15.5), span: m(18), colour: COL.cold },
+      // The piston, built each frame: its head where the stroke has it, its rod up to the handle.
+      { kind: 'piston', at: pt(px, py + 4), radius: m(pw / 2 - 2), thickness: m(8), rodTop: pt(px, top - 14), rodWidth: m(4), colour: COL.cold },
+      ...(glow ? [{ kind: 'plasma glow', at: pt(cx, cy), radius: m(R * 1.25), stops: glow.map(([at, rgb, opacity]) => [at, hexColour(rgb), opacity]) }] : []),
+      { kind: 'glass jar', at: pt(cx, cy), radius: m(R), width: m(1.5), colour: COL.muted, inside: m(R - 1), hazeColour: hexColour(JAR_HAZE_RGB), haze: jarHaze(this) },
+      specks('ions', this.ions, 8, COL.warm), specks('electrons', this.els, 3.6, COL.cold),
+      // The plasma pressed in: the front while the pressure is in its band, as the flat view's dashes.
+      ...(pressureBand(this.m.p) === 'in' ? [{ kind: 'compression front', at: pt(cx, cy), radius: m(R * FRONT_RADIUS), width: m(1.5), colour: COL.cold, opacity: 0.9, dash: [m(5), m(4)] }] : [])
+    ];
+    return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+  },
+  // The whole flat view, or over the 3D view (`flat` false) only its words and marks.
+  draw(flat = true) {
+    const m = this.m, { cx, cy, R, px, ph, pw, top, py } = igniteLayout(this);
+    if (flat) {
+      ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
+      // pump: pipe, cylinder, piston
+      ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx + R, cy + ph / 2 - 8); ctx.lineTo(px - pw / 2, cy + ph / 2 - 8); ctx.stroke();
+      ctx.strokeRect(px - pw / 2, top, pw, ph);
+      ctx.fillStyle = COL.cold; ctx.fillRect(px - pw / 2 + 2, py, pw - 4, 8);
+      ctx.fillRect(px - 2, top - 14, 4, py - top + 14); ctx.fillRect(px - 9, top - 18, 18, 5);
+    } else ctx.clearRect(0, 0, W, H);
     label('pump · piston', px, top + ph + 16, COL.muted, 'center', W < 420 ? 10 : 11);
-    if (m.glow > 0.01) {
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
-      const hot = clamp((m.Ti - 2000) / 15000, 0, 1);
-      g.addColorStop(0, `rgba(${rgb.map(v => Math.round(v + (255 - v) * hot))},${0.85 * m.glow})`);
-      g.addColorStop(0.7, `rgba(${rgb},${0.35 * m.glow})`); g.addColorStop(1, `rgba(${rgb},0)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.25, 0, TAU); ctx.fill();
+    if (flat) {
+      const glow = igniteGlow(this);
+      if (glow) {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
+        glow.forEach(([at, rgb, opacity]) => g.addColorStop(at, `rgba(${rgb},${opacity})`));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.25, 0, TAU); ctx.fill();
+      }
+      ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
+      // background gas thins as you pump
+      ctx.fillStyle = `rgba(${JAR_HAZE_RGB},${jarHaze(this)})`; ctx.beginPath(); ctx.arc(cx, cy, R - 1, 0, TAU); ctx.fill();
+      this.ions.forEach((q, i) => {
+        ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, 4, 0, TAU); ctx.fill();
+        const e = this.els[i]; ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(cx + e.x * R, cy + e.y * R, 1.8, 0, TAU); ctx.fill();
+      });
     }
-    ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
-    // background gas thins as you pump
-    const haze = clamp(Math.log10(m.p / 0.05) / 4.2, 0, 1) * 0.12;
-    ctx.fillStyle = `rgba(154,166,201,${haze})`; ctx.beginPath(); ctx.arc(cx, cy, R - 1, 0, TAU); ctx.fill();
-    this.ions.forEach((q, i) => {
-      ctx.fillStyle = COL.warm; ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, 4, 0, TAU); ctx.fill();
-      const e = this.els[i]; ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(cx + e.x * R, cy + e.y * R, 1.8, 0, TAU); ctx.fill();
-    });
     // The piston's command of the pressure: while it is in its band, a front pressed in toward
-    // the middle, with arrows pressing on it from the wall all round.
+    // the middle, with arrows pressing on it from the wall all round. Over the 3D view, which
+    // draws the front, only the arrows.
     const band = pressureBand(m.p);
     if (band === 'in') {
       const rf = R * FRONT_RADIUS;
       ctx.save(); ctx.strokeStyle = COL.cold; ctx.fillStyle = COL.cold; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.9;
-      ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cx, cy, rf, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      if (flat) { ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cx, cy, rf, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
       for (let i = 0; i < 8; i++) {
         const c = Math.cos(i * TAU / 8), s = Math.sin(i * TAU / 8), tail = R * 0.96, tip = rf + 3, neck = tip + 7;
         if (neck < tail - 2) { ctx.beginPath(); ctx.moveTo(cx + c * tail, cy + s * tail); ctx.lineTo(cx + c * neck, cy + s * neck); ctx.stroke(); }

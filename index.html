@@ -1695,7 +1695,7 @@ const conv = stage({
       if (this.phase === 'orbit') { this.phase = 'closing'; this.msg = 'Closing in'; }
       else if (this.phase === 'closing') {
         if (Math.abs(this.k - 0.75) <= 0.04) { this.phase = 'flash'; this.q = 0; this.startAng = this.ang; this.startTumble = this.tumble; this.msg = 'Flash'; }
-        else { this.msg = this.k > 0.75 ? 'Too early. Wait until the marker reads 71 to 79 %, then try again.' : 'Too late. The marker passed 71 to 79 %. Try again.'; this.miss(); }
+        else { this.msg = this.k > 0.75 ? 'Too early. Press Start closing in again, then open when the marker reads 71 to 79 %.' : 'Too late. Press Start closing in again, then open when the marker reads 71 to 79 %.'; this.miss(); }
       } else if (this.phase === 'gone') { this.phase = 'flash'; this.q = 0; this.msg = 'Replaying the completed sequence'; }
       else if (this.phase === 'flash' && this.done) this.msg = 'Replaying the completed sequence';
       syncAudioMode(); this.update(0);

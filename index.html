@@ -386,6 +386,13 @@ function paintViewSwitch() {
     : view3d.state === 'lost' ? 'The 3D view stopped when this browser lost WebGL, so the flat view is showing.' : '');
 }
 function stop3D(state) { view3d.renderer = null; view3d.state = state; paintViewSwitch(); }
+// After the browser restores WebGL, allow a fresh renderer to start on the next frame.
+// A restored event must not retry an unrelated startup or asset-loading failure.
+glCanvas.addEventListener('webglcontextrestored', () => {
+  if (view3d.state !== 'lost') return;
+  view3d.state = 'idle';
+  paintViewSwitch();
+});
 function load3D() {
   view3d.state = 'loading';
   Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))

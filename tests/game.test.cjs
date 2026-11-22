@@ -1934,7 +1934,7 @@ test('the 3D view switch starts on where the renderer starts, is remembered on t
   assert.equal(again.ids.get('view-3d').checked, false, 'remembered off');
   assert.equal(again.view3d.given, undefined, 'and the renderer never loads');
   // Where storage throws, the switch takes its default, and turning it changes nothing else.
-  const blocked = await bootIn3D('ready-to-converge', { noStorage: true });
+  const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
   assert.equal(blocked.ids.get('view-3d').checked, true);
   blocked.ids.get('view-3d').checked = false; assert.doesNotThrow(() => blocked.ids.get('view-3d').onchange());
 });

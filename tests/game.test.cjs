@@ -9,7 +9,7 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 // The source register (docs/SOURCES.md): the list of 4orbs pages the lessons cite.
 const register = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SOURCES.md'), 'utf8');
 // Common ways of naming the flight. The airliner is only ever its make and model.
-const FLIGHT_NAMES = /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i;
+const FLIGHT_NAMES = require('./flight-names.cjs');
 
 // The page's colour tokens (`--sky: #0b1330;`), so the canvas draws in the colours a player sees.
 const colourTokens = new Map([...html.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{3,8})\s*;/gi)].map(m => [m[1], m[2]]));
@@ -80,8 +80,17 @@ function boot(storage = new Map(), options = {}) {
       setMode(mode) { sounds.push({ call: 'mode', id: mode }); return super.setMode(mode); }
     };
   }
+  // The 3D view's renderer, when the test gives one (docs/adr/0003): a stand-in that records
+  // every frame the game hands it, scene list and camera, as it was when handed over. Its
+  // options say whether it fails to start, as without WebGL, and keep what the game passed it.
+  const scenes = [], stand = options.view3d;
+  if (stand) window.IonView3D = { async start(canvas, given) {
+    Object.assign(stand, { canvas, given });
+    if (stand.fails) throw Error('WebGL is off');
+    return { draw: frame => scenes.push(JSON.parse(JSON.stringify(frame))) };
+  } };
   vm.runInNewContext(script, sandbox, { filename: 'index.html' });
-  return { lab: window.__lab, ids, document, window, storage, drawing, frames, sounds };
+  return { lab: window.__lab, ids, document, window, storage, drawing, frames, sounds, scenes, view3d: stand };
 }
 // Saved runs, as a returning player's browser holds them. A fixture goes into
 // storage before the game starts and loads through the normal startup path.
@@ -1804,4 +1813,149 @@ test('convergence audio follows both closing speeds and resumes at matching sour
     assert.ok(Math.abs(bed.options.offset - rate) < 1e-9);
     assert.equal(bed.options.once, true);
   }
+});
+
+// ───────── The 3D view (docs/adr/0003, 0004) ─────────
+// A run booted with the stand-in renderer, after its first flat frame, once the renderer has started.
+async function bootIn3D(fixture, options = {}) {
+  const game = bootFromSavedRun(fixture, { view3d: {}, ...options });
+  paint(game); await settle(); return game;
+}
+// The frame the 3D view draws next, and the entries of one kind in it.
+const nextScene = game => { const before = game.scenes.length; paint(game); return game.scenes.length > before ? game.scenes.at(-1) : null; };
+const entries = (frame, kind) => frame.list.filter(e => e.kind === kind);
+const near = (a, b, why) => assert.ok(Math.abs(a - b) < 1e-9, `${why}: ${a} is not ${b}`);
+const distance = (p, q = [0, 0, 0]) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+// ready-to-converge: a learning run, Formation at 67 m and 134° between the cameras, a 66 m throat.
+const READY = { r: 67, cam: 134, w: 66 };
+
+test('Converge in 3D draws the airliner at the origin at 63.7 by 60.9 m, and three orbs at the Formation for the current triangle size, from the thermal camera', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  const frame = nextScene(game);
+  assert.equal(frame.look, 'heat');
+  assert.equal(frame.camera.angle, READY.cam, 'the thermal camera keeps the angle between the cameras');
+  near(frame.camera.scale, Math.min(390, 292.5) / 2 / 122, 'and the flat view\'s pixels per metre');
+  const [airliner] = entries(frame, 'airliner');
+  assert.deepEqual(airliner.at, [0, 0, 0]); assert.deepEqual(airliner.size, [60.9, 63.7]);
+  closeThrough(game, [100, 90, 80], shown => {
+    const f = nextScene(game), orbs = entries(f, 'orb'), r = READY.r * shown / 100;
+    assert.equal(orbs.length, 3);
+    for (const o of orbs) near(distance(o.at), r, `an orb at ${shown} %`);
+    for (let i = 0; i < 3; i++) near(distance(orbs[i].at, orbs[(i + 1) % 3].at), r * Math.sqrt(3), 'the triangle is equilateral');
+    assert.deepEqual(entries(f, 'triangle')[0].points, orbs.map(o => o.at));
+  });
+});
+
+test('Converge in 3D: the throat forms only while the triangle closes, and grows steadily', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  assert.equal(entries(nextScene(game), 'throat forming').length, 0, 'not while orbiting');
+  closeThrough(game, [95, 85, 76], shown => {
+    const f = nextScene(game), [throat] = entries(f, 'throat forming');
+    near(throat.amount, (1 - shown / 100) / 0.5, `formed at ${shown} %`);
+    assert.deepEqual(throat.points, entries(f, 'orb').map(o => o.at), 'round the orbs');
+  });
+  game.lab.advance(0.2); click(game, 'cv-go');
+  assert.equal(entries(nextScene(game), 'throat forming').length, 0, 'not once it opens');
+});
+
+test('Converge in 3D: the flash grows as the flat view\'s, the airliner leaves after 18 % of it and the orbs after 45 %', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  openAfter(game, 5);
+  let q = 0;
+  for (const [to, airliner, orbs] of [[0.1, 1, 3], [0.17, 1, 3], [0.19, 0, 3], [0.44, 0, 3], [0.46, 0, 0], [0.9, 0, 0]]) {
+    game.lab.advance((to - q) * 1.6); q = to;
+    for (const view of ['thermal', 'visible']) {
+      click(game, `cv-${view}`);
+      const f = nextScene(game), [flash] = entries(f, 'flash'), R = READY.w / 2 * (0.4 + Math.sin(Math.PI * q));
+      assert.equal(entries(f, 'airliner').length, airliner, `airliner at ${q * 100} %, ${view}`);
+      assert.equal(entries(f, 'orb').length, orbs, `orbs at ${q * 100} %, ${view}`);
+      // The heat camera sees the flash black, colder than the sky; from above it is bright.
+      if (view === 'thermal') {
+        assert.equal(flash.style, 'dark'); near(flash.radius, R, 'the dark flash');
+        // Its rippling edge stays within a fifth of the radius, as the flat view's.
+        assert.equal(flash.edge.length, 41);
+        for (const [x, y] of flash.edge) assert.ok(Math.abs(Math.hypot(x, y) - R) <= R * 0.19 + 1e-9, 'the dark flash\'s edge');
+      }
+      else { assert.equal(flash.style, 'bright'); near(flash.radius, R * 1.5, 'the bright flash, to the edge of its glow'); }
+    }
+  }
+});
+
+test('Converge in 3D: the transit diagram draws the airliner crossing at constant speed, cut at the entrance', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  openAfter(game, 5); click(game, 'cv-transit');
+  let q = 0;
+  for (const to of [0, 0.25, 0.5, 0.75]) {
+    game.lab.advance((to - q) * 1.6); q = to;
+    const f = nextScene(game), [airliner] = entries(f, 'airliner');
+    assert.equal(f.look, 'diagram'); assert.equal(f.camera.angle, 0);
+    assert.deepEqual(airliner.size, [60.9, 63.7]);
+    near(airliner.at[1], 63.7 * (0.5 - q), `centred on the entrance's line ${q * 100} % through`);
+    assert.equal(airliner.cutBeyond, 0, 'nothing past the entrance is drawn');
+  }
+});
+
+test('with reduced motion, the 3D view holds still as the flat view does: no camera drift, and a steady aperture instead of a pulse', async () => {
+  const game = await bootIn3D('ready-to-converge', { reduced: true });
+  const first = nextScene(game); game.lab.advance(1);
+  assert.deepEqual(nextScene(game).camera, first.camera, 'the camera stays put');
+  openAfter(game, 5);
+  const looks = [0.1, 0.5].map(q => { game.lab.advance(0.2 * 1.6); return entries(nextScene(game), 'flash')[0]; });
+  for (const flash of looks) { assert.equal(flash.style, 'steady'); assert.equal(flash.radius, READY.w / 2); }
+  assert.deepEqual(looks[0], looks[1], 'the aperture does not change as the flash plays');
+  assert.deepEqual(nextScene(game), nextScene(game), 'with no time passing, nothing moves');
+});
+
+test('over the 3D view the 2D canvas draws the flat view\'s words and scale bar, and none of its shapes', async () => {
+  const actions = game => { closeThrough(game, [85], () => {}); };
+  for (const view of ['thermal', 'visible', 'transit']) {
+    const flat = bootFromSavedRun('ready-to-converge'); click(flat, `cv-${view}`); actions(flat); scene(flat);
+    const in3D = await bootIn3D('ready-to-converge'); click(in3D, `cv-${view}`); actions(in3D); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), view);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), `${view}: the 2D canvas clears to show the 3D view`);
+    for (const shape of ['ellipse', 'arc', 'fillRect'].filter(k => view !== 'transit' || k !== 'fillRect')) assert.ok(!in3D.drawing.some(c => c[0] === shape), `${view}: no ${shape} on the 2D canvas`);
+    assert.equal(in3D.ids.get('gl').hidden, false, `${view}: the 3D canvas shows`);
+  }
+});
+
+test('the 3D view switch starts on where the renderer starts, is remembered on this device apart from the saved run, and turning it off draws the flat view', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  const toggle = game.ids.get('view-3d');
+  assert.equal(toggle.checked, true); assert.equal(toggle.disabled, false);
+  assert.equal(game.view3d.given.props.airliner, 'assets/airliner.glb');
+  assert.ok(nextScene(game), 'it draws in 3D');
+  leave(game); const savedBefore = game.storage.get('ipt-run-v2');
+  toggle.checked = false; toggle.onchange();
+  assert.equal(nextScene(game), null, 'no 3D frame once off'); assert.equal(game.ids.get('gl').hidden, true);
+  assert.ok(game.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
+  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: false });
+  leave(game); assert.equal(game.storage.get('ipt-run-v2'), savedBefore, 'the saved run is unchanged');
+  const again = await bootIn3D('ready-to-converge', { storage: game.storage });
+  assert.equal(again.ids.get('view-3d').checked, false, 'remembered off');
+  assert.equal(again.view3d.given, undefined, 'and the renderer never loads');
+  // Where storage throws, the switch takes its default, and turning it changes nothing else.
+  const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
+  assert.equal(blocked.ids.get('view-3d').checked, true);
+  blocked.ids.get('view-3d').checked = false; assert.doesNotThrow(() => blocked.ids.get('view-3d').onchange());
+});
+
+test('where the renderer cannot start, or loses WebGL, the flat view draws and the switch says why', async () => {
+  const failed = await bootIn3D('ready-to-converge', { view3d: { fails: true } });
+  assert.equal(failed.ids.get('view-3d').checked, false); assert.equal(failed.ids.get('view-3d').disabled, true);
+  assert.match(text(failed, 'view-3d-status'), /flat view is showing/);
+  assert.equal(nextScene(failed), null); assert.ok(failed.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
+  const lost = await bootIn3D('ready-to-converge');
+  assert.ok(nextScene(lost));
+  lost.view3d.given.onLost();
+  assert.equal(nextScene(lost), null, 'no 3D frame after WebGL is lost'); assert.equal(lost.ids.get('gl').hidden, true);
+  assert.match(text(lost, 'view-3d-status'), /lost WebGL, so the flat view is showing/);
+  assert.equal(lost.ids.get('view-3d').checked, false);
+});
+
+test('the 3D view draws nothing while the tab is hidden, and steps without a scene list draw flat', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  game.document.hidden = true; assert.equal(nextScene(game), null, 'hidden tab');
+  game.document.hidden = false; assert.ok(nextScene(game), 'visible again');
+  click(game, 'step-0'); assert.equal(nextScene(game), null, 'Ignite has no scene list yet');
+  assert.equal(game.ids.get('gl').hidden, true);
 });

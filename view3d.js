@@ -106,18 +106,19 @@ async function loadPlateMount(url) {
   return { geometry, edges: new THREE.EdgesGeometry(geometry, 30), height: box.max.y - box.min.y, side: Math.sign(centre.x) || 1 };
 }
 
-/* ── The vacuum chamber prop: Y up, its origin on its axis at half its height, its side wall
-   one unit from the axis; sized by the list ── */
+/* ── The vacuum chamber prop: Y up at its real size in metres, its origin on its axis at half its
+   height, its side wall's distance from the axis in its node's extras; sized by the list ── */
 async function loadVacuumChamber(url) {
   const gltf = await new GLTFLoader().loadAsync(url);
   /** @type {THREE.BufferGeometry | null} */
-  let geometry = null;
-  gltf.scene.traverse(o => { if (o instanceof THREE.Mesh && o.name === 'chamber') geometry = o.geometry; });
+  let geometry = null, wallRadius = 0;
+  gltf.scene.traverse(o => { if (o instanceof THREE.Mesh && o.name === 'chamber') { geometry = o.geometry; wallRadius = o.userData.wallRadius; } });
   if (!geometry) throw new Error('The vacuum chamber prop has no chamber mesh.');
+  if (!(wallRadius > 0)) throw new Error('The vacuum chamber prop gives no wall radius.');
   geometry.computeBoundingBox();
   const box = geometry.boundingBox;
   // Only its sharpest edges are outlined, the flanges and ribs; its faceted wall is not.
-  return { geometry, edges: new THREE.EdgesGeometry(geometry, 60), height: box.max.y - box.min.y };
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 60), height: box.max.y - box.min.y, wallRadius };
 }
 
 // A colour as three.js shader uniforms take it, unconverted, so it matches the flat view's.
@@ -417,7 +418,7 @@ async function start(canvas, { props, onLost }) {
       });
       g.position.set(...e.at);
       // Its side wall at the list's radius and its whole height the list's: sized by the list (docs/adr/0003).
-      const inner = g.children[0]; inner.scale.set(e.radius, e.height / chamber.height, e.radius);
+      const inner = g.children[0]; const across = e.radius / chamber.wallRadius; inner.scale.set(across, e.height / chamber.height, across);
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
     },
     // A coil: a ring round the y axis, its left and right halves each as opaque as the list gives

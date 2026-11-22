@@ -4,14 +4,17 @@
 # (sha256 b5f7fe8f86297008010091a8aa349fceebeea3e530532f32df35fb5b4efd2e23; see docs/ASSETS.md).
 # The chamber is a drum: a ribbed cylinder with a flanged lid and floor, round the Y axis. Meshy
 # gives it Y up in a unit box. This keeps Y up, puts the origin on its axis at half its height,
-# scales it evenly so its side wall, between the ribs, is 1 unit from the axis, adds smooth
-# normals, and writes one untextured mesh, the chamber. The game sizes it from the scene list.
+# scales it evenly to its real size, in metres, its side wall, between the ribs, WALL_RADIUS from
+# the axis, adds smooth normals, and writes one untextured mesh, the chamber, its wall radius in
+# its node's extras. The game sizes it from the scene list.
 # Needs Python 3 and numpy.
 import json, struct, sys, hashlib
 import numpy as np
 
 # The GLB container's magic number and chunk types (glTF 2.0, section 4.4).
 GLB_MAGIC, CHUNK_JSON, CHUNK_BIN = 0x46546C67, 0x4E4F534A, 0x004E4942
+# The side wall's distance from the axis, in metres: a lab vacuum vessel 1 m across inside.
+WALL_RADIUS = 0.5
 
 def read_glb(path):
     b = open(path, 'rb').read(); jl = struct.unpack('<I', b[12:16])[0]
@@ -34,9 +37,9 @@ r = np.hypot(P[:, 0] - centre[0], P[:, 2] - centre[2])
 # where only the wall and its ribs are.
 middle = np.abs(P[:, 1] - centre[1]) < 0.3 * (hi[1] - lo[1])
 wall = r[middle].min()
-Q = (P - centre) / wall
+Q = (P - centre) * (WALL_RADIUS / wall)
 lo, hi = Q.min(0), Q.max(0)
-print('wall radius (unit box):', round(float(wall), 4), 'extent in wall radii:', (hi - lo).round(4).tolist())
+print('wall radius (unit box):', round(float(wall), 4), 'size in metres:', (hi - lo).round(4).tolist())
 
 # Area-weighted smooth normals.
 N = np.zeros_like(Q)
@@ -53,7 +56,7 @@ binary = b''.join(chunks)
 gltf = {
   'asset': {'version': '2.0', 'generator': 'Meshy text-to-3d preview, cleaned by tools/clean-vacuum-chamber.py'},
   'scene': 0, 'scenes': [{'nodes': [0]}],
-  'nodes': [{'mesh': 0, 'name': 'chamber'}],
+  'nodes': [{'mesh': 0, 'name': 'chamber', 'extras': {'wallRadius': WALL_RADIUS}}],
   'meshes': [{'name': 'chamber', 'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1}, 'indices': 2}]}],
   'buffers': [{'byteLength': len(binary)}],
   'bufferViews': [{'buffer': 0, 'byteOffset': offs[0], 'byteLength': len(pos), 'target': 34962},

@@ -39,7 +39,7 @@ jobs:
                 localStorage.setItem('ion-pumpy-view-v1',JSON.stringify({on:false}));
               }, {run:saved,revision});
               await page.reload({waitUntil:'networkidle0',timeout:45000});
-              await page.removeScriptToEvaluateOnNewDocument(injected);
+              await page.removeScriptToEvaluateOnNewDocument(injected.identifier);
               await page.click('#step-3');
               const selected = await page.evaluate(() => document.getElementById('step-3').getAttribute('aria-current'));
               if (selected !== 'step') throw new Error(`Orbit step did not load at ${width}px; abort screenshot`);

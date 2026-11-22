@@ -518,19 +518,19 @@ const SOURCES = [
   { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence opens the throat, as in the 4orbs account. Thermal false colour and the flash are drawn for viewing. The transit uses a 63.7 m aircraft, its 60.9 m span and the measurement page’s 250 m/s cruise speed.', refs: ['davis'] }
 ];
 const BRIEFS = [
-  'Hold the pump and raise the drive power. Keep the glow while the ions stay cool, with the pressure in its band for 3 seconds.',
-  'Balance the field and centre the ball for six uninterrupted seconds.',
-  'Compare the fuels. Tune hydrogen-boron until the charged reaction products appear.',
-  'Match the formation in both views. Radius, lap time and camera angle each matter.',
-  'Try the plates, then size the throat for the wings and draw negative energy from the orbs to hold it open.',
-  'Use your prepared system. Close the formation, then open the gate in the marked band.'
+  'Hold Pump to lower the gas pressure. Increase Drive power until the gas glows. Keep the pressure in the marked range for 3 seconds while the ions stay cool.',
+  'Use the control pad to balance the magnetic field and keep the plasma ball in the centre for 6 seconds without a break.',
+  'Compare the two fuels. Choose Hydrogen + boron-11, then adjust Plasma temperature until the charged fusion products appear.',
+  'Move the orbs onto the hollow rings in both camera views. Adjust their distance, lap time and camera angle until the views match.',
+  'Try the plates. Make the wormhole opening (the throat) wide enough for the aircraft's wings. Then use the orbs' negative energy to keep it open. This is a game model, not a demonstrated method.',
+  'Use the settings you saved in the earlier steps. Bring the orbs into formation, then open the gate when the indicator enters the marked range.'
 ];
 function lessonContent(st, i, after = '') {
   const source = SOURCES[i];
   if (!source) return st.html;
   const refs = source.refs.length ? `<ul class="refs">${source.refs.map(k => `<li><a href="${PAPERS[k].url}" target="_blank" rel="noopener">${PAPERS[k].label}</a></li>`).join('')}</ul>` : '';
   return st.html.replace(/<div class="lesson">([\s\S]*?)<\/div>/, (_, content) =>
-    `<p class="brief">${BRIEFS[i]}</p>${after}<details class="source-card"><summary>Why it works · source and model</summary>
+    `<p class="brief">${BRIEFS[i]}</p>${after}<details class="source-card"><summary>Explanation and sources</summary>
     <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Sources checked 21 Nov 2026.<br>${source.note}<br>The experiment and timer pause while this card is open.</p>${refs}</details>`);
 }
 // Read a displayed value aloud with its unit spelled out, for sliders.
@@ -883,7 +883,7 @@ const hold = stage({
       <p><span class="tag lab">Lab physics</span>Left in open air, a hot plasma cools and spreads in a fraction of a second. Laboratory plasmoids last a few hundred milliseconds. A magnetised plasma can't hold itself together with its own field. Something outside has to: coils, a wall, or for a star, gravity.</p>
       <p><span class="tag model">Theory</span>Beta is the plasma's pressure divided by the field's: β = nkT / (B²/2μ₀). Fusion power grows as β²B⁴, so a machine at beta one makes far more power from the same magnets than a tokamak, which runs at a few per cent.</p>
       <p><span class="tag lab">Lab physics</span>Robert Bussard's Polywell sets six coils on the faces of a cube. Their fields pinch together in cusps and trap electrons in a "wiffle ball" at the centre. Bussard reported reaching beta one in his sixth machine in 2006. In 2015 Park and colleagues tested Harold Grad's prediction that near beta one the plasma pushes the field into a sharp-edged boundary and the cusp leaks close. They found confinement is enhanced when beta is near one.</p>
-      <p class="note">One pad, two jobs. Up and down sets the field strength, to keep beta in the band. Left and right trims the coils, to push the ball back to the centre. Arrow keys work too. Past beta one the plasma overpowers the field and leaks out.</p>
+      <p class="note">Use the pad in two directions. Move up or down to change magnetic field strength and keep beta in the marked range. Beta compares plasma pressure with magnetic pressure. Move left or right to adjust the coils and centre the plasma ball. Arrow keys work too. Above beta one, the plasma can push past the field and escape.</p>
     </div>
     <div class="ctl">
       <div>
@@ -1247,7 +1247,7 @@ const orbit = stage({
       <p><span class="tag meas">Measured</span>Where both videos track them cleanly, the three objects circle the airliner once in about two and a half seconds, 60 to 70 metres out, taking the aircraft as a Boeing 777-200ER. For about sixteen seconds they hold one equal-sided triangle centred on the aircraft. The triangle spins, and as it spins it tumbles.</p>
       <p><span class="tag lab">Lab physics</span>Anything moving in a circle is being pulled toward the centre. Speed is the circumference over the time for one lap. The pull is the speed squared over the radius. Tighter and faster both cost you.</p>
       <p><span class="tag meas">Measured</span>Two cameras pin down one scene. 4orbs fitted the two lines of sight at 123 to 141 degrees apart, which is why the objects circle in opposite senses in the two videos.</p>
-      <p class="note">The hollow rings are the tracked objects. Put your orbs on them in both views.</p>
+      <p class="note">The hollow rings mark the objects' reported positions. Move your orbs onto those rings in both camera views.</p>
     </div>
     <div class="ctl">
       <label for="or-r"><span id="or-r-l">Distance from the aircraft</span> <output id="or-r-o"></output><input id="or-r" aria-labelledby="or-r-l" type="range" min="30" max="100" step="1"></label>
@@ -1341,7 +1341,7 @@ const open = stage({
       <p><span class="tag model">Theory</span>The 2010 report for the Defense Intelligence Agency, <cite>Traversable Wormholes, Stargates, and Negative Energy</cite>, sizes the job. By its table, a 100 m wide wormhole needs negative energy equal to about seventy times the mass of Jupiter.</p>
       <p><span class="tag read">4orbs account</span>The orbs generate negative energy themselves, by the dynamic Casimir effect, as the 4orbs <a href="${DYNAMIC_CASIMIR_URL}" target="_blank" rel="noopener">dynamic Casimir page</a> has it. An orb collapses its plasma bubble fast, and the collapse turns vacuum fluctuations into real photons and negative energy. The bubble's plasma wall acts like a moving Casimir surface, in place of a pair of fixed metal plates.</p>
       <p><span class="tag scen">Game rule</span>Here the orbs supply exactly the negative energy the throat needs, because in Forbes's account their convergence is what opens the wormhole.</p>
-      <p class="note">The throat's need scales the report's figure in a straight line with width. Extra width costs points only in timed runs.</p>
+      <p class="note">The game increases the required negative energy as you widen the wormhole opening (the throat). This follows a simplified rule based on the report. A wider opening reduces your score only in Timed mode.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Experiment view">${OPEN_VIEWS.map(([id, , name]) => `<button type="button" id="${id}">${name}</button>`).join('')}</div>
@@ -1651,7 +1651,7 @@ const conv = stage({
       <p><span class="tag meas">Measured</span>From above, the flash is bright. On the heat camera it reads black: colder than the sky. Afterwards the airliner is gone, leaving open sky with no fireball or debris.</p>
       <p><span class="tag model">Theory</span>The 2010 DIA report says a small wormhole would look like an unusually bright spot in the sky. It also reports a calculation that negative energy should cool the matter it meets.</p>
       <p><span class="tag read">4orbs account</span>The airliner crosses the throat at constant speed relative to the field, as the 4orbs <a href="${TELEPORTATION_URL}" target="_blank" rel="noopener">teleportation page</a> has it. The transit diagram draws the crossing that way.</p>
-      <p class="note">This mission uses your current settings. Timing penalties apply only in timed runs.</p>
+      <p class="note">This final step uses the settings you chose earlier. Only Timed mode deducts points for taking longer.</p>
     </div>
     <div class="ctl">
       <div>
@@ -1670,7 +1670,7 @@ const conv = stage({
       </div>
       <div class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</div>
       <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
-      <p class="note">Earlier experiments are held at their saved settings. Revisit a step to retune it.</p>
+      <p class="note">Completed steps keep their saved settings. To change a setting, return to that step.</p>
     </div>
     <dl class="reads">
       <div><dt>Triangle</dt><dd id="cv-k"></dd></div>

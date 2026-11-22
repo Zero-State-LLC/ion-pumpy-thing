@@ -46,7 +46,8 @@ The game is the inline script in `index.html`; tests reach it through `window.__
 - **Source card**: `SOURCES` and `PAPERS`.
 - **Readiness**: `missionReadiness()` and `readyToAdvance()`.
 - **Learning run** / **Timed practice**: `mode === 'learn'` / `mode === 'challenge'`.
-- **Practice board**: stored under `scores-v2`; available only inside a Claude artifact with database access.
+- **Timed practice**'s local timed best: stored under `BEST_KEY` (`ipt-best-v3`).
+- **Practice board**: stored under `BOARD_COLLECTION` (`scores-v3`); available only inside a Claude artifact with database access. Both keys move on when timed-practice timing changes.
 - **Saved run**: stored under `RUN_KEY` (`ipt-run-v2`), written by `snapshot()` and checked by `validSnapshot()` before `restore()`.
 - **Source revision**: `SOURCE_REVISION`.
 

@@ -1,6 +1,6 @@
 # Corrected source register
 
-Reviewed on 21 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-21-open-cavity`.
+Reviewed on 21 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-21-ignite-piston`.
 
 The narrative baseline is the live [corrected November 2026 Part Three](https://4orbs.com/the-vanishing/part-3-the-science/), duration 25:24, video identifier `_gzWIv7uABs`. The 19:38 April edition returned by an earlier search cache is excluded. The live page was retrieved twice during review. The [homepage correction notices](https://4orbs.com/) document replacement of the older episode.
 
@@ -24,7 +24,7 @@ The aircraft is referred to only by make and model.
 
 | Stage | Source section | What the game demonstrates | Model limits |
 | --- | --- | --- | --- |
-| Ignite | Corrected Part Three, 6:07 | Separate electron and ion behaviour, glow colour | Pressure, temperatures and glow thresholds are illustrative. They are not a calibrated discharge model. |
+| Ignite | Corrected Part Three, 6:07; the dense plasma focus theory pages; Dense Plasma Focus 101 | Separate electron and ion behaviour, glow colour; the pump as the ion pumpy schematic's piston, compressing the plasma in full command of its pressure so the orbs run continuously, not firing once as a laboratory dense plasma focus does (4orbs account), drawn as a front holding the plasma pressed toward the middle of the jar while the pressure is in its band | Pressure, temperatures and glow thresholds are illustrative. They are not a calibrated discharge model. The hand pump as the control, the 0.3 to 2.5 torr pressure band and the 3 seconds in it are game rules. The front is a schematic; the pump empties the jar, so its strokes never move the front. |
 | Hold | Corrected Part Three, 7:40 and 10:15; Polywell page | Beta, the Polywell cusp trap, Grad's high-beta boundary as tested by Park et al. (2015) | Beta is computed as plasma pressure divided by magnetic pressure. Drift, the target band and the loss above beta one are game rules. The coils are a simplified cusp. |
 | Fuel | Corrected Part Three, 10:15; Polywell and AAWSAP pages; Miley 2016 page and the dense plasma focus theory pages | Charged versus neutral reaction products; the Polywell's virtual cathode; Miley's IEC report; Forbes's dense plasma focus reading of the ion pumpy schematic; the 2006 dense plasma focus study | The reaction curves, thresholds and exposure rate are simplified. p-B11 side reactions are stated but not simulated. |
 | Orbit | Measurement page, rigid formation and camera fit | One equilateral formation in two projections | Reported radius, period and camera ranges guide a synthetic reconstruction. The fixed 24° tilt and 11-second tumble are illustrative, not imported tracks. |
@@ -39,21 +39,22 @@ The aircraft drawing retains its assumed 60.9 m span. For a centred aircraft and
 
 The teleportation-mechanism theory page, read on 21 November 2026, has only the aircraft and its contents go through, since they hold a constant speed relative to the field. The game's transit view, its canvas label and its description say the airliner crosses the throat at constant speed relative to the field, labelled 4orbs account, and the diagram's steady 250 m/s passage draws it so. That page names no destination, so none is drawn.
 
-This source revision invalidates prior in-progress saves with an on-screen explanation. Personal best scores remain compatible because the scoring rule and active sequence duration have not changed.
+This source revision invalidates prior in-progress saves with an on-screen explanation. The Ignite step's 3 seconds in the pressure band change timed-practice timing, so the local timed best and the practice board start fresh under new keys (`ipt-best-v3`, `scores-v3`), as an earlier timing change did ([UPGRADE.md](UPGRADE.md)). Scores under the older keys stay stored but no longer show.
 
 ## 4orbs pages cited
 
-4orbs pages a lesson cites beyond the corrected Part Three and the measurement page. Each is linked from the source card of the step that uses it.
+4orbs pages the game cites beyond the corrected Part Three and the measurement page. Each is linked from the source card of every step it is used in. A step it is weighed for under **Source choices** is marked "weighed under Source choices", and the page is linked there.
 
 | Page | Reviewed by 4orbs | Used in |
 | --- | --- | --- |
-| [Miley 2016 page](https://4orbs.com/research/miley-2016-fusion/) | Yes | Fuel |
-| [Ion Pumpy Thing as DPF Fusion Device](https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/) | No | Fuel |
-| [Ion Pumpy Thing as Compact Fusion Reactor](https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/) | No | Fuel |
+| [Miley 2016 page](https://4orbs.com/research/miley-2016-fusion/) | Yes | Fuel; Ignite (weighed under Source choices) |
+| [Dense Plasma Focus 101](https://4orbs.com/science/101/dense-plasma-focus/) | Yes | Ignite |
+| [Ion Pumpy Thing as DPF Fusion Device](https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/) | No | Ignite, Fuel |
+| [Ion Pumpy Thing as Compact Fusion Reactor](https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/) | No | Ignite, Fuel |
 | [Four Orbs Teleportation Mechanism](https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/) | No | Converge |
 | [Plasma orbs as dynamic Casimir effect generators](https://4orbs.com/library/theories/plasma-orbs-as-dynamic-casimir-effect-generators/) | No | Open |
 
-The bodies of the Miley 2016 page, both ion pumpy pages, the teleportation-mechanism page and the dynamic Casimir page name the flight. Their addresses and titles don't, so the correction policy allows them.
+The bodies of the Miley 2016 page, the Dense Plasma Focus 101 page, both ion pumpy pages, the teleportation-mechanism page and the dynamic Casimir page name the flight. Their addresses and titles don't, so the correction policy allows them.
 
 ## Papers used in the lessons
 
@@ -77,6 +78,7 @@ Each is cited by a 4orbs page and linked from the lesson's source card.
 - George Miley, *Inertial Electrostatic Confinement Fusion* (March 2010), is linked in the same registry. Its PDF returned HTTP 403. No numerical curve from it is claimed.
 - Knecht et al. (2006): the publisher's abstract was read on 21 November 2026; the full text is paywalled. The lesson uses only its stated scope, a parametric study of a p-11B dense plasma focus as the power and propulsion of an air-breathing aerospace plane, and labels it Theory. No figure from it is claimed.
 - The pages under **4orbs pages cited** were read on 21 November 2026.
+- For the Ignite lesson, both ion pumpy theory pages, the Miley 2016 page and the Dense Plasma Focus 101 page were read in full on 21 November 2026. Both theory pages carry the same glossary entry for the schematic, which lists among the labels Forbes reads off the image a piston with "full command of adiabatic pressure". The compact-reactor page has the schematic's reactor power the orbs, and credits its air-breathing design with letting them operate indefinitely. Neither page says in so many words that the piston is what lets the reactor run continuously: the lesson joins the two readings, as spec #25 decided, under the 4orbs account label. The contrast it draws, that a laboratory dense plasma focus fires once, is the Dense Plasma Focus 101 page's, and the lesson links that page where it says so; the page's further point, that the machine then recharges, stays under **Source choices**. The front that holds the plasma pressed toward the middle of the jar while the pressure is in its band draws the piston's command of the pressure; it is the lesson's claim, not a new one.
 - The dynamic Casimir theory page was read in full on 21 November 2026. The Open lesson takes its main claim: the orbs generate negative energy by the dynamic Casimir effect, collapsing a plasma bubble fast to convert vacuum fluctuations into real photons and negative energy. It also takes a supporting claim that high-beta plasmoids act like moving Casimir surfaces, which the lesson gives as the bubble's plasma wall. "Plasma cavity" is the game's name for the view, not the page's term. The page names no paper for the dynamic Casimir experiments, so the game makes no Lab physics claim for them.
 
 The throat display uses the corrected episode's figure from the DIA report, about 70 Jupiter masses for a 100 m wormhole, scaled linearly as `0.7 × width`. The source card says so.
@@ -101,6 +103,13 @@ The runtime `SOURCES` array maps these sources to six expandable lesson cards. U
 ## Source choices
 
 Where a reviewed page and a theory page disagree, each choice is recorded here when its lesson changes. The choices decided for lessons not yet changed are in spec #25.
+
+### Ignite: the pump as the piston, for continuous operation
+
+- The theory pages [Ion Pumpy Thing as DPF Fusion Device](https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/) and [Ion Pumpy Thing as Compact Fusion Reactor](https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/) list, among the labels Forbes reads off the schematic, a piston with "full command of adiabatic pressure". The compact-reactor page has the reactor power the orbs and operate indefinitely.
+- The reviewed [Miley 2016 page](https://4orbs.com/research/miley-2016-fusion/#ion-pumpy-schematic) records Forbes reading that label straight off the drawing (video `70M-6hMUZEk`, 20:29), but finds no source for it: the adiabatic-piston annotation is in neither the Tarditi NIAC report nor the 2006 dense plasma focus paper, and the NIAC report's "magnetic piston" compresses an ion beam, a different thing. It rates the annotation's source an open question. The reactor in Miley's 2016 paper runs in pulsed mode, each shot giving more energy than it took, not as a self-heating burn.
+- The reviewed [Dense Plasma Focus 101](https://4orbs.com/science/101/dense-plasma-focus/) page says laboratory machines fire once and then recharge, so an orb would have to run repetitively rather than in single shots. It has the machine do its own compression: the current sheet's own field drives the plasma inward, with no external magnet, and it names no piston.
+- The game takes the theory pages' reading, labelled 4orbs account: the pump plays the schematic's piston, compressing the plasma in full command of its pressure, so the orbs can run continuously rather than fire once. Neither theory page ties the piston to continuous running in so many words, so the lesson joins their readings: the DPF page's piston and the compact-reactor page's reactor that powers the orbs indefinitely. It draws the contrast with the Dense Plasma Focus 101 page's laboratory machines, which fire once, and links that page there. ADR 0002 lets theory fill in where the reviewed data alone stops short. The orbs must stay powered through the Teleport, and a machine that fires once and then recharges would not keep them so. The hand pump as the control, the pressure band and the 3 seconds in it are Game rule. No sentence claims self-sustaining fusion. The reviewed pages' caution stays here, not in player text.
 
 ### Fuel: the ion pumpy schematic as a working dense plasma focus
 

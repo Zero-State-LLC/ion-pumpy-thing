@@ -60,6 +60,8 @@ The new run and personal-best keys are `ipt-run-v2` and `ipt-best-v2`. Legacy be
 
 The optional Claude artifact board uses `scores-v2` so the new timing policy does not mix with legacy scores. Its availability depends on the host's database rules. An unavailable or rejected board leaves the standalone game and local best usable.
 
+Later, the Ignite step's 3 seconds in the pressure band (#32) changed timed-practice timing again, so by the same policy the personal best and the board moved on to `ipt-best-v3` and `scores-v3`. Scores under the `-v2` keys stay stored but no longer show. The saved run keeps `ipt-run-v2`, since a changed source revision already starts it fresh.
+
 ## Verification
 
 Run `node --test tests/game.test.cjs tests/seo.test.cjs` with Node 22 or later. The game tests execute the shipped inline JavaScript in a minimal DOM and canvas boundary. They cover lesson state, score isolation, pause behaviour, continuous confinement, persistent exposure, readiness, final-sequence aborts, frozen results, local reload, malformed saves, blocked storage, projection geometry, transit units, clipping, replay gating, event bubbling, deterministic scrubbing, reduced-motion drawing and source-revision migration.

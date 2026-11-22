@@ -46,3 +46,12 @@ test('locked navigation text clears contrast with margin for antialiasing', () =
   const contrast = (Math.max(label, dark) + 0.05) / (Math.min(label, dark) + 0.05);
   assert.ok(contrast >= 5.5, 'locked button contrast has a safety margin; got ' + contrast.toFixed(2));
 });
+
+
+test('compact desktop controls and mobile tap targets retain usable sizes', () => {
+  const css = styles.at(-1);
+  assert.match(css, /\.steps button\s*\{\s*min-height:\s*32px\s*;/);
+  assert.match(css, /\.seg button, \.btn\s*\{[^}]*min-height:\s*32px\s*;/);
+  assert.match(css, /@media \(pointer: coarse\)\s*\{[\s\S]*?\.steps button, \.btn, \.seg button,[^}]*min-height:\s*44px\s*;/);
+  assert.match(css, /\.pad i\s*\{[^}]*transform:\s*translate\(-50%, -50%\)/);
+});

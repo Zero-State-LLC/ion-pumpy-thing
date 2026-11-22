@@ -71,3 +71,9 @@ The owner accepted [ADR 0005](adr/0005-meshy-rights-evidence-before-qualificatio
 | Mobile Go to step controls | Link visible on each active step, focuses and reveals controls below sticky scene, absent on Ledger | **Not tested on devices** |
 
 A complete test report records: **tester, date/time PT, device, OS version, browser and assistive-technology version, build SHA, procedure, expected result, observed result, evidence link, and pass/fail/blocker**. The tester signs each row. An independent reviewer reconciles failed rows and explicitly accepts closure only when the required scope passes. Do not include private account identifiers, login credentials or unrelated user data in screenshots.
+
+## Source-versus-Orbit-camera look, reviewed 22 November 2026 (PT)
+
+[4orbs' corrected measurement page](https://4orbs.com/research/satellite-videos/measurements/) describes the first view as looking down from above and the second as a side view through a **thermal camera**. This attribution is the 4orbs account of the footage, not independent proof the footage is authentic. In the current `index.html`, Orbit `scene()` explicitly returns `look: 'visible'` for **both** 3D camera views. Its flat `draw()` also uses shared visible-light object colours for both halves. The 3D angles and object placement have automated coverage, but this source-derived **sensor-look distinction is not represented**. ADR 0004 requires matching flat and 3D appearances and thermal treatment where a view represents a heat camera.
+
+**Status: genuine follow-up, not approved.** Ask the owner in the next Grill round whether Orbit camera 2 should use the thermal palette in both the flat and 3D views, with camera 1 staying visible. Do not repair one renderer in isolation or imply a speculative heat value is measured. Separately verify the reported thin Ignite handle on phone screens before making that presentation-only change.

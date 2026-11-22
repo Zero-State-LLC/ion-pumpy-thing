@@ -644,6 +644,61 @@ test('the source register lists no 4orbs page whose address or title names the f
   }
 });
 
+// The register's "4orbs pages cited" table: each page, whether 4orbs has reviewed it, and the steps it is used in.
+function citedPagesTable() {
+  const section = register.split(/^## 4orbs pages cited$/m)[1]?.split(/^## /m)[0] || '';
+  return [...section.matchAll(/^\| \[[^\]]+\]\(([^)\s]+)\) \| ([^|]+) \| ([^|]+) \|$/gm)]
+    .map(([, url, reviewed, usedIn]) => ({ page: url.split('#')[0], reviewed: reviewed.trim(), usedIn: usedIn.trim() }));
+}
+const sourceCard = game => text(game, 'panel').match(/<details class="source-card">[\s\S]*?<\/details>/)[0];
+const lessonParagraphs = card => [...card.matchAll(/<p>([\s\S]*?)<\/p>/g)].map(m => m[1]);
+const words = markup => markup.replace(/<[^>]+>/g, '');
+
+test('every source card says the sources were checked on the day the register was reviewed, the day its newest source was read', () => {
+  const reviewed = register.match(/^Reviewed on (\d{1,2} \w+ \d{4})/m)?.[1];
+  assert.ok(reviewed, 'the register says when it was reviewed');
+  const reads = [...register.matchAll(/\bread (?:in full )?on (\d{1,2} \w+ \d{4})/g)].map(m => m[1]);
+  assert.equal(Date.parse(reviewed), Math.max(...reads.map(Date.parse)), `reviewed on ${reviewed}; sources read on ${reads.join(', ')}`);
+  const game = bootFromSavedRun('completed-run');
+  for (let i = 0; i < 6; i++) {
+    click(game, `step-${i}`);
+    const checked = sourceCard(game).match(/Sources checked (\d{1,2} \w+ \d{4})\./)?.[1];
+    assert.equal(Date.parse(checked), Date.parse(reviewed), `step ${i + 1}'s source card says the sources were checked ${checked}`);
+  }
+});
+
+test('the source register marks every theory page a source card links as unreviewed', () => {
+  const game = bootFromSavedRun('completed-run'), rows = citedPagesTable();
+  for (let i = 0; i < 6; i++) {
+    click(game, `step-${i}`);
+    for (const page of fourOrbsPages(sourceCard(game)).filter(p => p.includes('/library/theories/'))) {
+      const row = rows.find(r => r.page === page);
+      assert.equal(row?.reviewed, 'No', `step ${i + 1} links ${page}: the register's 4orbs pages cited table marks it unreviewed`);
+    }
+  }
+});
+
+test("the Fuel source card gives Forbes's dense plasma focus reading as 4orbs account, linking the pages the register lists", () => {
+  const game = bootFromSavedRun(savedRunOn(2)), card = sourceCard(game), paragraphs = lessonParagraphs(card);
+  const reading = paragraphs.find(p => /Forbes reads the ion pumpy schematic\b[^.]* as the dense plasma focus\b/.test(words(p)));
+  assert.ok(reading, 'the card says Forbes reads the ion pumpy schematic as a dense plasma focus');
+  assert.match(reading, /^<span class="tag read">4orbs account<\/span>/);
+  assert.equal(reading.match(/class="tag /g).length, 1, 'one source label');
+  // Its links: pages the register lists for Fuel, the reviewed page and a theory page among them.
+  const rows = citedPagesTable(), linked = fourOrbsPages(reading).map(page => rows.find(r => r.page === page && /\bFuel\b/.test(r.usedIn)));
+  assert.ok(linked.length && linked.every(Boolean), `every page the reading links is in the register for Fuel: ${fourOrbsPages(reading)}`);
+  assert.ok(linked.some(r => r.reviewed === 'Yes') && linked.some(r => r.reviewed === 'No'), 'it links the reviewed page and a theory page');
+  // Any other dense plasma focus sentence is published physics, labelled so and cited to its paper on the card.
+  const papers = [...card.matchAll(/<li><a href="([^"]+)"[^>]*>([^<]+)<\/a><\/li>/g)].filter(m => /dense plasma focus/i.test(m[2]));
+  for (const p of paragraphs.filter(p => p !== reading && /dense plasma focus/i.test(words(p)))) {
+    assert.match(p, /^<span class="tag (lab|model)">(Lab physics|Theory)<\/span>/, words(p));
+    assert.ok(papers.length, `cited to its paper: ${words(p)}`);
+    for (const [, url] of papers) assert.ok(register.includes(url), `the register lists ${url}`);
+  }
+  // The premise is taken as given: the reviewed page's caution stays in the register.
+  assert.doesNotMatch(words(paragraphs.join(' ')), /unestablished|chain of custody|compilation|authenticat|alleged/i);
+});
+
 test('transit units and geometry describe passage past an entrance, not travel time', () => {
   const { lab } = boot();
   const start = lab.transitModel(0, 61), middle = lab.transitModel(.5, 61), end = lab.transitModel(1, 61);
@@ -817,13 +872,16 @@ test('reduced motion holds the throat-forming glow still', () => {
   }
 });
 
-test('a prior source revision starts a fresh run with a visible explanation', () => {
+test('a saved run from the previous source revision starts fresh with a visible explanation, and the register names the current one', () => {
+  // The revision before the Fuel source card named the dense plasma focus.
+  const previous = '4orbs-part3-corrected-2026-11-25m24s-transit1';
   const storage = new Map([['ipt-best-v2', '{"score":1234}']]);
-  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = '4orbs-part3-corrected-2026-11-25m24s'; }), { storage });
+  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
   assert.equal(game.ids.get('restore-status').hidden, false);
   assert.match(text(game, 'restore-status'), /Source assumptions have changed/);
   assert.equal(storage.get('ipt-best-v2'), '{"score":1234}');
+  assert.equal(register.match(/Source revision: `([^`]+)`/)?.[1], game.lab.SOURCE_REVISION, 'the register states the revision the game uses');
 });
 
 test('restart and mode switches ask before clearing progress, and keep it on cancel', () => {

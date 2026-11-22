@@ -417,13 +417,14 @@ $('#snd').onclick = async e => {
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
-const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-25m24s-transit1';
+const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-fuel-dpf';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
 // Papers the 4orbs pages cite, linked where the lesson uses them.
 const PAPERS = {
   park: { label: 'Park et al., High Energy Electron Confinement in a Magnetic Cusp Configuration (Physical Review X, 2015)', url: 'https://arxiv.org/abs/1406.0133' },
   miley: { label: 'Miley, Inertial Electrostatic Confinement Fusion (DIA report, March 2010)', url: 'https://www.war.gov/medialink/ufo/sept-18/release-06/assets/DOW-UAP-D125_AAWSA-DIRD-Inertial-Electrostatic-Confinement-Fusion-March-10-2010.pdf' },
+  knecht: { label: 'Knecht, Thomas, Mead, Miley and Froning, Propulsion and Power Generation Capabilities of a Dense Plasma Focus (DPF) Fusion System for Future Military Aerospace Vehicles (AIP Conference Proceedings, 2006)', url: 'https://doi.org/10.1063/1.2169306' },
   morris: { label: 'Morris and Thorne, Wormholes in spacetime and their use for interstellar travel: A tool for teaching general relativity (American Journal of Physics, 1988)', url: 'https://doi.org/10.1119/1.15620' },
   lamoreaux: { label: 'Lamoreaux, Demonstration of the Casimir Force in the 0.6 to 6 μm Range (Physical Review Letters, 1997)', url: 'https://doi.org/10.1103/PhysRevLett.78.5' },
   gjw: { label: 'Gao, Jafferis and Wall, Traversable Wormholes via a Double Trace Deformation (JHEP, 2017)', url: 'https://arxiv.org/abs/1608.05687' },
@@ -433,7 +434,7 @@ const PAPERS = {
 const SOURCES = [
   { url: SCIENCE_URL, section: '6:07, What are they made of?', note: 'Pressure, temperature response and glow thresholds are simplified for play.', refs: [] },
   { url: SCIENCE_URL, section: '7:40 and 10:15, confinement and the Polywell', note: 'Beta is plasma pressure divided by magnetic pressure. The coils are a simplified cusp after Bussard’s Polywell. The drift and the six-second target are game rules.', refs: ['park'] },
-  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play.', refs: ['miley'] },
+  { url: SCIENCE_URL, section: '10:15, Could one be built?', note: 'The main p-B11 reaction makes three helium nuclei, and side reactions make a few neutrons. Reaction curves, exposure rate and ignition thresholds are simplified for play.', refs: ['miley', 'knecht'] },
   { url: MEASUREMENTS_URL, section: 'Rigid triangle and camera fit', note: 'Built from the reported ranges. The 24° tilt and the tumble period are simplified for play.', refs: [] },
   { url: SCIENCE_URL, section: '16:51, What happened in the flash?', note: 'Plate energy uses the ideal Casimir formula. The throat scales the DIA report’s figure of about 70 Jupiter masses for a 100 m wormhole.', refs: ['morris', 'lamoreaux', 'gjw', 'qubits', 'davis'] },
   { url: MEASUREMENTS_URL, section: 'Last frames, scale and measurement limits', note: 'Convergence opens the throat, as in the 4orbs account. Thermal false colour and the flash are drawn for viewing. The transit uses a 63.7 m aircraft, its 60.9 m span and the measurement page’s 250 m/s cruise speed.', refs: ['davis'] }
@@ -452,7 +453,7 @@ function lessonContent(st, i, after = '') {
   const refs = source.refs.length ? `<ul class="refs">${source.refs.map(k => `<li><a href="${PAPERS[k].url}" target="_blank" rel="noopener">${PAPERS[k].label}</a></li>`).join('')}</ul>` : '';
   return st.html.replace(/<div class="lesson">([\s\S]*?)<\/div>/, (_, content) =>
     `<p class="brief">${BRIEFS[i]}</p>${after}<details class="source-card"><summary>Why it works · source and model</summary>
-    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Sources checked 20 Nov 2026.<br>${source.note}<br>The experiment and timer pause while this card is open.</p>${refs}</details>`);
+    <div class="lesson">${content}</div><p class="source"><a href="${source.url}" target="_blank" rel="noopener">4orbs: ${source.section}</a><br>Sources checked 21 Nov 2026.<br>${source.note}<br>The experiment and timer pause while this card is open.</p>${refs}</details>`);
 }
 // Read a displayed value aloud with its unit spelled out, for sliders.
 function spoken(text) {
@@ -833,6 +834,8 @@ const fuel = stage({
   html: `
     <div class="lesson">
       <p><span class="tag read">4orbs account</span>Forbes's picture of an orb is "a coherent ball of plasma with potentially a device inside of it". A device that flies needs power on board, and his account runs it on fusion.</p>
+      <p><span class="tag read">4orbs account</span>Forbes reads the <a href="https://4orbs.com/research/miley-2016-fusion/#ion-pumpy-schematic" target="_blank" rel="noopener">ion pumpy schematic</a>, an anonymous drawing of a compact fusion reactor, as the dense plasma focus George Miley studied. It <a href="https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/" target="_blank" rel="noopener">breathes air and burns boron-11</a>, and it <a href="https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/" target="_blank" rel="noopener">powers the orbs</a>.</p>
+      <p><span class="tag model">Theory</span>A 2006 study by five authors, Miley and an Air Force Research Laboratory propulsion scientist among them, modelled a hydrogen-boron dense plasma focus as the power and propulsion of an air-breathing aerospace plane.</p>
       <p><span class="tag lab">Lab physics</span>The Polywell is a fusion machine as well as a trap. Its trapped electrons form a virtual cathode, a well about 10 kV deep on Bussard's sixth machine. Positive ions fall into the well, speed up toward the centre, collide and fuse. George Miley's 2010 report for the Defense Intelligence Agency surveys this family, inertial electrostatic confinement.</p>
       <p><span class="tag lab">Lab physics</span>Most fusion work burns two heavy forms of hydrogen. That reaction lights at the lowest temperature, but it throws out neutrons. No magnetic field can steer a neutron, so it goes straight into the wall and makes it radioactive.</p>
       <p><span class="tag lab">Lab physics</span>Hydrogen and boron-11 make three helium nuclei and almost no neutrons. The energy comes out on charged particles, so it could in principle be turned straight into electricity. The catch: it needs far higher temperatures to burn. Boron fuel is being tested in experiments now.</p>

@@ -84,6 +84,13 @@ The simplified cusp trap of coils, after Bussard's Polywell, used in the Hold st
 A gap at a cusp through which plasma escapes. The leaks close as beta nears one.
 _Avoid_: hole, wiffle-ball hole
 
+**Ion pumpy schematic**:
+The anonymous labelled drawing of a compact fusion reactor that Forbes was sent and analysed in May 2026. The Fuel step's source card gives his reading of it as a dense plasma focus.
+
+**Dense plasma focus**:
+A pulsed fusion machine: a capacitor bank drives a current sheet between two nested electrodes, and the sheet's own field pinches the gas into a small, hot, dense knot of plasma.
+_Avoid_: DPF, dense plasma fusion device
+
 **Formation**:
 The rigid triangle of orbs matched in the Orbit step and projected in both finale cameras.
 _Avoid_: lock-in

@@ -5,7 +5,9 @@
     "strict": false,
     "noEmit": true,
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"]
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler"
   },
-  "include": ["audio.js", "audio-cues.js", "ga4.js", "types/*.d.ts"]
+  "include": ["audio.js", "audio-cues.js", "ga4.js", "view3d.js", "types/*.d.ts"]
 }

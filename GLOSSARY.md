@@ -72,6 +72,20 @@ A simplification made for play.
 **Source revision**:
 The version of the sources a saved run was made against. A changed source revision starts a new run instead of resuming the saved run.
 
+## Views
+
+**Prop**:
+A solid object drawn for looks only, such as the airliner or the lab hardware. It is drawn at the real object's size and makes no claim of its own.
+_Avoid_: model, asset
+
+**3D view**:
+A step drawn in 3D from its scene list, behind the step's text, with the flat view's camera. The 3D view switch beside the sound settings turns it on or off on this device.
+_Avoid_: WebGL mode, 3D mode
+
+**Flat view**:
+A step's 2D drawing, shown when the 3D view is switched off or can't run. It draws the same state as the 3D view.
+_Avoid_: 2D mode, fallback
+
 ## Physics in play
 
 **Pressure band**:

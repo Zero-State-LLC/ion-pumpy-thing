@@ -9,7 +9,7 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 // The source register (docs/SOURCES.md): the list of 4orbs pages the lessons cite.
 const register = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SOURCES.md'), 'utf8');
 // Common ways of naming the flight. The airliner is only ever its make and model.
-const FLIGHT_NAMES = /MH370|MH 370|Malaysia|Flight 370|239 people|8 March 2014/i;
+const FLIGHT_NAMES = require('./flight-names.cjs');
 
 // The page's colour tokens (`--sky: #0b1330;`), so the canvas draws in the colours a player sees.
 const colourTokens = new Map([...html.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{3,8})\s*;/gi)].map(m => [m[1], m[2]]));
@@ -22,7 +22,9 @@ function boot(storage = new Map(), options = {}) {
     if (key in target) return target[key];
     if (String(key).startsWith('create')) return (...args) => {
       for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg));
-      drawing.push([key, ...args]); return { addColorStop() {} };
+      // A gradient's colour stops are kept on its own command, so they print with it nowhere.
+      const call = [key, ...args]; drawing.push(call);
+      return { addColorStop(...stop) { (call.stops ||= []).push(stop); } };
     };
     return (...args) => {
       for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg), `${String(key)} received ${arg}`);
@@ -80,8 +82,17 @@ function boot(storage = new Map(), options = {}) {
       setMode(mode) { sounds.push({ call: 'mode', id: mode }); return super.setMode(mode); }
     };
   }
+  // The 3D view's renderer, when the test gives one (docs/adr/0003): a stand-in that records
+  // every frame the game hands it, scene list and camera, as it was when handed over. Its
+  // options say whether it fails to start, as without WebGL, and keep what the game passed it.
+  const scenes = [], stand = options.view3d;
+  if (stand) window.IonView3D = { async start(canvas, given) {
+    Object.assign(stand, { canvas, given });
+    if (stand.fails) throw Error('WebGL is off');
+    return { draw: frame => scenes.push(JSON.parse(JSON.stringify(frame))) };
+  } };
   vm.runInNewContext(script, sandbox, { filename: 'index.html' });
-  return { lab: window.__lab, ids, document, window, storage, drawing, frames, sounds };
+  return { lab: window.__lab, ids, document, window, storage, drawing, frames, sounds, scenes, view3d: stand };
 }
 // Saved runs, as a returning player's browser holds them. A fixture goes into
 // storage before the game starts and loads through the normal startup path.
@@ -98,12 +109,22 @@ function savedRunOn(step, edit = () => {}) {
   const saved = { ...ready, stage: step, stages: ready.stages.map((s, i) => i < step ? s : fresh.stages[i]) };
   edit(saved); return saved;
 }
+// Fails unless the game opened the saved run, so a test can't pass on a fresh
+// run by accident. A test that expects the game to reject the save passes
+// { rejected: true }, and then fails if the save loads.
 function bootFromSavedRun(fixture, options = {}) {
   const saved = typeof fixture === 'string' ? readSavedRun(fixture) : fixture;
   currentRevision ??= boot().lab.SOURCE_REVISION;
   const storage = options.storage || new Map();
   storage.set('ipt-run-v2', JSON.stringify({ sourceRevision: currentRevision, ...saved }));
-  return boot(storage, options);
+  const game = boot(storage, options), name = typeof fixture === 'string' ? `"${fixture}"` : 'given';
+  const done = saved.stages?.filter(s => s.done).length ?? 0;
+  const opened = currentStep(game), open = [0, 1, 2, 3, 4, 5, 6].filter(i => !locked(game, i)).length - 1;
+  const loaded = opened === saved.stage && open === done;
+  // A rejected save and a save of an untouched run both open a fresh run on Ignite.
+  if (options.rejected) assert.ok(!loaded || (saved.stage === 0 && done === 0), `Saved run ${name} loaded, but this test expects the game to reject it.`);
+  else assert.ok(loaded, `Saved run ${name} did not load: the game opened ${STEPS[opened]} with ${open} steps done, not ${STEPS[saved.stage]} with ${done}. If this test expects the game to reject it, pass { rejected: true }.`);
+  return game;
 }
 const lastSave = game => JSON.parse(game.storage.get('ipt-run-v2'));
 // A Claude artifact host with database access, where the practice board works. It records
@@ -133,9 +154,22 @@ function bubble(game, type, el, event) {
   const panel = game.ids.get('panel');
   if (panel.children.includes(el) && panel.listeners[type]) panel.listeners[type]({ ...event, target: { ...el, closest: s => matches(el, s) ? el : null } });
 }
-function click(game, id) {
-  const el = game.ids.get(id), event = { detail: 1, currentTarget: el };
+// Clicking a step tab fails unless that step opens, so a test can't read one step
+// while it believes it is on another. clickLockedStep is for a tab that should refuse.
+function dispatchClick(game, el) {
+  const event = { detail: 1, currentTarget: el };
   const result = el.onclick(event); bubble(game, 'click', el, event); return result;
+}
+function click(game, id) {
+  const result = dispatchClick(game, game.ids.get(id)), tab = id.match(/^step-(\d)$/);
+  if (tab) assert.equal(currentStep(game), +tab[1], `Could not open ${STEPS[tab[1]]}: it is locked in this run.`);
+  return result;
+}
+function clickLockedStep(game, i) {
+  const before = currentStep(game);
+  assert.equal(locked(game, i), true, `${STEPS[i]} is not locked in this run.`);
+  dispatchClick(game, game.ids.get(`step-${i}`));
+  assert.equal(currentStep(game), before, `${STEPS[i]} opened while locked.`);
 }
 function slide(game, id, value) {
   const el = game.ids.get(id); el.value = String(value);
@@ -173,7 +207,12 @@ function readSource(game, open) {
 const leave = game => game.window.listeners.pagehide();
 const paint = game => game.frames.at(-1)(0);
 
-// What the player sees and hears.
+// What the player sees and hears. New readouts go here, beside the others.
+// - Labels, buttons and the HUD timer update on the next frame: after a click, run
+//   lab.advance(0) before reading one, unless the test's point is that the change is immediate.
+// - A step is complete when its goal text says so; the goal bar can show 100 % a frame early.
+// - The HUD timer shows whole seconds, so time a test in whole seconds to read it.
+const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'the Ledger'];
 const text = (game, id) => game.ids.get(id).innerHTML;
 const currentStep = game => [0, 1, 2, 3, 4, 5, 6].find(i => game.ids.get(`step-${i}`).attributes['aria-current'] === 'step');
 const locked = (game, i) => game.ids.get(`step-${i}`).attributes['aria-disabled'] === 'true';
@@ -283,7 +322,9 @@ function holdView(game) {
   const [edge, plumes] = [...rings.values()].filter(ring => ring.arcs.length > 1).sort((a, b) => a.r - b.r);
   const arcs = (edge?.arcs || []).sort((a, b) => a.start - b.start);
   const leaks = arcs.map((arc, i) => norm(arcs[(i + 1) % arcs.length].start - arc.end));
-  return { leaks, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
+  // Each leak's middle, as an angle round the ring.
+  const centres = arcs.map((arc, i) => norm(arc.end + leaks[i] / 2));
+  return { leaks, centres, radius: edge && round(edge.r), plume: edge && plumes && round(plumes.r - edge.r), words: drawnWords(game) };
 }
 // The Ignite canvas, one frame: the glass jar and the compression in it, and the words drawn.
 // The jar is the widest whole circle stroked. The compression front is a whole circle stroked
@@ -730,7 +771,7 @@ test('startup automatically loads local progress and resets transient closing st
 test('corrupt or incompatible saves are rejected without partly applying them', () => {
   for (const mutate of [d => d.version = 1, d => d.sourceRevision = 'old', d => d.stage = 7, d => d.stages[0].values.power = '80', d => d.stages[0].values.p = -1, d => d.stages[4].values.assumed = 'true', d => d.elapsed = -1, d => d.stages[2].done = false, d => d.stages[3].values.T = 9]) {
     const saved = readSavedRun('ready-to-converge'); mutate(saved);
-    const game = bootFromSavedRun(saved);
+    const game = bootFromSavedRun(saved, { rejected: true });
     assert.equal(currentStep(game), 0, String(mutate)); assert.equal(locked(game, 1), true, String(mutate));
     assert.equal(String(game.ids.get('ig-power').value), '15', 'the saved drive power of 60 is not applied');
   }
@@ -949,7 +990,7 @@ test('electron screening saves with the run and reloads, and a saved run from be
   const reloaded = boot(game.storage);
   assert.equal(currentStep(reloaded), 2); assert.equal(pressed(reloaded, 'fu-screen'), true);
   saved.stages[2].values.screening = 'on';
-  assert.equal(currentStep(bootFromSavedRun(saved)), 0, 'a saved run with a malformed setting starts fresh');
+  assert.equal(currentStep(bootFromSavedRun(saved, { rejected: true })), 0, 'a saved run with a malformed setting starts fresh');
 });
 
 // The Fuel canvas, one frame: the electrons drawn, as the legend's electron dot marks them
@@ -1222,7 +1263,7 @@ test('the source register records the Ignite piston as a source choice: both rev
 });
 
 // The steps, by name, in order.
-const STEP_NAMES = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge'];
+const STEP_NAMES = STEPS.slice(0, 6);
 
 test("the register's 4orbs pages cited table names every step that links each page on its source card, and every step it is weighed for under Source choices", () => {
   const rows = citedPagesTable(), names = (page, step) => new RegExp(`\\b${step}\\b`).test(rows.find(r => r.page === page)?.usedIn || '');
@@ -1518,7 +1559,7 @@ test('a saved run from the previous source revision starts fresh with a visible 
   // The revision before the Fuel step gained its electron-screening control.
   const previous = '4orbs-part3-corrected-2026-11-21-ignite-piston';
   const storage = new Map([['ipt-best-v3', '{"score":1234}']]);
-  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
+  const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage, rejected: true });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
   assert.equal(game.ids.get('restore-status').hidden, false);
   assert.match(text(game, 'restore-status'), /Source assumptions have changed/);
@@ -1595,7 +1636,7 @@ test('older saves without assist fields still restore', () => {
   delete saved.stages[1].values.assist; delete saved.stages[1].values.assisted;
   const game = bootFromSavedRun(saved); assert.equal(currentStep(game), 2);
   click(game, 'step-1'); assert.equal(game.ids.get('ho-assist').attributes['aria-pressed'], 'false');
-  saved.stages[1].values.assist = 'yes'; assert.equal(currentStep(bootFromSavedRun(saved)), 0);
+  saved.stages[1].values.assist = 'yes'; assert.equal(currentStep(bootFromSavedRun(saved, { rejected: true })), 0);
 });
 
 test('locked steps stay focusable, show a lock and explain themselves', () => {
@@ -1603,7 +1644,7 @@ test('locked steps stay focusable, show a lock and explain themselves', () => {
   const steps = text(game, 'steps');
   assert.match(steps, /id="step-2" class="locked" aria-disabled="true"/);
   assert.doesNotMatch(steps, /\sdisabled[\s>]/);
-  click(game, 'step-2');
+  clickLockedStep(game, 2);
   assert.equal(currentStep(game), 0); assert.match(text(game, 'run-status'), /Fuel unlocks after Hold\./);
   game.lab.advance(5); assert.doesNotMatch(text(game, 'run-status'), /unlocks/);
 });
@@ -1764,7 +1805,7 @@ test('a run saves whether its Fuel step was completed with electron screening on
   assert.equal(currentStep(older), 5, 'the older saved run resumes');
   assert.equal(ledgerRows(older).filter(row => SCREENING_ROW.test(row.said)).length, 0, 'no screening row');
   saved.stages[2].values.completedScreened = 'yes';
-  assert.equal(currentStep(bootFromSavedRun(saved)), 0, 'a saved run with a malformed value starts fresh');
+  assert.equal(currentStep(bootFromSavedRun(saved, { rejected: true })), 0, 'a saved run with a malformed value starts fresh');
 });
 
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {
@@ -1776,4 +1817,733 @@ test('convergence audio follows both closing speeds and resumes at matching sour
     assert.ok(Math.abs(bed.options.offset - rate) < 1e-9);
     assert.equal(bed.options.once, true);
   }
+});
+
+// ───────── The 3D view (docs/adr/0003, 0004) ─────────
+// A run booted with the stand-in renderer, after its first flat frame, once the renderer has started.
+async function bootIn3D(fixture, options = {}) {
+  const game = bootFromSavedRun(fixture, { view3d: {}, ...options });
+  paint(game); await settle(); return game;
+}
+// The frame the 3D view draws next, and the entries of one kind in one of its views: a frame
+// holds a view for each camera on screen, side by side, each with its own camera and list.
+const nextScene = game => { const before = game.scenes.length; paint(game); return game.scenes.length > before ? game.scenes.at(-1) : null; };
+const entries = (frame, kind, view = 0) => frame.views[view].list.filter(e => e.kind === kind);
+const cameraOf = (frame, view = 0) => frame.views[view].camera;
+const near = (a, b, why) => assert.ok(Math.abs(a - b) < 1e-9, `${why}: ${a} is not ${b}`);
+const distance = (p, q = [0, 0, 0]) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+// ready-to-converge: a learning run, Formation at 67 m and 134° between the cameras, a 66 m throat.
+const READY = { r: 67, cam: 134, w: 66 };
+
+test('Converge in 3D draws the airliner at the origin at 63.7 by 60.9 m, and three orbs at the Formation for the current triangle size, from the thermal camera', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  const frame = nextScene(game);
+  assert.equal(frame.look, 'heat'); assert.equal(frame.views.length, 1, 'one camera, over the whole canvas');
+  assert.deepEqual([frame.views[0].left, frame.views[0].width, frame.views[0].origin], [0, 390, [195, 292.5 / 2]]);
+  assert.equal(cameraOf(frame).angle, READY.cam, 'the thermal camera keeps the angle between the cameras');
+  near(cameraOf(frame).scale, Math.min(390, 292.5) / 2 / 122, 'and the flat view\'s pixels per metre');
+  const [airliner] = entries(frame, 'airliner');
+  assert.deepEqual(airliner.at, [0, 0, 0]); assert.deepEqual(airliner.size, [60.9, 63.7]);
+  closeThrough(game, [100, 90, 80], shown => {
+    const f = nextScene(game), orbs = entries(f, 'orb'), r = READY.r * shown / 100;
+    assert.equal(orbs.length, 3);
+    for (const o of orbs) near(distance(o.at), r, `an orb at ${shown} %`);
+    for (let i = 0; i < 3; i++) near(distance(orbs[i].at, orbs[(i + 1) % 3].at), r * Math.sqrt(3), 'the triangle is equilateral');
+    assert.deepEqual(entries(f, 'triangle')[0].points, orbs.map(o => o.at));
+  });
+});
+
+test('Converge in 3D: the throat forms only while the triangle closes, and grows steadily', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  assert.equal(entries(nextScene(game), 'throat forming').length, 0, 'not while orbiting');
+  closeThrough(game, [95, 85, 76], shown => {
+    const f = nextScene(game), [throat] = entries(f, 'throat forming');
+    near(throat.amount, (1 - shown / 100) / 0.5, `formed at ${shown} %`);
+    assert.deepEqual(throat.points, entries(f, 'orb').map(o => o.at), 'round the orbs');
+  });
+  game.lab.advance(0.2); click(game, 'cv-go');
+  assert.equal(entries(nextScene(game), 'throat forming').length, 0, 'not once it opens');
+});
+
+test('Converge in 3D: the flash grows as the flat view\'s, the airliner leaves after 18 % of it and the orbs after 45 %', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  openAfter(game, 5);
+  let q = 0;
+  for (const [to, airliner, orbs] of [[0.1, 1, 3], [0.17, 1, 3], [0.19, 0, 3], [0.44, 0, 3], [0.46, 0, 0], [0.9, 0, 0]]) {
+    game.lab.advance((to - q) * 1.6); q = to;
+    for (const view of ['thermal', 'visible']) {
+      click(game, `cv-${view}`);
+      const f = nextScene(game), [flash] = entries(f, 'flash'), R = READY.w / 2 * (0.4 + Math.sin(Math.PI * q));
+      assert.equal(entries(f, 'airliner').length, airliner, `airliner at ${q * 100} %, ${view}`);
+      assert.equal(entries(f, 'orb').length, orbs, `orbs at ${q * 100} %, ${view}`);
+      // The heat camera sees the flash black, colder than the sky; from above it is bright.
+      if (view === 'thermal') {
+        assert.equal(flash.style, 'dark'); near(flash.radius, R, 'the dark flash');
+        // Its rippling edge stays within a fifth of the radius, as the flat view's.
+        assert.equal(flash.edge.length, 41);
+        for (const [x, y] of flash.edge) assert.ok(Math.abs(Math.hypot(x, y) - R) <= R * 0.19 + 1e-9, 'the dark flash\'s edge');
+      }
+      else { assert.equal(flash.style, 'bright'); near(flash.radius, R * 1.5, 'the bright flash, to the edge of its glow'); }
+    }
+  }
+});
+
+test('Converge in 3D: the transit diagram draws the airliner crossing at constant speed, cut at the entrance', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  openAfter(game, 5); click(game, 'cv-transit');
+  let q = 0;
+  for (const to of [0, 0.25, 0.5, 0.75]) {
+    game.lab.advance((to - q) * 1.6); q = to;
+    const f = nextScene(game), [airliner] = entries(f, 'airliner');
+    assert.equal(f.look, 'diagram'); assert.equal(cameraOf(f).angle, 0);
+    assert.deepEqual(airliner.size, [60.9, 63.7]);
+    near(airliner.at[1], 63.7 * (0.5 - q), `centred on the entrance's line ${q * 100} % through`);
+    assert.equal(airliner.cutBeyond, 0, 'nothing past the entrance is drawn');
+  }
+});
+
+test('with reduced motion, the 3D view holds still as the flat view does: no camera drift, and a steady aperture instead of a pulse', async () => {
+  const game = await bootIn3D('ready-to-converge', { reduced: true });
+  const first = nextScene(game); game.lab.advance(1);
+  assert.deepEqual(nextScene(game).views.map(v => v.camera), first.views.map(v => v.camera), 'the camera stays put');
+  openAfter(game, 5);
+  const looks = [0.1, 0.5].map(q => { game.lab.advance(0.2 * 1.6); return entries(nextScene(game), 'flash')[0]; });
+  for (const flash of looks) { assert.equal(flash.style, 'steady'); assert.equal(flash.radius, READY.w / 2); }
+  assert.deepEqual(looks[0], looks[1], 'the aperture does not change as the flash plays');
+  assert.deepEqual(nextScene(game), nextScene(game), 'with no time passing, nothing moves');
+});
+
+test('over the 3D view the 2D canvas draws the flat view\'s words and scale bar, and none of its shapes', async () => {
+  const actions = game => { closeThrough(game, [85], () => {}); };
+  for (const view of ['thermal', 'visible', 'transit']) {
+    const flat = bootFromSavedRun('ready-to-converge'); click(flat, `cv-${view}`); actions(flat); scene(flat);
+    const in3D = await bootIn3D('ready-to-converge'); click(in3D, `cv-${view}`); actions(in3D); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), view);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), `${view}: the 2D canvas clears to show the 3D view`);
+    for (const shape of ['ellipse', 'arc', 'fillRect'].filter(k => view !== 'transit' || k !== 'fillRect')) assert.ok(!in3D.drawing.some(c => c[0] === shape), `${view}: no ${shape} on the 2D canvas`);
+    assert.equal(in3D.ids.get('gl').hidden, false, `${view}: the 3D canvas shows`);
+  }
+});
+
+// Orbit's two cameras, side by side as the flat view draws them: camera 1 looks from above on
+// the left half, camera 2 on the right, each centred 6 px below the canvas's middle.
+const ORBIT_SCALE = Math.min(195, 292.5) / 2 / 104, ORBIT_CENTRE_Y = 292.5 / 2 + 6;
+// The Orbit step of a run whose earlier steps are done, with the Formation set as given.
+async function orbitIn3D(settings = {}, options = {}) {
+  const game = await bootIn3D(savedRunOn(3), options);
+  for (const [id, value] of Object.entries(settings)) slide(game, id, value);
+  return game;
+}
+const orbAts = (frame, view) => entries(frame, 'orb', view).map(o => o.at);
+
+test('Orbit in 3D draws both cameras side by side: camera 1 from above, camera 2 turned by the angle between the cameras the player sets', async () => {
+  const game = await orbitIn3D();
+  const frame = nextScene(game);
+  assert.equal(frame.look, 'visible'); assert.equal(frame.views.length, 2);
+  frame.views.forEach((v, i) => {
+    assert.deepEqual([v.left, v.width, v.origin], [195 * i, 195, [195 * (i + .5), ORBIT_CENTRE_Y]], `camera ${i + 1} has its half of the canvas`);
+    near(v.camera.scale, ORBIT_SCALE, `camera ${i + 1} keeps the flat view's pixels per metre`);
+  });
+  assert.equal(cameraOf(frame, 0).angle, 0, 'camera 1 looks from above');
+  assert.equal(cameraOf(frame, 1).angle, 40, 'camera 2 at the fresh step\'s 40°');
+  for (const cam of [123, 134, 180]) { slide(game, 'or-c', cam); assert.equal(cameraOf(nextScene(game), 1).angle, cam, `camera 2 follows the slider to ${cam}°`); }
+});
+
+test('Orbit in 3D holds the airliner prop and three orbs at the Formation in both cameras, and each camera shows the orbs where the flat view draws them', async () => {
+  const game = await orbitIn3D({ 'or-r': 66, 'or-c': 129 });
+  playFor(game, 0.75);
+  const frame = nextScene(game);
+  for (const view of [0, 1]) {
+    const [airliner] = entries(frame, 'airliner', view);
+    assert.deepEqual(airliner.at, [0, 0, 0]); assert.deepEqual(airliner.size, [60.9, 63.7]);
+    const ats = orbAts(frame, view);
+    assert.equal(ats.length, 3);
+    for (const at of ats) near(distance(at), 66, `an orb 66 m out in camera ${view + 1}`);
+    for (let i = 0; i < 3; i++) near(distance(ats[i], ats[(i + 1) % 3]), 66 * Math.sqrt(3), 'the triangle is equilateral');
+    assert.deepEqual(entries(frame, 'triangle', view)[0].points, ats, 'the triangle joins the orbs');
+  }
+  assert.deepEqual(orbAts(frame, 1), orbAts(frame, 0), 'both cameras see one Formation');
+  // The same moment in the flat view: each camera's orbs sit where its camera puts them.
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  const flat = orbitCameras(game);
+  frame.views.forEach((v, i) => {
+    orbAts(frame, i).forEach((at, j) => {
+      const [x, y] = game.lab.camB(at, v.camera.angle);
+      near(flat[i][j].x, v.origin[0] + x * v.camera.scale, `camera ${i + 1}, orb ${j + 1} across`);
+      near(flat[i][j].y, v.origin[1] + y * v.camera.scale, `camera ${i + 1}, orb ${j + 1} down`);
+    });
+  });
+});
+
+test('Orbit in 3D: the matched Formation\'s glow builds over the hold in both cameras as the flat view\'s, and reduced motion shows it settled at once', async () => {
+  const ranges = formationRanges(), matched = Object.fromEntries(Object.entries(ranges).map(([id, [lo, hi]]) => [id, (lo + hi) / 2]));
+  const px = n => n / ORBIT_SCALE;
+  const glows = frame => [0, 1].map(view => entries(frame, 'formation glow', view));
+  const expect = (glow, amount, why) => {
+    near(glow.amount, amount, why);
+    near(glow.ring, px(12 + 18 * amount), `${why}: rings`); near(glow.pad, px(10 + 14 * amount), `${why}: outline`);
+    near(glow.width, px(1.25 + 1.75 * amount), `${why}: line width`); near(glow.opacity, .28 + .67 * amount, `${why}: opacity`);
+  };
+  const unmatched = await orbitIn3D();
+  for (const g of glows(nextScene(unmatched))) assert.equal(g.length, 0, 'no glow while the Formation is off');
+  const game = await orbitIn3D(matched);
+  let heldSoFar = 0;
+  for (const [held, amount] of [[0.5, 1 / 3], [1, 2 / 3], [1.5, 1]]) {
+    playFor(game, held - heldSoFar); heldSoFar = held;
+    const frame = nextScene(game);
+    glows(frame).forEach(([glow], view) => {
+      expect(glow, amount, `camera ${view + 1} after ${held} s held`);
+      assert.deepEqual(glow.points, orbAts(frame, view), 'round the orbs');
+    });
+  }
+  const still = await orbitIn3D(matched, { reduced: true });
+  playFor(still, 0.125);
+  for (const [glow] of glows(nextScene(still))) expect(glow, 1, 'reduced motion');
+});
+
+test('over Orbit\'s 3D view the 2D canvas draws the titles, scale bar, divider and tracked rings, and no orbs or airliner', async () => {
+  const flat = bootFromSavedRun(savedRunOn(3)); scene(flat);
+  const in3D = await orbitIn3D(); scene(in3D);
+  assert.deepEqual(drawnWords(in3D), drawnWords(flat));
+  assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+  for (const shape of ['ellipse', 'fillRect', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas`);
+  // The tracked rings are diagram marks: the 2D canvas draws them where the flat view does, and no other circles.
+  const rings = game => game.drawing.filter(c => c[0] === 'arc' && c[3] === 7);
+  assert.equal(rings(flat).length, 6, 'three tracked rings in each camera');
+  assert.deepEqual(rings(in3D), rings(flat));
+  assert.equal(in3D.drawing.filter(c => c[0] === 'arc').length, 6, 'no orbs or glow on the 2D canvas');
+  assert.equal(in3D.ids.get('gl').hidden, false, 'the 3D canvas shows');
+});
+
+// Open's three views in 3D. The throat is at the flat view's scale, in metres. The plates and
+// the plasma cavity are schematics: their camera's scale is the lab's, 9 % of the canvas's
+// shorter side to the tenth of a metre, so the plate mount prop, at its real 100 mm, stands that tall.
+const LAB_SCALE = Math.min(390, 292.5) * 0.9, PLATE_MOUNT_HEIGHT = 0.1;
+// The Open step of a run whose earlier steps are done, showing `view`, its sliders set as given.
+async function openIn3D(view, settings = {}, options = {}) {
+  const game = await bootIn3D(savedRunOn(4), options);
+  click(game, `op-${view}`);
+  for (const [id, value] of Object.entries(settings)) slide(game, id, value);
+  return game;
+}
+
+test('the 3D view loads the airliner, the plate mount, the vacuum chamber, the piston housing and the pump handle props', async () => {
+  const game = await openIn3D('plates');
+  assert.deepEqual({ ...game.view3d.given.props }, { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb', pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb' });
+});
+
+test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the area the player sets, as the flat view draws them, each held by a plate mount prop at its real 100 mm', async () => {
+  for (const [ld, la] of [[3, 0], [1, 6], [4, 2.5]]) {
+    const game = await openIn3D('plates', { 'op-d': ld, 'op-a': la }), frame = nextScene(game);
+    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)'); assert.equal(frame.views.length, 1);
+    assert.deepEqual([frame.views[0].left, frame.views[0].width, frame.views[0].origin], [0, 390, [195, 292.5 / 2]]);
+    assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
+    // The flat view's plates, in pixels: centred 47 % of the way down, the gap and height set by the logarithmic controls.
+    const gap = 390 * (0.06 + (ld - 1) / 3 * 0.32), height = 292.5 * (0.22 + la / 6 * 0.25), cy = (292.5 * 0.47 - 292.5 / 2) / LAB_SCALE;
+    const plates = entries(frame, 'plate');
+    assert.equal(plates.length, 2, `two plates at ${ld}, ${la}`);
+    plates.forEach((p, i) => {
+      const side = i ? 1 : -1;
+      near(p.at[0], side * gap / 2 / LAB_SCALE, 'each plate half the gap from the middle'); near(p.at[1], cy, 'at the flat view\'s height'); assert.equal(p.at[2], 0);
+      near(p.size[0], 8 / LAB_SCALE, '8 px thick'); near(p.size[1], height / LAB_SCALE, 'as tall as the flat view\'s');
+    });
+    const [glow] = entries(frame, 'gap glow');
+    near(glow.size[0], gap / LAB_SCALE, 'the glow fills the gap'); near(glow.size[1], height / LAB_SCALE, 'and the plates\' height');
+    const mounts = entries(frame, 'plate mount');
+    assert.equal(mounts.length, 2);
+    mounts.forEach((m, i) => {
+      assert.equal(m.height, PLATE_MOUNT_HEIGHT, 'at real size');
+      assert.deepEqual(m.at, [plates[i].at[0], plates[i].at[1] + plates[i].size[1] / 2, 0], 'its post holds the plate\'s lower edge');
+      assert.deepEqual(Object.keys(m).sort(), ['at', 'colour', 'height', 'kind'], 'kind, place, size and colour only (docs/adr/0003)');
+    });
+  }
+});
+
+// The gap's measure line on the plates view: the straight lines stroked from one plate to the
+// other, at the gap's width about the canvas's middle, as [y, from x, to x] in canvas pixels.
+function gapMeasureLines(game, ld) {
+  const gap = 390 * (0.06 + (ld - 1) / 3 * 0.32), lines = [];
+  game.drawing.length = 0; paint(game);
+  let at = null;
+  for (const call of game.drawing) {
+    if (call[0] === 'moveTo') at = call.slice(1, 3);
+    else if (call[0] === 'lineTo' && at) {
+      if (Math.abs(at[1] - call[2]) < 1e-9 && Math.abs(Math.abs(call[1] - at[0]) - gap) < 1e-9) lines.push([at[1], at[0], call[1]]);
+      at = call.slice(1, 3);
+    }
+  }
+  return lines;
+}
+
+test('Open\'s plates in 3D keep the gap\'s measure line where the flat view draws it, over the plate mounts', async () => {
+  for (const [ld, la] of [[3, 0], [1, 6]]) {
+    const flat = bootFromSavedRun(savedRunOn(4));
+    click(flat, 'op-plates'); slide(flat, 'op-d', ld); slide(flat, 'op-a', la);
+    const shown = await openIn3D('plates', { 'op-d': ld, 'op-a': la });
+    const want = gapMeasureLines(flat, ld);
+    assert.equal(want.length, 1, `one measure line in the flat view at ${ld}, ${la}`);
+    assert.deepEqual(gapMeasureLines(shown, ld), want, 'the same line over the 3D view (the 2D canvas is in front of the mounts)');
+  }
+});
+
+test('Open\'s throat in 3D: the airliner at the origin, and the throat below it as wide as the player sets and as open as the flat view\'s', async () => {
+  const game = await openIn3D('throat', { 'op-w': 80 });
+  click(game, 'op-assume');
+  const frame = nextScene(game);
+  assert.equal(frame.look, 'visible');
+  assert.deepEqual(cameraOf(frame), { angle: 0, scale: Math.min(390, 292.5) / 2 / 122 }, 'from above, at the flat view\'s scale');
+  const [airliner] = entries(frame, 'airliner'), [throat] = entries(frame, 'throat');
+  assert.deepEqual([airliner.at, airliner.size], [[0, 0, 0], [60.9, 63.7]]);
+  assert.equal(throat.radius, 40, 'held open by the orbs, half the 80 m width');
+  assert.equal(throat.at[0], 0); assert.equal(throat.at[1], 0); assert.ok(throat.at[2] > 0, 'below the airliner, away from the camera');
+  slide(game, 'op-w', 30); assert.equal(entries(nextScene(game), 'throat')[0].radius, 15);
+  // Without the orbs it pulses open and pinches shut, as the flat view's: never wider than the width set.
+  click(game, 'op-assume'); // releasing the throat also resumes play
+  const radii = [];
+  for (let i = 0; i < 12; i++) { game.lab.advance(0.25); radii.push(entries(nextScene(game), 'throat')[0]?.radius ?? 0); }
+  assert.ok(radii.every(r => r >= 0 && r <= 15), radii.join(', '));
+  assert.ok(new Set(radii).size > 3, `it moves: ${radii}`);
+});
+
+test('Open\'s plasma cavity in 3D: the bubble is as big as the flat view\'s and collapses with it, and reduced motion holds it still', async () => {
+  const flat = bootFromSavedRun(savedRunOn(4)); click(flat, 'op-cavity'); click(flat, 'pause');
+  const game = await openIn3D('cavity'); click(game, 'pause');
+  for (let i = 0; i < 4; i++) {
+    flat.lab.advance(0.25); game.lab.advance(0.25);
+    const frame = nextScene(game), [bubble] = entries(frame, 'bubble');
+    assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE });
+    near(bubble.radius * LAB_SCALE, cavityView(flat).bubble, `the bubble at ${(i + 1) / 4} s`);
+  }
+  assert.ok(entries(nextScene(game), 'specks')[0].points.length > 20, 'the vacuum\'s fluctuations round it');
+  const still = await openIn3D('cavity', {}, { reduced: true }); click(still, 'pause');
+  const first = nextScene(still);
+  for (let i = 0; i < 6; i++) { still.lab.advance(0.25); assert.deepEqual(nextScene(still), first, `nothing moves after ${(i + 1) / 4} s`); }
+});
+
+test('over Open\'s 3D views the 2D canvas draws the flat view\'s words and marks, and none of its shapes', async () => {
+  for (const view of ['plates', 'throat', 'cavity']) {
+    const flat = bootFromSavedRun(savedRunOn(4)); click(flat, `op-${view}`); scene(flat);
+    const in3D = await openIn3D(view); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), view);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), `${view}: the 2D canvas clears to show the 3D view`);
+    for (const shape of ['fillRect', 'createRadialGradient', 'createLinearGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `${view}: no ${shape} on the 2D canvas`);
+    assert.equal(in3D.ids.get('gl').hidden, false, `${view}: the 3D canvas shows`);
+  }
+  // The throat's marks stay on the 2D canvas: the dashed circle of the width set, and the wingtip rings.
+  const flat = bootFromSavedRun(savedRunOn(4)); click(flat, 'op-throat'); slide(flat, 'op-w', 40); scene(flat);
+  const in3D = await openIn3D('throat', { 'op-w': 40 }); scene(in3D);
+  const sc = Math.min(390, 292.5) / 2 / 122, marks = game => game.drawing.filter(c => c[0] === 'arc' && (c[3] === 7 || Math.abs(c[3] - 20 * sc) < 1e-9));
+  assert.equal(marks(flat).length, 3, 'the width circle and two wingtip rings');
+  assert.deepEqual(in3D.drawing.filter(c => c[0] === 'arc'), marks(flat));
+});
+
+// The Hold step of a run whose first step is done, with the stand-in renderer.
+const holdIn3D = (options = {}) => bootIn3D(savedRunOn(1), options);
+// Where a point in the Hold and Open schematics' frame falls on the canvas, in pixels: the
+// scene's origin is the canvas's middle, 390 by 292.5 px, at the lab's scale.
+const labPixels = ([x, y]) => [195 + x * LAB_SCALE, 292.5 / 2 + y * LAB_SCALE];
+// The flat Hold canvas's plasma ball, one frame: its glow's centre and radius, in pixels.
+function holdBall(game) {
+  game.drawing.length = 0; paint(game);
+  const glow = game.drawing.find(c => c[0] === 'createRadialGradient' && c[3] === 0);
+  return { at: [glow[4], glow[5]], radius: glow[6] };
+}
+// The flat Hold canvas's coils, one frame: each coil half's box, in pixels, its fill's opacity
+// and its outline's colour.
+function holdCoils(game) {
+  game.drawing.length = 0; paint(game);
+  return game.drawing.flatMap((c, i) => c[0] !== 'fillRect' || c[4] !== 12 ? [] : [{
+    box: c.slice(1), opacity: +settingAt(game.drawing, i, 'fillStyle').match(/,\s*([\d.]+)\)$/)[1],
+    edge: settingAt(game.drawing, game.drawing.findIndex((d, j) => j > i && d[0] === 'strokeRect'), 'strokeStyle')
+  }]);
+}
+// The flat Hold canvas's chamber walls, one frame: the straight up-and-down lines stroked away
+// from the canvas's middle, as [x, top, bottom] in pixels.
+function holdWalls(game) {
+  game.drawing.length = 0; paint(game);
+  const walls = [];
+  game.drawing.forEach((c, i) => {
+    const prev = game.drawing[i - 1];
+    if (c[0] === 'lineTo' && prev[0] === 'moveTo' && prev[1] === c[1] && c[1] !== 195) walls.push([c[1], Math.min(prev[2], c[2]), Math.max(prev[2], c[2])]);
+  });
+  return walls;
+}
+
+test('Hold in 3D: a diagram side on at the lab\'s scale, with the plasma ball and its cusp leaks where, as big and as open as the flat view draws them, inside and outside the beta band', async () => {
+  for (const reduced of [false, true]) {
+    const flat = bootFromSavedRun(savedRunOn(1), { reduced }), game = await holdIn3D({ reduced });
+    let t = 0;
+    for (const [name, beta] of [...IN_BAND, ...OUT_OF_BAND]) {
+      holdSteady(flat, .5, { beta, from: t }); t = holdSteady(game, .5, { beta, from: t });
+      const why = `${name}${reduced ? ', reduced motion' : ''}`, frame = nextScene(game);
+      assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)');
+      assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
+      const want = holdView(flat), ball = holdBall(flat), [drawn] = entries(frame, 'plasma ball'), [leaks] = entries(frame, 'cusp leaks');
+      labPixels(drawn.at).forEach((v, k) => near(v, ball.at[k], `the ball where the flat view draws it at ${why}`));
+      assert.equal(drawn.at[2], 0); near(drawn.radius * LAB_SCALE, ball.radius, `the ball as big at ${why}`);
+      assert.deepEqual(leaks.at, drawn.at, 'the leaks are round the ball');
+      // holdView gives the flat view's radii to the nearest millionth of a pixel.
+      const px = n => Math.round(n * LAB_SCALE * 1e6) / 1e6;
+      assert.equal(px(leaks.edge), want.radius, `the field's edge at ${why}`);
+      assert.equal(px(leaks.plume - leaks.edge), want.plume, `the plumes' reach at ${why}`);
+      assert.equal(leaks.angles.length, 6, 'six cusp leaks');
+      // holdView measures each gap between arcs it has rounded to the millionth of a radian.
+      want.leaks.forEach((gap, i) => assert.ok(Math.abs(2 * leaks.halfAngle - gap) < 3e-6, `leak ${i} as open at ${why}: ${2 * leaks.halfAngle} is not ${gap}`));
+      const turn = 2 * Math.PI, norm = a => Math.round(((a % turn) + turn) % turn * 1e6) / 1e6 % turn;
+      const centres = [...want.centres].sort((a, b) => a - b);
+      leaks.angles.map(norm).sort((a, b) => a - b).forEach((a, i) => assert.ok(Math.abs(a - centres[i]) < 3e-6, `the leaks point where the flat view's do at ${why}: ${a} is not ${centres[i]}`));
+      const edgeArc = flat.drawing.findIndex(c => c[0] === 'arc' && c[5] - c[4] < turn - 1e-9);
+      assert.equal(leaks.colour, settingAt(flat.drawing, edgeArc, 'strokeStyle'), `coloured as the flat view's at ${why}`);
+    }
+  }
+});
+
+test('Hold in 3D: the coils where the flat view draws them, each half as bright as the flat view\'s for the field and trim set', async () => {
+  for (const [beta, trim] of [[.9, 0], [.5, 1], [1.5, -1], [Infinity, .5]]) {
+    const flat = bootFromSavedRun(savedRunOn(1)), game = await holdIn3D();
+    holdSteady(flat, .3, { beta, trim }); holdSteady(game, .3, { beta, trim });
+    const halves = holdCoils(flat), coils = entries(nextScene(game), 'coil');
+    assert.equal(halves.length, 4, 'the flat view draws two coils, each in two halves'); assert.equal(coils.length, 2, `two coils at beta ${beta}, trim ${trim}`);
+    for (const { box: [x, y, w, h], opacity, edge } of halves) {
+      const coil = coils.find(c => Math.abs(labPixels(c.at)[1] - (y + h / 2)) < 1e-9);
+      assert.ok(coil, `a coil at y ${y + h / 2}`); assert.equal(coil.at[0], 0); assert.equal(coil.at[2], 0);
+      near((coil.radius + coil.tube) * LAB_SCALE, w, 'reaching as far out as the flat view\'s'); near(2 * coil.tube * LAB_SCALE, h, 'as thick');
+      near(coil.opacity[x < 195 ? 0 : 1], opacity, `the ${x < 195 ? 'left' : 'right'} half as bright at beta ${beta}, trim ${trim}`);
+      assert.equal(coil.edge, edge, 'outlined in the flat view\'s colour');
+    }
+  }
+});
+
+test('Hold in 3D: a vacuum chamber prop, its walls where the flat view draws them, listed by kind, place, size and colour only', async () => {
+  const flat = bootFromSavedRun(savedRunOn(1)), game = await holdIn3D();
+  holdSteady(flat, .3); holdSteady(game, .3);
+  const walls = holdWalls(flat), chambers = entries(nextScene(game), 'vacuum chamber');
+  assert.equal(walls.length, 2, 'the flat view draws two walls'); assert.equal(chambers.length, 1);
+  const [c] = chambers;
+  assert.deepEqual(Object.keys(c).sort(), ['at', 'colour', 'height', 'kind', 'radius'], 'kind, place, size and colour only (docs/adr/0003)');
+  for (const [x, top, bottom] of walls) {
+    near(c.radius * LAB_SCALE, Math.abs(x - 195), 'its wall where the flat view\'s is');
+    near(c.height * LAB_SCALE, bottom - top, 'as tall'); near(labPixels(c.at)[1], (top + bottom) / 2, 'at the same height');
+  }
+  assert.equal(c.at[0], 0); assert.equal(c.at[2], 0);
+});
+
+test('Hold in 3D: the plasma\'s particles where the flat view draws them, each as faint', async () => {
+  const game = await holdIn3D();
+  holdSteady(game, .5, { beta: 1.4 });
+  const [specks] = entries(nextScene(game), 'specks');
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  game.drawing.length = 0; paint(game);
+  const dots = game.drawing.flatMap((c, i) => c[0] === 'arc' && c[3] === 1.6 ? [{ at: [c[1], c[2]], opacity: settingAt(game.drawing, i, 'globalAlpha') }] : []);
+  const fill = settingAt(game.drawing, game.drawing.findIndex(c => c[0] === 'arc' && c[3] === 1.6), 'fillStyle');
+  assert.equal(dots.length, 80, 'the flat view draws 80 particles'); assert.equal(specks.points.length, 80);
+  dots.forEach((dot, i) => {
+    labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `particle ${i} where the flat view draws it`));
+    near(specks.opacities[i], dot.opacity * +fill.match(/,\s*([\d.]+)\)$/)[1], `particle ${i} as faint`);
+  });
+  near(specks.size * LAB_SCALE, 3.2, 'each as wide as the flat view\'s dots'); assert.equal(specks.round, true, 'round, as the flat view\'s dots');
+});
+
+test('over Hold\'s 3D view the 2D canvas draws the flat view\'s words and marks: the walls, the middle line and the field lines, and none of its shapes', async () => {
+  for (const beta of [.9, 1.5, Infinity]) {
+    const flat = bootFromSavedRun(savedRunOn(1)), in3D = await holdIn3D();
+    holdSteady(flat, .3, { beta }); holdSteady(in3D, .3, { beta });
+    scene(flat); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), `words at beta ${beta}`);
+    // The marks the flat view draws before the plasma ball; the cusp leaks round it are in 3D.
+    const ball = flat.drawing.findIndex(c => c[0] === 'createRadialGradient');
+    // As JSON: each game runs in its own context, so their arrays' prototypes differ.
+    const marks = drawing => JSON.stringify(drawing.filter(c => ['moveTo', 'lineTo', 'ellipse', 'setLineDash'].includes(c[0])));
+    assert.equal(marks(in3D.drawing), marks(flat.drawing.slice(0, ball)), `marks at beta ${beta}`);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+    for (const shape of ['fillRect', 'strokeRect', 'arc', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas at beta ${beta}`);
+  }
+});
+
+// The Fuel step of a run whose first two steps are done, with the stand-in renderer.
+const fuelIn3D = (options = {}) => bootIn3D(savedRunOn(2), options);
+// Sets the Fuel step's fuel, temperature (log10 of keV, as the slider) and electron screening,
+// then plays `seconds` of it.
+function fuelPlay(game, { fuel, lt, screening, seconds = 2 }) {
+  click(game, `fu-${fuel}`); if (pressed(game, 'fu-screen') !== screening) click(game, 'fu-screen');
+  slide(game, 'fu-t', lt);
+  for (let i = 0; i < seconds * 60; i++) game.lab.advance(1 / 60);
+}
+// The flat Fuel canvas, one frame, in pixels: its wall, its core's glow, and the dots of each
+// size it fills round the core (the legend's dots, at x 38, aside), each with its fill.
+function fuelShapes(game) {
+  game.drawing.length = 0; paint(game);
+  const d = game.drawing, wall = d.findIndex(c => c[0] === 'arc'), glow = d.find(c => c[0] === 'createRadialGradient');
+  const dots = r => d.flatMap((c, i) => c[0] === 'arc' && c[3] === r && c[1] !== 38 ? [{ at: [c[1], c[2]], fill: settingAt(d, i, 'fillStyle') }] : []);
+  return { wall: { at: d[wall].slice(1, 3), radius: d[wall][3], width: settingAt(d, wall, 'lineWidth'), colour: settingAt(d, wall, 'strokeStyle') },
+    glow: glow && { at: glow.slice(1, 3), radius: glow[6], stops: glow.stops },
+    helium: dots(2.8), neutrons: dots(2.2), electrons: dots(1.3), spots: dots(5) };
+}
+// The same frame with the 3D view turned off, so the flat view draws the state the scene showed.
+function flatAfter(game) {
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  return fuelShapes(game);
+}
+const rgba = colour => colour.match(/^rgba?\(([^)]+)\)$/)[1].split(',').map(Number);
+const hexOf = ([r, g, b]) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+const FUEL_CASES = ['dt', 'pb'].flatMap(fuel => [false, true].flatMap(screening => [[fuel, screening, .3], [fuel, screening, fuel === 'dt' ? 1.8 : 2.8]]));
+
+test('Fuel in 3D: a diagram end on at the lab\'s scale, where what burns and how much come from the fuel\'s activity: the helium and the neutrons where the flat view draws them, for both fuels, with electron screening on and off', async () => {
+  const counts = {};
+  for (const [fuel, screening, lt] of FUEL_CASES) {
+    const game = await fuelIn3D(), why = `${fuel} at ${(10 ** lt).toFixed(1)} keV${screening ? ', screened' : ''}`;
+    fuelPlay(game, { fuel, lt, screening });
+    const frame = nextScene(game), list = frame.views[0].list, flat = flatAfter(game);
+    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)');
+    assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'end on, at the lab\'s scale');
+    for (const kind of ['helium', 'neutrons']) {
+      const dots = flat[kind], [specks] = list.filter(e => e.kind === 'specks' && e.of === kind);
+      assert.ok(specks, `${kind} listed at ${why}`);
+      assert.equal(specks.points.length, dots.length, `as many ${kind} as the flat view draws at ${why}`);
+      if (dots.length) assert.equal(specks.colour, dots[0].fill, `${kind} coloured as the flat view's`);
+      dots.forEach((dot, i) => labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `${kind} ${i} where the flat view draws it at ${why}`)));
+      near(specks.size * LAB_SCALE, kind === 'helium' ? 5.6 : 4.4, `${kind} as wide as the flat view's dots`); assert.equal(specks.round, true);
+      counts[`${why} ${kind}`] = dots.length;
+    }
+  }
+  // Independently of the flat view: deuterium + tritium throws out neutrons, hydrogen + boron-11
+  // none, and a fuel that burns makes more helium than one that barely does.
+  assert.ok(counts['dt at 63.1 keV neutrons'] > 0 && counts['dt at 63.1 keV, screened neutrons'] > 0, JSON.stringify(counts));
+  for (const key of Object.keys(counts)) if (key.startsWith('pb') && key.endsWith('neutrons')) assert.equal(counts[key], 0, key);
+  assert.ok(counts['pb at 631.0 keV helium'] > counts['pb at 2.0 keV helium'], JSON.stringify(counts));
+  assert.ok(counts['dt at 63.1 keV helium'] > counts['dt at 2.0 keV helium'], JSON.stringify(counts));
+});
+
+test('Fuel in 3D: the screening electrons, when screening is on, where the flat view draws them', async () => {
+  for (const screening of [false, true]) {
+    const game = await fuelIn3D();
+    fuelPlay(game, { fuel: 'pb', lt: 1.5, screening });
+    const list = nextScene(game).views[0].list, flat = flatAfter(game);
+    const electrons = list.filter(e => e.kind === 'specks' && e.of === 'electrons');
+    assert.equal(flat.electrons.length, screening ? 36 : 0, 'the flat view draws 36 electrons when screening is on');
+    if (!screening) { assert.equal(electrons.length, 0, 'no electrons listed with screening off'); continue; }
+    const [specks] = electrons;
+    assert.equal(specks.points.length, 36); assert.equal(specks.colour, flat.electrons[0].fill); assert.equal(specks.round, true);
+    near(specks.size * LAB_SCALE, 2.6, 'as wide as the flat view\'s dots');
+    flat.electrons.forEach((dot, i) => labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `electron ${i} where the flat view draws it`)));
+  }
+});
+
+test('Fuel in 3D: the core glows as big and as bright as the flat view\'s for its temperature, and the wall is where the flat view draws it, coloured by its exposure, with each neutron\'s impact on it', async () => {
+  for (const [fuel, screening, lt] of FUEL_CASES) {
+    const game = await fuelIn3D(), why = `${fuel} at ${(10 ** lt).toFixed(1)} keV${screening ? ', screened' : ''}`;
+    fuelPlay(game, { fuel, lt, screening, seconds: 3 });
+    const list = nextScene(game).views[0].list, flat = flatAfter(game);
+    const [glow] = list.filter(e => e.kind === 'core glow'), [wall] = list.filter(e => e.kind === 'reactor wall');
+    labPixels(glow.at).forEach((v, k) => near(v, flat.glow.at[k], `the glow where the flat view's is at ${why}`));
+    near(glow.radius * LAB_SCALE, flat.glow.radius, `as big at ${why}`);
+    const [[at0, inner], [at1, outer]] = flat.glow.stops, [r, g, b, a] = rgba(inner), [r1, g1, b1, a1] = rgba(outer);
+    assert.deepEqual([at0, at1, a1], [0, 1, 0], 'the flat view fades from the middle to nothing at the edge');
+    assert.equal(glow.core, hexOf([r, g, b]), `its middle coloured as the flat view's at ${why}`); near(glow.opacity, a, `as bright at ${why}`);
+    assert.equal(glow.colour, hexOf([r1, g1, b1]), 'fading to the flat view\'s edge colour');
+    labPixels(wall.at).forEach((v, k) => near(v, flat.wall.at[k], `the wall where the flat view's is at ${why}`));
+    near(wall.radius * LAB_SCALE, flat.wall.radius, 'as big'); near(wall.width * LAB_SCALE, flat.wall.width, 'as wide');
+    assert.equal(wall.colour, flat.wall.colour, `coloured by the exposure, as the flat view's, at ${why}`);
+    const [spots] = list.filter(e => e.kind === 'specks' && e.of === 'impacts');
+    assert.equal(spots.points.length, flat.spots.length, `as many impacts as the flat view draws at ${why}`);
+    flat.spots.forEach((spot, i) => {
+      labPixels(spots.points[i]).forEach((v, k) => near(v, spot.at[k], `impact ${i} where the flat view draws it`));
+      const [sr, sg, sb, sa] = rgba(spot.fill);
+      assert.equal(spots.colour, hexOf([sr, sg, sb])); near(spots.opacities[i], sa, `impact ${i} as faint`);
+    });
+    near(spots.size * LAB_SCALE, 10, 'each as wide as the flat view\'s'); assert.equal(spots.round, true);
+    if (fuel === 'dt' && lt > 1) assert.ok(flat.spots.length > 0, `neutrons strike the wall at ${why}`);
+  }
+});
+
+test('over Fuel\'s 3D view the 2D canvas draws the flat view\'s words and marks: the field\'s edge and the legend, and none of its shapes', async () => {
+  for (const screening of [false, true]) {
+    const flat = bootFromSavedRun(savedRunOn(2)), in3D = await fuelIn3D();
+    // Cool, so no products are drawn, and the two runs' random products can't differ.
+    for (const game of [flat, in3D]) fuelPlay(game, { fuel: 'dt', lt: 0, screening, seconds: .5 });
+    scene(flat); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), `words${screening ? ', screened' : ''}`);
+    const R = Math.min(390, 292.5) * 0.34;
+    // The dashed field's edge, and the legend's dots at x 38, are marks; the rest are shapes, in 3D.
+    const marks = drawing => JSON.stringify(drawing.filter(c => c[0] === 'setLineDash' || c[0] === 'arc' && (c[1] === 38 || Math.abs(c[3] - R * 0.6) < 1e-9)));
+    assert.equal(marks(in3D.drawing), marks(flat.drawing), `marks${screening ? ', screened' : ''}`);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+    assert.equal(in3D.drawing.filter(c => c[0] === 'arc').length, screening ? 4 : 3, 'only the field\'s edge and the legend\'s dots are arcs');
+    for (const shape of ['fillRect', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas`);
+  }
+});
+
+// The Ignite step reloaded at drive power 60 and `p` torr, with the stand-in renderer.
+const igniteAt = (p, options = {}) => bootFromSavedRun(savedRunOn(0, d => Object.assign(d.stages[0].values, { power: 60, p })), options);
+const igniteIn3D = (p, options = {}) => bootIn3D(savedRunOn(0, d => Object.assign(d.stages[0].values, { power: 60, p })), options);
+// The flat Ignite canvas, one frame, in pixels: the pump's pipe, barrel, piston head, rod and
+// handle; the plasma's glow; the jar and the haze in it; the ions and electrons (the legend's
+// dots, at x 38, aside); and the dashed front the piston presses the plasma to, or null.
+function igniteShapes(game) {
+  game.drawing.length = 0; paint(game);
+  const d = game.drawing, fills = d.flatMap((c, i) => c[0] === 'fillRect' && (c[1] || c[2]) ? [{ box: c.slice(1), fill: settingAt(d, i, 'fillStyle') }] : []);
+  const pipe = d.findIndex(c => c[0] === 'lineTo'), barrel = d.findIndex(c => c[0] === 'strokeRect'), glow = d.find(c => c[0] === 'createRadialGradient');
+  const arcs = d.flatMap((c, i) => c[0] === 'arc' && c[1] !== 38 ? [{ at: [c[1], c[2]], r: c[3], i }] : []);
+  // The jar: the circle its haze fills a pixel inside.
+  const haze = arcs.find(c => arcs.some(o => Math.abs(o.r - 1 - c.r) < 1e-9)), jar = arcs.find(o => Math.abs(o.r - 1 - haze.r) < 1e-9);
+  const after = (i, call) => d.slice(i + 1).find(c => c[0] === 'stroke' || c[0] === 'fill')?.[0] === call;
+  const ring = arcs.find(c => c !== jar && after(c.i, 'stroke') && JSON.stringify(settingAt(d, c.i, 'setLineDash')) === '[5,4]');
+  const dots = r => arcs.filter(c => c.r === r).map(c => ({ at: c.at, fill: settingAt(d, c.i, 'fillStyle') }));
+  const [head, rod, handle] = fills;
+  return {
+    pipe: { from: d[pipe - 1].slice(1, 3), to: d[pipe].slice(1, 3), width: settingAt(d, pipe, 'lineWidth'), colour: settingAt(d, pipe, 'strokeStyle') },
+    barrel: { box: d[barrel].slice(1), colour: settingAt(d, barrel, 'strokeStyle') }, head, rod, handle,
+    glow: glow ? { at: glow.slice(1, 3), radius: glow[6], stops: glow.stops } : null,
+    jar: { at: jar.at, radius: jar.r, width: settingAt(d, jar.i, 'lineWidth'), colour: settingAt(d, jar.i, 'strokeStyle') },
+    haze: { radius: haze.r, fill: settingAt(d, haze.i, 'fillStyle') },
+    ions: dots(4), electrons: dots(1.8),
+    front: ring ? { at: ring.at, radius: ring.r, width: settingAt(d, ring.i, 'lineWidth'), colour: settingAt(d, ring.i, 'strokeStyle'), opacity: settingAt(d, ring.i, 'globalAlpha') } : null
+  };
+}
+// The same frame with the 3D view turned off, so the flat Ignite view draws the state the scene showed.
+function flatAfterIgnite(game) {
+  const toggle = game.ids.get('view-3d'); toggle.checked = false; toggle.onchange();
+  const shapes = igniteShapes(game); toggle.checked = true; toggle.onchange(); return shapes;
+}
+// A flat box [x, y, width, height] in pixels, from a listed centre and its size in metres.
+const boxAround = (at, width, height) => { const [x, y] = labPixels(at), w = width * LAB_SCALE, h = height * LAB_SCALE; return [x - w / 2, y - h / 2, w, h]; };
+const nearBox = (a, b, why) => a.forEach((v, k) => assert.ok(Math.abs(v - b[k]) < 1e-9, `${why}: [${a}] is not [${b}]`));
+// Pressures above, in and below the Ignite band, with what the readout says about each.
+const IGNITE_PRESSURES = [[760, 'above'], [5, 'above'], [1, 'in'], [.4, 'in'], [.1, 'below']];
+
+test('Ignite in 3D: a diagram side on at the lab\'s scale, where the piston travels with each stroke and presses the plasma in to its front only while the pressure is in its band, above, in and below it', async () => {
+  for (const reduced of [false, true]) for (const [p, band] of IGNITE_PRESSURES) {
+    const game = await igniteIn3D(p, { reduced });
+    // At rest, a stroke's start, part way and done: each stroke takes a fifth of the pressure.
+    const heads = {};
+    for (const [moment, strokes, seconds] of [['at rest', 0, .5], ['a stroke starts', 1, 0], ['part way', 0, .1], ['done', 0, .3]]) {
+      const before = torr(game);
+      for (let i = 0; i < strokes; i++) press(game, 'ig-pump', ' ');
+      for (let i = 0; i < Math.round(seconds * 20); i++) game.lab.advance(1 / 20);
+      if (strokes) { game.lab.advance(0); assert.ok(torr(game) < before, 'a stroke lowers the pressure'); }
+      const inBand = pressureNote(game) === 'in the band', why = `${p} torr ${moment} (${torr(game)} torr)${reduced ? ', reduced motion' : ''}`;
+      if (moment === 'at rest') assert.equal(inBand, band === 'in', `${p} torr stays ${band} the band at rest`);
+      const frame = nextScene(game), flat = flatAfterIgnite(game);
+      assert.equal(frame.look, 'diagram', 'a lab schematic, so drawn as a diagram (docs/adr/0004)');
+      assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
+      const [piston] = entries(frame, 'piston'), [front] = entries(frame, 'compression front');
+      nearBox(boxAround(piston.at, 2 * piston.radius, piston.thickness), flat.head.box, `the piston's head where the flat view draws it at ${why}`);
+      const [rx, ry] = labPixels(piston.rodTop), [, hy] = labPixels(piston.at); heads[moment] = piston.at[1];
+      nearBox([rx - piston.rodWidth * LAB_SCALE / 2, ry, piston.rodWidth * LAB_SCALE, hy - piston.thickness * LAB_SCALE / 2 - ry], flat.rod.box, `its rod at ${why}`);
+      assert.equal(piston.colour, flat.head.fill); assert.equal(piston.colour, flat.rod.fill);
+      if (!inBand) { assert.equal(front, undefined, `nothing pressed in at ${why}`); assert.equal(flat.front, null); continue; }
+      assert.ok(flat.front, `the flat view draws the front at ${why}`);
+      labPixels(front.at).forEach((v, k) => near(v, flat.front.at[k], `the front where the flat view's is at ${why}`));
+      near(front.radius * LAB_SCALE, flat.front.radius, `as far in at ${why}`); near(front.radius * LAB_SCALE, flat.jar.radius * .45, 'at the piston\'s front radius');
+      near(front.width * LAB_SCALE, flat.front.width, 'as wide'); assert.equal(front.colour, flat.front.colour); near(front.opacity, flat.front.opacity, 'as faint');
+      assert.deepEqual(front.dash.map(v => Math.round(v * LAB_SCALE * 1e6) / 1e6), [5, 4], 'dashed as the flat view\'s');
+    }
+    // The stroke lifts the head to the barrel's top, and it travels back down as the stroke ends.
+    assert.ok(heads['a stroke starts'] < heads['part way'] && heads['part way'] < heads.done && heads.done === heads['at rest'], `the piston travels: ${JSON.stringify(heads)}`);
+  }
+});
+
+test('Ignite in 3D: the piston housing and pump handle props, where the flat view draws the barrel and handle, listed by kind, place, size and colour only', async () => {
+  const game = await igniteIn3D(5);
+  const frame = nextScene(game), flat = flatAfterIgnite(game);
+  const [housing] = entries(frame, 'piston housing'), [handle] = entries(frame, 'pump handle');
+  assert.deepEqual(Object.keys(housing).sort(), ['at', 'colour', 'height', 'kind', 'radius'], 'kind, place, size and colour only (docs/adr/0003)');
+  assert.deepEqual(Object.keys(handle).sort(), ['at', 'colour', 'kind', 'span'], 'kind, place, size and colour only (docs/adr/0003)');
+  nearBox(boxAround(housing.at, 2 * housing.radius, housing.height), flat.barrel.box, 'the housing round the flat view\'s barrel');
+  const [x, y, w, h] = flat.handle.box;
+  labPixels(handle.at).forEach((v, k) => near(v, [x + w / 2, y + h / 2][k], 'the handle where the flat view\'s is'));
+  near(handle.span * LAB_SCALE, w, 'as wide'); assert.equal(handle.colour, flat.handle.fill);
+  for (const prop of [housing, handle]) assert.equal(prop.at[2], 0);
+  const [pipe] = entries(frame, 'pipe');
+  labPixels(pipe.from).forEach((v, k) => near(v, flat.pipe.from[k], 'the pipe from the jar')); labPixels(pipe.to).forEach((v, k) => near(v, flat.pipe.to[k], 'to the barrel'));
+  near(pipe.width * LAB_SCALE, flat.pipe.width, 'as wide'); assert.equal(pipe.colour, flat.pipe.colour);
+});
+
+test('Ignite in 3D: the jar, its haze, the plasma\'s glow and the ions and electrons where, as big and as bright as the flat view draws them, for both gases', async () => {
+  for (const gas of ['h', 'ar']) for (const [p] of IGNITE_PRESSURES) {
+    const game = await igniteIn3D(p); if (gas === 'ar') click(game, 'gas-ar');
+    for (let i = 0; i < 20; i++) game.lab.advance(1 / 20);
+    const why = `${gas} at ${p} torr`, frame = nextScene(game), flat = flatAfterIgnite(game);
+    const [jar] = entries(frame, 'glass jar'), glows = entries(frame, 'plasma glow');
+    labPixels(jar.at).forEach((v, k) => near(v, flat.jar.at[k], `the jar where the flat view's is at ${why}`));
+    near(jar.radius * LAB_SCALE, flat.jar.radius, 'as big'); near(jar.width * LAB_SCALE, flat.jar.width, 'as wide'); assert.equal(jar.colour, flat.jar.colour);
+    near(jar.inside * LAB_SCALE, flat.haze.radius, 'its haze as big'); const [hr, hg, hb, ha] = rgba(flat.haze.fill);
+    assert.equal(jar.hazeColour, hexOf([hr, hg, hb])); near(jar.haze, ha, `the haze as thick at ${why}`);
+    assert.equal(glows.length, flat.glow ? 1 : 0, `a glow when the flat view draws one at ${why}`);
+    if (flat.glow) {
+      const [glow] = glows;
+      labPixels(glow.at).forEach((v, k) => near(v, flat.glow.at[k], `the glow where the flat view's is at ${why}`));
+      near(glow.radius * LAB_SCALE, flat.glow.radius, `as big at ${why}`);
+      assert.equal(glow.stops.length, flat.glow.stops.length);
+      flat.glow.stops.forEach(([at, colour], i) => {
+        const [r, g, b, a] = rgba(colour), [lat, lcolour, lopacity] = glow.stops[i];
+        near(lat, at, 'the stop at the same place'); assert.equal(lcolour, hexOf([r, g, b]), `stop ${i} coloured as the flat view's at ${why}`); near(lopacity, a, `stop ${i} as bright at ${why}`);
+      });
+    }
+    for (const [kind, size] of [['ions', 8], ['electrons', 3.6]]) {
+      const [specks] = frame.views[0].list.filter(e => e.kind === 'specks' && e.of === kind), dots = flat[kind];
+      assert.equal(dots.length, 28, `the flat view draws 28 ${kind}`); assert.equal(specks.points.length, 28);
+      assert.equal(specks.colour, dots[0].fill); near(specks.size * LAB_SCALE, size, `${kind} as wide as the flat view's dots`); assert.equal(specks.round, true);
+      dots.forEach((dot, i) => labPixels(specks.points[i]).forEach((v, k) => near(v, dot.at[k], `${kind} ${i} where the flat view draws it at ${why}`)));
+    }
+  }
+});
+
+test('over Ignite\'s 3D view the 2D canvas draws the flat view\'s words and marks: the arrows pressing on the front and the legend, and none of its shapes', async () => {
+  for (const [p] of IGNITE_PRESSURES) {
+    const flat = igniteAt(p), in3D = await igniteIn3D(p);
+    scene(flat); scene(in3D);
+    assert.deepEqual(drawnWords(in3D), drawnWords(flat), `words at ${p} torr`);
+    // The arrows: the lines and heads drawn after the front's dashes, as the flat view's.
+    const arrows = drawing => JSON.stringify(drawing.slice(drawing.findLastIndex(c => c[0] === 'setLineDash' && !c[1].length) + 1).filter(c => ['moveTo', 'lineTo', 'closePath'].includes(c[0])));
+    const flatArrows = flat.drawing.some(c => c[0] === 'setLineDash') ? arrows(flat.drawing) : '[]';
+    assert.equal(in3D.drawing.some(c => c[0] === 'setLineDash') ? arrows(in3D.drawing) : JSON.stringify(in3D.drawing.filter(c => ['moveTo', 'lineTo', 'closePath'].includes(c[0]))), flatArrows, `arrows at ${p} torr`);
+    assert.ok(in3D.drawing.some(c => c[0] === 'clearRect'), 'the 2D canvas clears to show the 3D view');
+    assert.ok(in3D.drawing.filter(c => c[0] === 'arc').every(c => c[1] === 38), 'only the legend\'s dots are arcs');
+    for (const shape of ['fillRect', 'strokeRect', 'createRadialGradient']) assert.ok(!in3D.drawing.some(c => c[0] === shape), `no ${shape} on the 2D canvas at ${p} torr`);
+  }
+});
+
+
+test('the 3D view switch starts on where the renderer starts, is remembered on this device apart from the saved run, and turning it off draws the flat view', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  const toggle = game.ids.get('view-3d');
+  assert.equal(toggle.checked, true); assert.equal(toggle.disabled, false);
+  assert.equal(game.view3d.given.props.airliner, 'assets/airliner.glb');
+  assert.ok(nextScene(game), 'it draws in 3D');
+  leave(game); const savedBefore = game.storage.get('ipt-run-v2');
+  toggle.checked = false; toggle.onchange();
+  assert.equal(nextScene(game), null, 'no 3D frame once off'); assert.equal(game.ids.get('gl').hidden, true);
+  assert.ok(game.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
+  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: false });
+  leave(game); assert.equal(game.storage.get('ipt-run-v2'), savedBefore, 'the saved run is unchanged');
+  const again = await bootIn3D('ready-to-converge', { storage: game.storage });
+  assert.equal(again.ids.get('view-3d').checked, false, 'remembered off');
+  assert.equal(again.view3d.given, undefined, 'and the renderer never loads');
+  // Where storage throws, the switch takes its default, and turning it changes nothing else.
+  const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
+  assert.equal(blocked.ids.get('view-3d').checked, true);
+  blocked.ids.get('view-3d').checked = false; assert.doesNotThrow(() => blocked.ids.get('view-3d').onchange());
+});
+
+test('where the renderer cannot start, or loses WebGL, the flat view draws and the switch says why', async () => {
+  const failed = await bootIn3D('ready-to-converge', { view3d: { fails: true } });
+  assert.equal(failed.ids.get('view-3d').checked, false); assert.equal(failed.ids.get('view-3d').disabled, true);
+  assert.match(text(failed, 'view-3d-status'), /flat view is showing/);
+  assert.equal(nextScene(failed), null); assert.ok(failed.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
+  const lost = await bootIn3D('ready-to-converge');
+  assert.ok(nextScene(lost));
+  lost.view3d.given.onLost();
+  assert.equal(nextScene(lost), null, 'no 3D frame after WebGL is lost'); assert.equal(lost.ids.get('gl').hidden, true);
+  assert.match(text(lost, 'view-3d-status'), /lost WebGL, so the flat view is showing/);
+  assert.equal(lost.ids.get('view-3d').checked, false);
+});
+
+test('the 3D view draws nothing while the tab is hidden, and steps without a scene list draw flat', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  game.document.hidden = true; assert.equal(nextScene(game), null, 'hidden tab');
+  game.document.hidden = false; assert.ok(nextScene(game), 'visible again');
+  click(game, 'step-0'); assert.ok(nextScene(game), 'Ignite draws in 3D');
+  const done = await bootIn3D('completed-run'); click(done, 'step-6');
+  assert.equal(nextScene(done), null, 'the Ledger has no scene list'); assert.equal(done.ids.get('gl').hidden, true);
 });

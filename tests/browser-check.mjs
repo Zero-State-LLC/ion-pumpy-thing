@@ -4,8 +4,10 @@
 // (TOGGLED: a view, or electron screening), and for the Ledger of a run whose
 // Fuel step was completed with electron screening on, in each phone window
 // (WINDOWS: 390 x 844 and 320 x 640), the page must not scroll sideways, must
-// not throw, and must draw no canvas text outside its canvas. See
-// docs/adr/0001 and issues #15 and #45.
+// not throw, and must draw no canvas text outside its canvas. Those run in the
+// flat view. Then each view with a 3D view (VIEWS_3D) is checked again in 3D:
+// WebGL must start and the 3D canvas must draw a frame that isn't blank. See
+// docs/adr/0001, docs/adr/0003 and issues #15, #45, #56 and #57.
 //
 //   npm run test:browser          CHROME_PATH=/path/to/chrome to choose a browser
 //
@@ -24,7 +26,28 @@ const WINDOWS = [[390, 844], [320, 640]];
 const STEPS = ['Ignite', 'Hold', 'Fuel', 'Orbit', 'Open', 'Converge', 'Ledger'];
 // What a step's own toggle buttons turn on, each checked with its button pressed: the step,
 // the button's id, and a name for what it shows.
-const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
+const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-throat', 'the throat view'], [4, 'op-cavity', 'the plasma-cavity view'], [5, 'cv-transit', 'the transit view']];
+// The views drawn in 3D, each checked at a moment of the completed run's replay where it has
+// something to draw: the step, the view's button (null for a step with one view), a name for it,
+// the replay's per cent (null for a step with no replay), and what else the frame must show:
+// 'cut', that it is cut at the entrance, or 'split', that each half of the canvas, one camera
+// each, is drawn. 30 % of the way through the transit, the front of the airliner, its nose and
+// forward fuselage, is past the entrance, the canvas's middle row, so nothing may be drawn in
+// the frame's top half. (Halfway, too little is left on a 320 px phone to count as drawn.)
+const VIEWS_3D = [[0, null, 'Ignite, glass jar and pump', null, null], [1, null, 'Hold, plasma ball between coils', null, null], [2, null, 'Fuel, reactor core', null, null],
+  [2, 'fu-screen', 'Fuel, reactor core with electron screening', null, null], [3, null, 'Orbit, both cameras', null, 'split'],
+  [4, 'op-plates', 'Open, plates', null, null], [4, 'op-throat', 'Open, throat', null, null], [4, 'op-cavity', 'Open, plasma cavity', null, null],
+  [5, 'cv-thermal', 'Converge, thermal view', 10, null], [5, 'cv-visible', 'Converge, visible view', 10, null],
+  [5, 'cv-transit', 'Converge, transit diagram', 0, null], [5, 'cv-transit', 'Converge, transit diagram', 30, 'cut']];
+// How many device pixels either side of the entrance the cut check leaves out, for anti-aliasing.
+const CUT_MARGIN = 2;
+// The 3D view's setting, kept apart from the saved run.
+const VIEW_PREFS = 'ion-pumpy-view-v1';
+// How long, in milliseconds, the 3D view may take to start before the check fails.
+const START_3D_MS = 15000;
+// How much of a 3D frame, as a fraction of its pixels, must differ from its corner for it to count as drawn.
+// A blank frame has none; the smallest view, the transit diagram on a 320 px phone, has about 0.8 %.
+const DRAWN_FRACTION = 0.005;
 // How far, in CSS pixels, a glyph may reach past a canvas edge before it counts as cut off.
 // Half a pixel absorbs the canvas's whole-pixel rounding of its drawing size and anti-aliasing.
 const TOLERANCE = 0.5;
@@ -89,11 +112,11 @@ function findChrome() {
 }
 
 // Serve the site the way a host would, so storage and relative assets behave as on the web.
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml', '.txt': 'text/plain' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml', '.txt': 'text/plain' };
 function serve() {
   const server = createServer((req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
-    const file = join(root, path.endsWith('/') ? path + 'index.html' : path);
+    const file = join(root, /[/\\]$/.test(path) ? path + 'index.html' : path); // normalize gives \ on Windows
     if (!file.startsWith(root) || !existsSync(file)) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
     res.end(readFileSync(file));
@@ -102,7 +125,8 @@ function serve() {
 }
 
 function launch(chrome, profile) {
-  const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--disable-extensions', `--window-size=${WINDOWS[0].join(',')}`, 'about:blank'];
+  // WebGL runs on SwiftShader, Chrome's software renderer, so the check is the same on every machine.
+  const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-extensions', `--window-size=${WINDOWS[0].join(',')}`, 'about:blank'];
   if (process.getuid?.() === 0) args.unshift('--no-sandbox'); // Chrome refuses to sandbox as root
   const proc = spawn(chrome, args, { stdio: ['ignore', 'ignore', 'pipe'], detached: true }); // its own group, so helpers stop with it
   return new Promise((resolve, reject) => {
@@ -119,8 +143,14 @@ function launch(chrome, profile) {
 // A minimal DevTools protocol client for one page.
 async function connect(browserUrl) {
   const port = new URL(browserUrl).port;
-  const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  const ws = new WebSocket(pages.find(p => p.type === 'page').webSocketDebuggerUrl);
+  // Chrome can report its DevTools address before it lists its first page, so wait for the page.
+  let page;
+  for (let tries = 0; !page && tries < 50; tries++) {
+    if (tries) await new Promise(r => setTimeout(r, 100));
+    page = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(p => p.type === 'page');
+  }
+  if (!page) throw new Error('Chrome started but opened no page.');
+  const ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
   let id = 0; const pending = new Map(), listeners = [];
   ws.onmessage = ({ data }) => {
@@ -149,7 +179,7 @@ async function main() {
   const { proc, browserUrl } = await launch(chrome, profile);
   const page = await connect(browserUrl);
   const failures = [], errors = [];
-  let views = 0;
+  let views = 0, views3d = 0;
   try {
     await page.send('Page.enable'); await page.send('Runtime.enable');
     page.on('Runtime.exceptionThrown', ({ exceptionDetails: e }) => errors.push(e.exception?.description || e.text));
@@ -172,12 +202,13 @@ async function main() {
       const { identifier } = await page.send('Page.addScriptToEvaluateOnNewDocument', { source });
       await load(); await page.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
     };
-    // A saved run from tests/fixtures, changed first by `edit` when one is given.
-    const loadSavedRun = async (name, edit = () => {}) => {
+    // A saved run from tests/fixtures, changed first by `edit` when one is given, with the
+    // 3D view turned on or off.
+    const loadSavedRun = async (name, edit = () => {}, view3d = false) => {
       const run = JSON.parse(readFileSync(join(root, 'tests', 'fixtures', `${name}.json`), 'utf8'));
       edit(run);
       const saved = JSON.stringify({ sourceRevision: await evaluate('window.__lab.SOURCE_REVISION'), ...run });
-      await loadWith(`localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)})`);
+      await loadWith(`localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)}); localStorage.setItem('${VIEW_PREFS}', '${JSON.stringify({ on: view3d })}')`);
       if (await currentStep() !== run.stage) throw new Error(`The ${name} saved run did not load.`);
     };
     const ledgerRowCount = () => evaluate(`document.querySelectorAll('.ledger li').length`);
@@ -234,6 +265,46 @@ async function main() {
         if (rows !== ledgerRows + 1) failures.push(`${where(screened)}: the Ledger shows ${rows} rows, not the ${ledgerRows + 1} it has with the screening row`);
         await check(screened);
       }
+      // The same views in 3D. Each waits for the 3D canvas to show, which it does once WebGL has
+      // started and the renderer has drawn the view's scene list.
+      await loadSavedRun('completed-run', undefined, true);
+      for (const [step, button, name, at, also] of VIEWS_3D) {
+        const view = `Completed run, ${name} in 3D` + (at === null ? '' : ` at ${at} % of the replay`);
+        await evaluate(`document.getElementById('step-${step}').click();` + (button ? ` document.getElementById('${button}').click();` : '')
+          + (at === null ? '' : ` (s => { s.value = '${at}'; s.dispatchEvent(new Event('input', { bubbles: true })); })(document.getElementById('cv-scrub'))`));
+        const shown = await evaluate(`new Promise(r => { const t0 = performance.now(); (function wait() {
+          if (!document.getElementById('gl').hidden) return r(true);
+          if (performance.now() - t0 > ${START_3D_MS} || document.getElementById('view-3d').disabled) return r(false);
+          setTimeout(wait, 50); })(); })`);
+        if (!shown) {
+          failures.push(`${where(view)}: the 3D view did not start (${await evaluate(`document.getElementById('view-3d-status').textContent`) || 'no reason given'})`, ...pageErrors(view));
+          continue;
+        }
+        await check(view);
+        // Read the frame in the animation frame after the game draws it, before the browser shows it and clears it.
+        const drawn = await evaluate(`new Promise(r => requestAnimationFrame(() => {
+          const c = document.getElementById('gl'), gl = c.getContext('webgl2') || c.getContext('webgl');
+          const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(w * h * 4);
+          gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          // Rows count up from the bottom, so the rows above the middle are the frame's top half.
+          let differ = 0, beyond = 0;
+          for (let i = 0; i < px.length; i += 4) if (px[i] !== px[0] || px[i + 1] !== px[1] || px[i + 2] !== px[2]) {
+            differ++; if (Math.floor(i / 4 / w) > h / 2 + ${CUT_MARGIN}) beyond++;
+          }
+          // Each half, one camera's, is read against its own outer bottom corner, as each camera fills
+          // its own background.
+          const halves = [0, 0], corners = [0, (w - 1) * 4];
+          for (let i = 0; i < px.length; i += 4) {
+            const side = (i / 4) % w < w / 2 ? 0 : 1, c = corners[side];
+            if (px[i] !== px[c] || px[i + 1] !== px[c + 1] || px[i + 2] !== px[c + 2]) halves[side]++;
+          }
+          r({ fraction: differ / (w * h), beyond, halves: halves.map(n => n / (w * h / 2)) });
+        }))`);
+        if (!(drawn.fraction >= DRAWN_FRACTION)) failures.push(`${where(view)}: the 3D frame is blank (${(drawn.fraction * 100).toFixed(2)} % of its pixels differ from its corner)`);
+        if (also === 'cut' && drawn.beyond) failures.push(`${where(view)}: ${drawn.beyond} pixels of the airliner are drawn past the entrance`);
+        if (also === 'split') drawn.halves.forEach((f, i) => { if (!(f >= DRAWN_FRACTION)) failures.push(`${where(view)}: camera ${i + 1}'s half of the 3D frame is blank (${(f * 100).toFixed(2)} % of its pixels differ from its corner)`); });
+        views3d++;
+      }
       // The views draw labels, so measuring none means the measuring has stopped working, not that all is well.
       if (!textMeasured) failures.push(`${width} × ${height} window: no canvas text was measured in any view, so the canvas text check could not run`);
     }
@@ -247,7 +318,7 @@ async function main() {
   }
   if (failures.length) { console.error(`Browser check failed:\n${failures.map(f => `  - ${f}`).join('\n')}`); process.exit(1); }
   const windows = WINDOWS.map(([w, h]) => `${w} × ${h}`).join(' and ');
-  console.log(`Browser check: ${views} views (${views / WINDOWS.length} in each of the ${windows} phone windows) fit without sideways scrolling, with all canvas text inside its canvas and no page errors.`);
+  console.log(`Browser check: ${views} views (${views / WINDOWS.length} in each of the ${windows} phone windows) fit without sideways scrolling, with all canvas text inside its canvas and no page errors. ${views3d} of them are in 3D, each drawing a frame that isn't blank.`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

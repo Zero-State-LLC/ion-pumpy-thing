@@ -2694,5 +2694,5 @@ test('Orbit thermal Camera 2 is an explicitly illustrated look, not a temperatur
     'both cameras show identical orbit positions');
   assert.match(text(game, 'panel'), /illustrative thermal colours, not measured temperatures/);
   assert.match(description(game), /Camera 2 thermal from the side/);
-  assert.match(drawnWords(game).join(' '), /CAM 2 · THERMAL/);
+  assert.match(drawnWords(game).join(' '), /CAMERA 2 · THERMAL/);
 });

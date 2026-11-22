@@ -417,9 +417,10 @@ $('#snd').onclick = async e => {
 };
 
 const S = { stage: 0, unlocked: 0, misses: 0, result: null, completion: null, mode: 'learn', elapsed: 0, paused: false };
-const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-fuel-dpf';
+const SOURCE_REVISION = '4orbs-part3-corrected-2026-11-21-transit-speed';
 const SCIENCE_URL = 'https://4orbs.com/the-vanishing/part-3-the-science/';
 const MEASUREMENTS_URL = 'https://4orbs.com/research/satellite-videos/measurements/';
+const TELEPORTATION_URL = 'https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/';
 // Papers the 4orbs pages cite, linked where the lesson uses them.
 const PAPERS = {
   park: { label: 'Park et al., High Energy Electron Confinement in a Magnetic Cusp Configuration (Physical Review X, 2015)', url: 'https://arxiv.org/abs/1406.0133' },
@@ -1188,7 +1189,8 @@ function drawTransit(st) {
   label(`${open.w} m entrance`, cx, cy - 15, m.fits ? COL.cold : COL.hot, 'center');
   label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 48, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
   label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at 250 m/s cruise`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
-  label('Airliner keeps flying forward; only the path changes', cx, H - 66, COL.ink, 'center', W < 400 ? 9 : 11);
+  // The crossing's 4orbs account claim, in that label's colour. At 9 px it fits a 320 px phone's canvas.
+  label('4orbs account: constant speed relative to the field', cx, H - 66, COL.read, 'center', W < 440 ? 9 : 11);
   viewTitle('TRANSIT DIAGRAM');
 }
 const conv = stage({
@@ -1199,6 +1201,7 @@ const conv = stage({
       <p><span class="tag read">4orbs account</span>Forbes: "you can produce a wormhole by having three of these orbs converge." 4orbs reads the cold flash below as that wormhole opening, and Forbes calls the event endothermic. In this step, closing the triangle to the measured quarter-smaller size opens the throat you sized in step 5.</p>
       <p><span class="tag meas">Measured</span>From above, the flash is bright. On the heat camera it reads black: colder than the sky. Afterwards the airliner is gone, leaving open sky with no fireball or debris.</p>
       <p><span class="tag model">Theory</span>The 2010 DIA report says a small wormhole would look like an unusually bright spot in the sky. It also reports a calculation that negative energy should cool the matter it meets.</p>
+      <p><span class="tag read">4orbs account</span>The airliner crosses the throat at constant speed relative to the field, as the 4orbs <a href="${TELEPORTATION_URL}" target="_blank" rel="noopener">teleportation page</a> has it. The transit diagram draws the crossing that way.</p>
       <p class="note">This mission uses your current settings. Timing penalties apply only in timed runs.</p>
     </div>
     <div class="ctl">
@@ -1216,7 +1219,7 @@ const conv = stage({
         <button type="button" id="cv-visible" data-view="visible">Visible, from above</button>
         <button type="button" id="cv-transit" data-view="transit">Transit diagram</button>
       </div>
-      <p class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</p>
+      <div class="note" id="cv-view-note">Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.</div>
       <ul id="mission-checks" class="mission" aria-label="Current system readiness"></ul>
       <p class="note">Earlier experiments are held at their saved settings. Revisit a step to retune it.</p>
     </div>
@@ -1276,7 +1279,7 @@ const conv = stage({
     const crossing = transitModel(this.q, open.w);
     set('cv-x', fmt(crossing.duration, 3) + ' s<small>63.7 m ÷ 250 m/s cruise speed</small>');
     set('cv-clear', fmt(crossing.clearance, 2) + ' m<small>each wing; centred 60.9 m span</small>');
-    set('cv-view-note', this.view === 'transit' ? 'Schematic: a centred airliner keeps flying forward and only its path changes, passing a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
+    set('cv-view-note', this.view === 'transit' ? '<p><span class="tag read">4orbs account</span> The airliner crosses the throat at constant speed relative to the field.</p><p>Schematic: a centred airliner passes a fixed entrance. No destination is drawn, because the account names none. Playback is slowed to 1.6 seconds.</p>' : reduced ? 'Reduced motion: a steady aperture instead of a bright pulse. Camera colours are synthetic.' : 'Camera views are reconstructions in synthetic colour. The transit diagram shows the aircraft entering the throat.');
     const checks = $('#mission-checks');
     if (checks) {
       const checkHTML = missionReadiness().map(r => `<li class="${r.ok ? 'ready' : 'blocked'}"><span>${r.ok ? '✓' : '○'} ${r.name}: ${r.ok ? r.detail : 'retune required'}</span><button type="button" class="btn small" data-retune="${r.stage}" aria-label="Retune ${r.name.toLowerCase()} (step ${r.stage + 1})">Retune</button></li>`).join('');
@@ -1342,7 +1345,7 @@ const conv = stage({
     scaleBarDraw(sc);
   },
   describe() {
-    if (this.view === 'transit') return `Transit diagram: the airliner keeps flying forward and only its path changes, passing into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing. No destination.`;
+    if (this.view === 'transit') return `Transit diagram. 4orbs account: the airliner crosses the throat at constant speed relative to the field. It passes into a ${open.w} metre entrance, ${fmt(transitModel(this.q, open.w).clearance, 2)} metres clear at each wing. No destination.`;
     const view = this.view === 'thermal' ? 'Thermal view from the side' : 'Visible view from above';
     if (this.phase === 'gone') return `${view}: the airliner is gone, leaving open sky.`;
     if (this.phase === 'flash') return `${view}: the flash, as the throat opens around the airliner.`;

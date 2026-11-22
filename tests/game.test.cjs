@@ -699,6 +699,19 @@ test("the Fuel source card gives Forbes's dense plasma focus reading as 4orbs ac
   assert.doesNotMatch(words(paragraphs.join(' ')), /unestablished|chain of custody|compilation|authenticat|alleged/i);
 });
 
+test('the Converge source card cites the teleportation page for the constant-speed crossing, and the register lists it as unreviewed', () => {
+  const page = 'https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/';
+  const game = bootFromSavedRun('completed-run'); click(game, 'step-5');
+  const claim = lessonParagraphs(sourceCard(game)).find(p => fourOrbsPages(p).includes(page));
+  assert.ok(claim, 'the source card links the teleportation page');
+  // The page's claim: only the plane and its contents go, as they move at constant speed relative to the field.
+  assert.match(claim, /^<span class="tag read">4orbs account<\/span>The airliner crosses the throat at constant speed relative to the field\b/);
+  assert.equal(claim.match(/class="tag /g).length, 1, 'one source label');
+  const row = citedPagesTable().find(r => r.page === page);
+  assert.ok(row, 'the register lists the teleportation page');
+  assert.equal(row.reviewed, 'No'); assert.match(row.usedIn, /\bConverge\b/);
+});
+
 test('transit units and geometry describe passage past an entrance, not travel time', () => {
   const { lab } = boot();
   const start = lab.transitModel(0, 61), middle = lab.transitModel(.5, 61), end = lab.transitModel(1, 61);
@@ -873,8 +886,8 @@ test('reduced motion holds the throat-forming glow still', () => {
 });
 
 test('a saved run from the previous source revision starts fresh with a visible explanation, and the register names the current one', () => {
-  // The revision before the Fuel source card named the dense plasma focus.
-  const previous = '4orbs-part3-corrected-2026-11-25m24s-transit1';
+  // The revision before the transit view said the airliner crosses the throat at constant speed.
+  const previous = '4orbs-part3-corrected-2026-11-21-fuel-dpf';
   const storage = new Map([['ipt-best-v2', '{"score":1234}']]);
   const game = bootFromSavedRun(savedRunOn(4, d => { d.sourceRevision = previous; }), { storage });
   assert.equal(currentStep(game), 0); assert.equal(game.ids.get('mode-learn').attributes['aria-pressed'], 'true');
@@ -1015,24 +1028,32 @@ test('the game takes the 4orbs account as its premise and names no flight', () =
   assert.doesNotMatch(pages, /\[object Object\]|>undefined</, 'every cited paper renders as text');
 });
 
-test('transit diagram says the airliner keeps flying forward and only the path changes', () => {
+// Converge's transit view at this moment: its note, the words drawn and its description.
+function transitView(game) {
+  game.lab.advance(0, 1); game.drawing.length = 0; paint(game);
+  return { note: text(game, 'cv-view-note'), drawn: drawnWords(game), description: description(game) };
+}
+
+test('the transit view says the airliner crosses the throat at constant speed relative to the field, labelled 4orbs account, with no destination', () => {
   const game = bootFromSavedRun('ready-to-converge');
   click(game, 'cv-transit');
-  game.lab.advance(0, 1);
-  game.drawing.length = 0; paint(game);
-  const note = text(game, 'cv-view-note');
-  assert.match(note, /No destination/);
-  assert.match(note, /keeps flying forward/);
-  assert.match(note, /only its path changes/);
-  assert.match(note, /1\.6 seconds/);
-  assert.ok(game.drawing.some(call => call.includes('BEYOND ENTRANCE: UNSPECIFIED')));
-  assert.ok(game.drawing.some(call => call.includes('Airliner keeps flying forward; only the path changes')));
-  assert.ok(game.drawing.some(call => call[0] === 'clip'));
-  assert.match(game.ids.get('cv').attributes['aria-label'], /keeps flying forward and only its path changes/);
-  assert.match(game.ids.get('cv').attributes['aria-label'], /No destination/);
-  assert.equal(game.lab.transitModel(0, 61).duration, 63.7 / 250);
-  assert.ok(Math.abs(game.lab.transitModel(0, 61).clearance - 0.05) < 1e-12);
-  assert.equal(game.lab.transitModel(1, 61).centreY + 63.7 / 2, 0);
+  // Before the throat opens, halfway through the 1.6 s playback, and once the airliner is gone.
+  const views = [transitView(game)];
+  openAfter(game, 5); game.lab.advance(.8); views.push(transitView(game));
+  game.lab.advance(.8); views.push(transitView(game));
+  views.forEach(({ note, drawn, description }, i) => {
+    // The note's label goes with the claim alone, in a paragraph of its own; the schematic's presentation has none.
+    const paragraphs = lessonParagraphs(note);
+    assert.equal(note.replace(/<p>[\s\S]*?<\/p>/g, ''), '', `the note is all paragraphs: ${note}`);
+    assert.deepEqual(paragraphs.filter(p => p.includes('class="tag ')), ['<span class="tag read">4orbs account</span> The airliner crosses the throat at constant speed relative to the field.'], note);
+    assert.match(words(note), /No destination is drawn/); assert.match(words(note), /1\.6 seconds/);
+    assert.ok(drawn.includes('4orbs account: constant speed relative to the field'), drawn.join(' | '));
+    // The 63.7 m airliner passes the entrance at 250 m/s, in step with the playback.
+    assert.ok(drawn.includes(`${['0.000', '0.127', '0.255'][i]} / 0.255 s at 250 m/s cruise`), drawn.join(' | '));
+    assert.match(description, /^Transit diagram\. 4orbs account: the airliner crosses the throat at constant speed relative to the field\./);
+    assert.match(description, /No destination\.$/);
+    for (const said of [note, ...drawn, description]) assert.doesNotMatch(said, /keeps flying forward|path changes|arriv|comes out|travel time/i);
+  });
 });
 
 test('convergence audio follows both closing speeds and resumes at matching source progress', () => {

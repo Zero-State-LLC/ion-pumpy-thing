@@ -1,6 +1,6 @@
 # Corrected source register
 
-Reviewed on 21 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-21-fuel-dpf`.
+Reviewed on 21 November 2026 PT. Source revision: `4orbs-part3-corrected-2026-11-21-transit-speed`.
 
 The narrative baseline is the live [corrected November 2026 Part Three](https://4orbs.com/the-vanishing/part-3-the-science/), duration 25:24, video identifier `_gzWIv7uABs`. The 19:38 April edition returned by an earlier search cache is excluded. The live page was retrieved twice during review. The [homepage correction notices](https://4orbs.com/) document replacement of the older episode.
 
@@ -29,25 +29,30 @@ The aircraft is referred to only by make and model.
 | Fuel | Corrected Part Three, 10:15; Polywell and AAWSAP pages; Miley 2016 page and the dense plasma focus theory pages | Charged versus neutral reaction products; the Polywell's virtual cathode; Miley's IEC report; Forbes's dense plasma focus reading of the ion pumpy schematic; the 2006 dense plasma focus study | The reaction curves, thresholds and exposure rate are simplified. p-B11 side reactions are stated but not simulated. |
 | Orbit | Measurement page, rigid formation and camera fit | One equilateral formation in two projections | Reported radius, period and camera ranges guide a synthetic reconstruction. The fixed 24° tilt and 11-second tumble are illustrative, not imported tracks. |
 | Open | Corrected Part Three, 16:51; Sonny White page; AAWSAP page | Morris–Thorne negative energy; the Casimir effect; Gao–Jafferis–Wall; the DIA report's throat table; the orbs as the source | Ideal parallel-plate energy uses `π² ħ c A / (720 d³)`. The throat scales the report's 70 Jupiter masses per 100 m linearly. The orbs supplying the energy is labelled Game rule. |
-| Converge | Corrected Part Three, 16:51; measurement page, final frames and scale | Forbes's convergence account; the DIA report's bright spot and cooling; both cameras share one scene; a transit diagram shows clearance | Convergence opens the throat, as in the 4orbs account. False colour and the flash are drawn for viewing. The transit is a kinematic diagram; no destination is drawn because the account names none. |
+| Converge | Corrected Part Three, 16:51; measurement page, final frames and scale; teleportation-mechanism theory page | Forbes's convergence account; the DIA report's bright spot and cooling; both cameras share one scene; a transit diagram shows clearance, with the airliner crossing the throat at constant speed relative to the field (4orbs account) | Convergence opens the throat, as in the 4orbs account. False colour and the flash are drawn for viewing. The transit is a kinematic diagram; no destination is drawn because no page names one. |
 
 ## Transit diagram assumptions
 
 Fresh live reads on 20 November reconfirmed the corrected episode's 25:24 duration and the measurement page's qualifications. The measurement page uses a 63.7 m fuselage to set its conditional 777 scale. For the cold-patch analysis it assumes 250 m/s cruise speed, explicitly noting that the video cannot supply the aircraft's forward speed. The diagram uses that assumption instead of the old game's unsupported 905 km/h value.
 
-The aircraft drawing retains its assumed 60.9 m span. For a centred aircraft and a transverse entrance of width `w`, per-wing clearance is `(w - 60.9) / 2`. Passage of a 63.7 m fuselage past a fixed entrance at 250 m/s takes `63.7 / 250 = 0.2548 s`. Neither calculation supplies a wormhole interior, destination, travel time, or evidence of a crossing. The diagram clips the aircraft at the entrance and leaves the other side unspecified. Its playback lasts 1.6 seconds for inspection; that is display time only.
+The aircraft drawing retains its assumed 60.9 m span. For a centred aircraft and a transverse entrance of width `w`, per-wing clearance is `(w - 60.9) / 2`. Passage of a 63.7 m fuselage past a fixed entrance at 250 m/s takes `63.7 / 250 = 0.2548 s`. Together they make a kinematic diagram of the crossing and its clearance, not a travel time or a destination. The diagram clips the aircraft at the entrance and leaves the other side unspecified. Its playback lasts 1.6 seconds for inspection; that is display time only.
+
+The teleportation-mechanism theory page, read on 21 November 2026, has only the aircraft and its contents go through, since they hold a constant speed relative to the field. The game's transit view, its canvas label and its description say the airliner crosses the throat at constant speed relative to the field, labelled 4orbs account, and the diagram's steady 250 m/s passage draws it so. That page names no destination, so none is drawn.
 
 This source revision invalidates prior in-progress saves with an on-screen explanation. Personal best scores remain compatible because the scoring rule and active sequence duration have not changed.
 
 ## 4orbs pages cited
+
+4orbs pages a lesson cites beyond the corrected Part Three and the measurement page. Each is linked from the source card of the step that uses it.
 
 | Page | Reviewed by 4orbs | Used in |
 | --- | --- | --- |
 | [Miley 2016 page](https://4orbs.com/research/miley-2016-fusion/) | Yes | Fuel |
 | [Ion Pumpy Thing as DPF Fusion Device](https://4orbs.com/library/theories/ion-pumpy-thing-as-dpf-fusion-device/) | No | Fuel |
 | [Ion Pumpy Thing as Compact Fusion Reactor](https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/) | No | Fuel |
+| [Four Orbs Teleportation Mechanism](https://4orbs.com/library/theories/four-orbs-teleportation-mechanism/) | No | Converge |
 
-The bodies of the Miley 2016 page and both ion pumpy pages name the flight. Their addresses and titles don't, so the correction policy allows them.
+The bodies of the Miley 2016 page, both ion pumpy pages and the teleportation-mechanism page name the flight. Their addresses and titles don't, so the correction policy allows them.
 
 ## Papers used in the lessons
 
@@ -106,5 +111,13 @@ Where a reviewed page and a theory page disagree, each choice is recorded here w
 - The theory page [Ion Pumpy Thing as Compact Fusion Reactor](https://4orbs.com/library/theories/ion-pumpy-thing-as-compact-fusion-reactor/) lists undulators among the schematic's components.
 - The reviewed [Miley 2016 page](https://4orbs.com/research/miley-2016-fusion/#ion-pumpy-schematic) says the list naming undulator rings came from a summary Forbes asked a voice assistant to generate (28:04), which he then checked against his own reading. It finds no source for the undulator annotation.
 - The game leaves the undulator out because the Teleport doesn't need it: no page puts it in the chain that opens the throat.
+
+### Orbit, Converge: three orbs, not four
+
+- The corrected Part Three counts three objects round the airliner, and quotes Forbes that three orbs converging produce a wormhole. The measurement page fits three objects in one rigid triangle. The teleportation-mechanism theory page is titled for four orbs and its opening sentence says four, but the one claim on it that counts the orbs says three converge on the plane. The game keeps three: the corrected episode takes precedence, the theory page's own claim agrees with it, and three is the Formation the player matches in Orbit and closes in Converge to open the throat.
+
+### Converge: the Teleport, not "teleport or annihilate"
+
+- Two claims on the teleportation-mechanism theory page say the orbs either teleported or annihilated the airliner; spec #25 found the same pairing on other theory pages. The corrected Part Three reads the flash as removing the aircraft rather than destroying it, taken through a wormhole, and the same theory page's title, opening sentence and constant-speed claim describe a teleport. The game takes the Teleport: it is the goal of a run, and the transit view needs an airliner that crosses the throat. Annihilation would leave nothing to cross.
 
 No full dataset has been imported. Any later import must preserve the attribution and reuse terms stated on the [open-data page](https://4orbs.com/data/), currently CC BY-NC-SA 4.0, and record original classifications separately from reviewed scientific status.

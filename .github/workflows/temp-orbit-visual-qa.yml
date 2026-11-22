@@ -32,12 +32,17 @@ jobs:
               await page.setViewport({width,height,deviceScaleFactor:1});
               await page.goto('http://127.0.0.1:8080/',{waitUntil:'networkidle0',timeout:45000});
               const revision = await page.evaluate(() => window.__lab.SOURCE_REVISION);
-              await page.evaluate(({run,revision}) => {
+              // Set the saved run before the game's startup script. Writing only before
+              // reload loses the fixture when the page's unload handler saves Ignite.
+              const injected = await page.evaluateOnNewDocument(({run,revision}) => {
                 localStorage.setItem('ipt-run-v2',JSON.stringify({...run,sourceRevision:revision}));
                 localStorage.setItem('ion-pumpy-view-v1',JSON.stringify({on:false}));
               }, {run:saved,revision});
               await page.reload({waitUntil:'networkidle0',timeout:45000});
+              await page.removeScriptToEvaluateOnNewDocument(injected);
               await page.click('#step-3');
+              const selected = await page.evaluate(() => document.getElementById('step-3').getAttribute('aria-current'));
+              if (selected !== 'step') throw new Error(`Orbit step did not load at ${width}px; abort screenshot`);
               await page.screenshot({path:`orbit-review/orbit-flat-${width}.png`,fullPage:true});
               await (await page.$('.view')).screenshot({path:`orbit-review/orbit-flat-scene-${width}.png`});
               await page.evaluate(() => {

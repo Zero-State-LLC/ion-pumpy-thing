@@ -1,0 +1,21 @@
+# Assets register
+
+Every file the site ships that was vendored or generated rather than written here: what made it, from what prompt or at what version, under what licence, its SHA-256 hash and the date it was added. `tests/assets.test.cjs` checks that every file under `vendor/` and every `.glb` under `assets/` is listed here with the hash of the file as committed.
+
+Replacing a file means a new row, or a new hash and date in its row, in the same change.
+
+| File | What made it | Prompt or version | Licence | SHA-256 | Date |
+|---|---|---|---|---|---|
+| `vendor/three/three.core.js` | three.js, copied unchanged from `build/three.core.js` in the npm package `three@0.187.0`. Imported by three.module.js. | 0.187.0 (r187) | MIT, `vendor/three/LICENSE` | `613e370f76638fdef83926642bf256dc9615684922de1ce1f63a8583e5d78578` | 2026-11-21 |
+| `vendor/three/three.module.js` | three.js, copied unchanged from `build/three.module.js` in the npm package `three@0.187.0`. The renderer imports it as `three`. | 0.187.0 (r187) | MIT, `vendor/three/LICENSE` | `104f56145899722094556490d787aae0617cc2fc3382f31df02d724ea1aee341` | 2026-11-21 |
+| `vendor/three/addons/loaders/GLTFLoader.js` | three.js, copied unchanged from `examples/jsm/loaders/GLTFLoader.js` in the npm package `three@0.187.0`. Loads the airliner prop. | 0.187.0 (r187) | MIT, `vendor/three/LICENSE` | `532ac726e120039acbcd6cf54328c57acbf7b438176afaa6951257126d11bff1` | 2026-11-21 |
+| `vendor/three/addons/utils/BufferGeometryUtils.js` | three.js, copied unchanged from `examples/jsm/utils/BufferGeometryUtils.js` in the npm package `three@0.187.0`. Imported by GLTFLoader.js. | 0.187.0 (r187) | MIT, `vendor/three/LICENSE` | `7bda2a8ba836b2bcf67cb938d4b9e1bb5d1b1bc616817103ed858c0b58296ce7` | 2026-11-21 |
+| `vendor/three/addons/utils/SkeletonUtils.js` | three.js, copied unchanged from `examples/jsm/utils/SkeletonUtils.js` in the npm package `three@0.187.0`. Imported by GLTFLoader.js. | 0.187.0 (r187) | MIT, `vendor/three/LICENSE` | `b1632a703206c3d830de9fcbe515696770d04b71a15ee6b50afa6d2c3298c86f` | 2026-11-21 |
+| `vendor/three/LICENSE` | three.js, copied unchanged from `LICENSE` in the npm package `three@0.187.0`. The licence the files above ship under. | 0.187.0 (r187) | MIT, `vendor/three/LICENSE` | `8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc` | 2026-11-21 |
+| `assets/airliner.glb` | Meshy text-to-3D, preview stage (untextured): model `meshy-t2`, smart topology, target 8,000 polygons, seed 3868440697, task `01a2019b-00ff-7076-a476-f5d88d89e7d2`. Then `tools/clean-airliner.py`, which removed the landing gear, set Y up with the nose toward −Z, scaled it to 63.7 × 60.9 m and split the airframe from the engines. The preview mesh it started from has SHA-256 `edda0b68eef3930d99e2a3d7ffe8056b66e2b91d2d7a1b2609090a4d0599eb78`. | Prompt: “A generic twin-engine wide-body jet airliner in flight, landing gear retracted. Long smooth cylindrical fuselage, low swept wings with one large turbofan engine under each wing, conventional tail with one vertical fin and swept horizontal stabilisers. Plain unmarked surfaces: no livery, no logo, no text, no registration, no window decals. Solid clean geometry, symmetric, whole aircraft, no stand or base.” | Owned by the generating customer under Meshy's Terms of Use, section 3.2 (paid plan; made through Meshy's API, which needs one) | `9dda4c4305baad1fec8f4697622b6fc3bf97b4b5468de435f76f2636d5e702dd` | 2026-11-21 |
+
+## Notes
+
+- three.js 0.187.0 publishes no minified build, so the files ship as published; the host compresses them in transit.
+- The airliner is a prop (see `GLOSSARY.md`): it brings shape only, and makes no claim of its own. It is a generic twin-engine wide-body with no livery, logo, text, registration or other marking. It has 6,076 triangles, no textures and no materials. Meshy's preview drew the span about 4 % short of the length, so the cleaning script scales the span and the length separately to their real sizes.
+- To rebuild `assets/airliner.glb`: download the preview mesh of the task above while Meshy keeps it, check its hash, and run `python tools/clean-airliner.py preview.glb assets/airliner.glb` (Python 3 with numpy). The output's hash should match the table.

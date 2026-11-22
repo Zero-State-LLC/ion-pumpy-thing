@@ -1,0 +1,4 @@
+# Vendored and generated files are checked byte for byte against docs/ASSETS.md,
+# so no line-ending conversion may touch them.
+vendor/** -text
+*.glb binary

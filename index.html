@@ -388,7 +388,7 @@ function paintViewSwitch() {
   const failed = view3d.state === 'unavailable' || view3d.state === 'lost';
   view3dSwitch.checked = view3d.on && !failed; view3dSwitch.disabled = failed;
   set('view-3d-status', view3d.state === 'unavailable' ? '3D graphics could not start in this browser. The flat view is showing, and your progress is unchanged.'
-    : view3d.state === 'lost' ? 'The browser lost WebGL, so the flat view is showing. WebGL is the browser's 3D graphics system. Your progress is unchanged.' : '');
+    : view3d.state === 'lost' ? 'The browser lost WebGL, so the flat view is showing. WebGL powers 3D graphics in this browser. Your progress is unchanged.' : '');
 }
 function stop3D(state) { view3d.renderer = null; view3d.state = state; paintViewSwitch(); }
 // After the browser restores WebGL, allow a fresh renderer to start on the next frame.

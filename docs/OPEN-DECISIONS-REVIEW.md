@@ -52,6 +52,14 @@ This review uses Matt Pocock's `grill-with-docs` method: inspect facts in code a
 - **F3b, Ignite handle:** #75 reports a possible 2px 3D grip compared with 5px in the flat view. Reproduce visually at 320px and 390px with known device/build evidence before proposing a repair; keep the camera and scene-list contracts.
 - **F4, independently review claims:** Ask a qualified science reviewer to check the remaining lesson explanations against the corrected 4orbs source register and cited papers. Maintain the already approved game premise and do not silently convert speculative interpretations to lab observations.
 
+### Round 2 questions for owner, awaiting answers
+
+**Q4. Orbit Camera 2 sensor look.** The corrected source distinguishes an overhead satellite view from a side-on thermal camera, while Orbit currently paints both in the same visible-light style. **Recommended:** Update Camera 2 to a clearly labelled thermal reconstruction in both the flat and 3D views; keep Camera 1 visible. Preserve the measured camera angles and game progression. Before implementation, require matching scene-list, colour-contrast, 320px/390px and source-label regression tests. **Alternative:** Keep both as visible schematic diagrams and label the sensor difference explicitly, if visual continuity is valued over sensor fidelity. **Not approved yet.**
+
+**Q5. Device QA ownership.** The approved device gate currently has no named tester or evidence signer. **Recommended:** Assign one person with an actual iPhone/Safari/VoiceOver setup and another with Android/Chrome/TalkBack, plus one independent reviewer who signs off the recorded results. Do not assume the owner personally has either device. **Not approved yet.**
+
+**Q6. Meshy receipt collection.** Public Meshy terms cannot establish entitlement to the five actual task generations. **Recommended:** The authorized operator of the original Meshy account provides private task/plan/rights receipts; a separate reviewer matches those to the five IDs and hashes, recording only sanitized proof pointers in Git. Escalate missing rights evidence to a new owner choice rather than silently replacing assets. **Not approved yet.**
+
 ## Follow-on questions, conditional on evidence
 
 - **Orbit camera 2 thermal presentation:** #75 says PR #63 left this open. Inspect the corrected source portrayal and verify both current camera renderings against ADR 0004 before deciding whether a scene change is necessary. Do not change one camera merely to make it prettier.

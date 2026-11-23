@@ -102,10 +102,18 @@ test('the vacuum chamber prop is untextured, 30,000 triangles or fewer, 1 MB or 
   for (let i = 0; i < 3; i++) assert.ok(Math.abs(pos.max[i] + pos.min[i]) < 2e-3, 'centred on the origin');
   const height = pos.max[1] - pos.min[1];
   assert.ok(height > 0.5 && height < 2, `${height} m tall, a lab vessel's height`);
-  // The side wall: the nearest the mesh comes to the axis in the middle three fifths of its height.
+  // The side wall's outer face: in the middle three fifths of its height, the mesh comes to 0.5 m
+  // from the axis, no nearer, and nothing lies between the wall and the axis but the wall's own
+  // inner face, 2 cm in (slice 4 of the visual audit gave the wall a thickness, inward;
+  // tests/props-detail.test.cjs measures it).
   const b = read(file), binStart = 20 + b.readUInt32LE(12) + 8, view = j.bufferViews[pos.bufferView];
   const xyz = new Float32Array(b.buffer.slice(b.byteOffset + binStart + (view.byteOffset || 0), b.byteOffset + binStart + (view.byteOffset || 0) + pos.count * 12));
-  let wall = Infinity;
-  for (let i = 0; i < pos.count; i++) if (Math.abs(xyz[i * 3 + 1]) < 0.3 * height) wall = Math.min(wall, Math.hypot(xyz[i * 3], xyz[i * 3 + 2]));
-  assert.ok(Math.abs(wall - 0.5) < 1e-4, `side wall ${wall} m from the axis`);
+  let outer = Infinity, inner = Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    if (Math.abs(xyz[i * 3 + 1]) >= 0.3 * height) continue;
+    const r = Math.hypot(xyz[i * 3], xyz[i * 3 + 2]);
+    if (r > 0.495) outer = Math.min(outer, r); else inner = Math.min(inner, r);
+  }
+  assert.ok(Math.abs(outer - 0.5) < 1e-4, `side wall ${outer} m from the axis`);
+  assert.ok(Math.abs(inner - 0.48) < 2e-3, `inner face ${inner} m from the axis`);
 });

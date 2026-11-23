@@ -260,8 +260,40 @@ function breathMaterial() {
 
 // The lab look's materials, one per prop kind (docs/adr/0007), each in the colour the scene entry
 // gives; no textures, so a heat view still colours the same prop by its temperature (docs/adr/0004).
+// The three quality levels (docs/VISUAL-AUDIT.md, slice 5). Low draws the scene list as it is.
+// Medium adds a fresnel rim on the lab look's glass and a depth tint: what lies behind the
+// scene's origin fades a little into the sky, in the lab and visible looks alone, since the heat
+// look's colours are temperatures (docs/adr/0004). High adds a bloom round the plasma bodies,
+// Ignite's glow and the bright flash. Under auto the renderer starts high on a desktop and medium
+// on a phone, times its own first QUALITY_FRAMES draws, and steps down a level while the median
+// is over QUALITY_BUDGET_MS: half a 60 Hz frame, leaving the rest to the flat canvas and the physics.
+/** @type {('low' | 'medium' | 'high')[]} */
+const QUALITY = ['low', 'medium', 'high'];
+const QUALITY_FRAMES = 60;
+const QUALITY_BUDGET_MS = 8;
+// The layer of what blooms. Everything is on layer 0; these are on both.
+const BLOOM = 1;
+// How strong the glass's fresnel rim is, 0 at low; one uniform, shared by every pane.
+const uFresnel = { value: 1 };
+
+// Gives a material a fresnel rim: brighter and less see-through where its surface turns away
+// from the camera, as a real jar's edge catches the light. Added to the physical shader after it
+// lights the surface; under an orthographic camera the view direction is the camera's axis.
+function fresnel(material) {
+  material.onBeforeCompile = shader => {
+    shader.uniforms.uFresnel = uFresnel;
+    shader.fragmentShader = shader.fragmentShader.replace('uniform float opacity;', 'uniform float opacity;\nuniform float uFresnel;')
+      .replace('#include <opaque_fragment>', [
+        'float rim = uFresnel * pow(1.0 - saturate(dot(geometryViewDir, normal)), 3.0);',
+        'outgoingLight += rim * 0.9;',
+        'diffuseColor.a = min(1.0, diffuseColor.a + rim * 0.75);',
+        '#include <opaque_fragment>'].join('\n'));
+  };
+  return material;
+}
+
 const LAB = {
-  glass: colour => new THREE.MeshPhysicalMaterial({ color: colour, metalness: 0, roughness: 0.08, transparent: true, opacity: 0.22, clearcoat: 1, clearcoatRoughness: 0.06, side: THREE.DoubleSide, depthWrite: false }),
+  glass: colour => fresnel(new THREE.MeshPhysicalMaterial({ color: colour, metalness: 0, roughness: 0.08, transparent: true, opacity: 0.22, clearcoat: 1, clearcoatRoughness: 0.06, side: THREE.DoubleSide, depthWrite: false })),
   copper: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide }),
   brushed: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.8, roughness: 0.55, side: THREE.DoubleSide }),
   polished: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.95, roughness: 0.18, side: THREE.DoubleSide })
@@ -283,15 +315,60 @@ function studio() {
   return room;
 }
 
+// The bloom's three full-screen passes, each a shader over one triangle: the bright part of the
+// bloom layer's render, a blur in one direction, and the blurred glow added over the frame. Not
+// the addons' composer: it owns the whole canvas, and each view here draws into its own scissor.
+const SCREEN_VERTEX = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+/** @param {string} fragment @param {Record<string, { value: any }>} uniforms @param {THREE.Blending} [blending] */
+const screenMaterial = (fragment, uniforms, blending = THREE.NoBlending) => new THREE.ShaderMaterial({ uniforms, vertexShader: SCREEN_VERTEX, fragmentShader: fragment, depthTest: false, depthWrite: false, transparent: blending !== THREE.NoBlending, blending });
+// The glow goes over the frame as a screen blend, glow + frame × (1 − glow), not AdditiveBlending:
+// it is the same soft halo on the dark around a plasma body, but it cannot push the body itself
+// past white, so the speckle inside a body stays legible at high.
+const screenBlend = () => ({ blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcColorFactor });
+const BRIGHT = `uniform sampler2D map; uniform float threshold; varying vec2 vUv;
+void main() { vec3 c = texture2D(map, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(threshold, threshold + 0.3, l), 1.0); }`;
+const BLUR = `uniform sampler2D map; uniform vec2 step; varying vec2 vUv;
+void main() {
+  vec3 sum = texture2D(map, vUv).rgb * 0.227;
+  sum += (texture2D(map, vUv + step * 1.385).rgb + texture2D(map, vUv - step * 1.385).rgb) * 0.316;
+  sum += (texture2D(map, vUv + step * 3.231).rgb + texture2D(map, vUv - step * 3.231).rgb) * 0.070;
+  gl_FragColor = vec4(sum, 1.0);
+}`;
+const ADD = `uniform sampler2D map; uniform float strength; varying vec2 vUv;
+void main() { gl_FragColor = vec4(texture2D(map, vUv).rgb * strength, 1.0);
+#include <colorspace_fragment>
+}`;
+
 /**
- * Starts WebGL on `canvas` and loads the props. Rejects where WebGL can't start.
+ * Starts WebGL on `canvas` and loads the props. Rejects where WebGL can't start. `quality` is the
+ * player's level or 'auto'; `phone` says auto should start at medium; `onQuality` hears what
+ * auto settles on.
  * @param {HTMLCanvasElement} canvas
- * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string }, onLost: () => void }} options
+ * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string }, onLost: () => void, quality?: 'auto' | 'low' | 'medium' | 'high', phone?: boolean, onQuality?: (q: { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }) => void }} options
  */
-async function start(canvas, { props, onLost }) {
+async function start(canvas, { props, onLost, quality = 'auto', phone = false, onQuality = () => {} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.localClippingEnabled = true;
   canvas.addEventListener('webglcontextlost', () => onLost(), { once: true });
+  // The quality level: the player's choice, or under auto the level the first frames' timing
+  // settles on. `samples` holds the draw times still being read; `median` the last one read.
+  /** @type {'auto' | 'settled' | 'low' | 'medium' | 'high'} */ let choice = 'auto';
+  /** @type {'low' | 'medium' | 'high'} */ let level = 'high';
+  /** @type {number[]} */ let samples = [];
+  /** @type {number | null} */ let median = null;
+  /** @param {'auto' | 'low' | 'medium' | 'high'} c */
+  function choose(c) {
+    choice = c === 'low' || c === 'medium' || c === 'high' ? c : 'auto';
+    level = choice === 'auto' ? (phone ? 'medium' : 'high') : choice;
+    samples = []; median = null;
+  }
+  choose(quality);
+  // After each window of frames under auto: down a level while the median is over budget, else settled.
+  function judge() {
+    const sorted = [...samples].sort((a, b) => a - b); median = sorted[sorted.length >> 1]; samples = [];
+    if (median > QUALITY_BUDGET_MS && level !== 'low') { level = QUALITY[QUALITY.indexOf(level) - 1]; return; }
+    choice = 'settled'; onQuality({ level, auto: true, median });
+  }
   const [airliner, mount, chamber, housing, handle] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber),
     loadPumpPart(props.pistonHousing, 'housing', 'wallRadius'), loadPumpPart(props.pumpHandle, 'handle', 'span')]);
   // The props' geometry is shared by every world, so it stays when a world goes.
@@ -311,13 +388,14 @@ async function start(canvas, { props, onLost }) {
   function tick() { const now = performance.now(); if (pinned === null) clock += (now - last) / 1000; last = now; }
   // A plasma body, a sphere drawn larger than the entry's radius for its edge to move in.
   const body = (kind, order) => e => {
-    const b = take(kind, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), plasmaMaterial()); m.renderOrder = order; return m; });
+    const b = take(kind, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), plasmaMaterial()); m.renderOrder = order; m.layers.enable(BLOOM); return m; });
     const { uCore, uColour, uOpacity, uTime } = b.material.uniforms;
     uCore.value.copy(shaderColour(e.core)); uColour.value.copy(shaderColour(e.colour)); uOpacity.value = e.opacity; uTime.value = clock;
     b.position.set(...e.at); b.scale.setScalar(e.radius * BODY_REACH);
   };
 
   function dispose(w) {
+    for (const t of w.targets) t.dispose();
     // A world's own geometry and materials go; the prop's shared geometry and the textures stay.
     w.scene.traverse(o => {
       if (!(o instanceof THREE.Mesh || o instanceof THREE.Line || o instanceof THREE.Sprite)) return;
@@ -353,7 +431,47 @@ async function start(canvas, { props, onLost }) {
       scene.environment = environment; scene.environmentIntensity = 1.1;
     }
     const outline = look === 'heat' ? [token('--ink'), .85] : look === 'visible' ? ['#2a3045', 1] : [token('--deep'), 1];
-    return { look, cam, scene, outline, scale, view, pools: new Map() };
+    // The depth tint, from the scene's origin back to three quarters of the view's height behind
+    // it, in the sky's colour; draw() hangs it on the scene at medium and above.
+    let fog = null;
+    if (look === 'lab' || look === 'visible') fog = new THREE.Fog(0x000000, CAMERA_DISTANCE, CAMERA_DISTANCE + 0.75 * H / scale);
+    return { look, cam, scene, outline, scale, view, fog, pools: new Map(), targets: /** @type {THREE.WebGLRenderTarget[]} */ ([]) };
+  }
+
+  // The bloom at high: the bloom layer alone, drawn through the view's camera into a target a
+  // quarter the view's size, its bright part blurred twice each way and added over the frame in
+  // the view's part of the canvas. What hides a plasma body in the main pass is not drawn here,
+  // so a body behind an opaque prop would still glow through it; no scene list stands one there.
+  const bright = screenMaterial(BRIGHT, { map: { value: null }, threshold: { value: 0.5 } });
+  const blur = screenMaterial(BLUR, { map: { value: null }, step: { value: new THREE.Vector2() } });
+  const add = screenMaterial(ADD, { map: { value: null }, strength: { value: 0.45 } }, THREE.CustomBlending);
+  Object.assign(add, screenBlend());
+  const screen = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3)).setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2)), bright);
+  const screenScene = new THREE.Scene(), screenCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); screenScene.add(screen);
+  function pass(material, target) { screen.material = material; renderer.setRenderTarget(target); renderer.render(screenScene, screenCam); }
+  function bloom(w, H) {
+    const { view, cam, scene } = w, dpr = renderer.getPixelRatio();
+    const tw = Math.max(1, Math.round(view.width * dpr / 4)), th = Math.max(1, Math.round(H * dpr / 4));
+    if (w.targets.length === 0 || w.targets[0].width !== tw || w.targets[0].height !== th) {
+      w.targets.forEach(t => t.dispose());
+      w.targets = [0, 1, 2].map(() => new THREE.WebGLRenderTarget(tw, th, { depthBuffer: false }));
+    }
+    const [source, a, b] = w.targets;
+    // The bloom layer over black, not the sky: the main pass left the sky as the clear colour.
+    const background = scene.background, fog = scene.fog, clearColour = renderer.getClearColor(new THREE.Color()), clearAlpha = renderer.getClearAlpha();
+    scene.background = null; scene.fog = null; cam.layers.set(BLOOM); renderer.setClearColor(0x000000, 1);
+    renderer.setRenderTarget(source); renderer.setScissorTest(false); renderer.render(scene, cam);
+    cam.layers.set(0); scene.background = background; scene.fog = fog;
+    bright.uniforms.map.value = source.texture; pass(bright, a);
+    for (let i = 0; i < 2; i++) {
+      blur.uniforms.map.value = a.texture; blur.uniforms.step.value.set(1 / tw, 0); pass(blur, b);
+      blur.uniforms.map.value = b.texture; blur.uniforms.step.value.set(0, 1 / th); pass(blur, a);
+    }
+    // Added over the frame already drawn, so no clear first.
+    renderer.setRenderTarget(null); renderer.setScissorTest(true); renderer.autoClear = false;
+    renderer.setViewport(view.left, 0, view.width, H); renderer.setScissor(view.left, 0, view.width, H);
+    add.uniforms.map.value = a.texture; pass(add, null);
+    renderer.autoClear = true; renderer.setClearColor(clearColour, clearAlpha);
   }
 
   // Objects are pooled by kind and reused frame to frame; what the list leaves out is hidden.
@@ -429,13 +547,14 @@ async function start(canvas, { props, onLost }) {
     orb(e) {
       const o = take('orb', () => {
         const g = new THREE.Group();
-        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, fog: false }));
         const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), surface('#ffffff'));
         g.add(halo, ball);
         // Heat views ring each orb in the outline colour, so it reads as a schematic mark too.
         if (world.look === 'heat') g.add(facing(new THREE.Mesh(new THREE.RingGeometry(1, 1, 32), new THREE.MeshBasicMaterial({ color: world.outline[0], transparent: true, opacity: world.outline[1], side: THREE.DoubleSide }))));
-        // The flat view draws the orbs over the airliner, so an orb the airframe would hide stays in view.
-        g.children.forEach(c => { /** @type {any} */ (c).material.depthTest = false; c.renderOrder = 4; });
+        // The flat view draws the orbs over the airliner, so an orb the airframe would hide stays
+        // in view; and an orb is a signal, not scenery, so the depth tint leaves it alone ({ fog: false }).
+        g.children.forEach(c => { Object.assign(/** @type {any} */ (c).material, { depthTest: false, fog: false }); c.renderOrder = 4; });
         return g;
       });
       const [halo, ball, ring] = o.children;
@@ -448,7 +567,7 @@ async function start(canvas, { props, onLost }) {
       if (ring) swapGeometry(ring, new THREE.RingGeometry(e.size + 0.5 / world.scale, e.size + 1.5 / world.scale, 32));
     },
     triangle(e) {
-      const t = take('triangle', () => new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ transparent: true })));
+      const t = take('triangle', () => new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ transparent: true, fog: false })));
       t.material.color.set(e.colour); t.material.opacity = e.opacity;
       swapGeometry(t, new THREE.BufferGeometry().setFromPoints(e.points.map(p => new THREE.Vector3(...p))));
     },
@@ -502,10 +621,10 @@ async function start(canvas, { props, onLost }) {
     throat(e) {
       const t = take('throat', () => {
         const g = new THREE.Group();
-        const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 96), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+        const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 96), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false }));
         mouth.renderOrder = 1; g.add(mouth);
         const circle = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 96 }, (_, i) => new THREE.Vector3(Math.cos(i / 96 * TAU), Math.sin(i / 96 * TAU), 0)));
-        for (let i = 1; i <= 5; i++) { const ring = new THREE.LineLoop(i === 1 ? circle : circle.clone(), new THREE.LineBasicMaterial({ transparent: true })); ring.renderOrder = 2; g.add(ring); }
+        for (let i = 1; i <= 5; i++) { const ring = new THREE.LineLoop(i === 1 ? circle : circle.clone(), new THREE.LineBasicMaterial({ transparent: true, fog: false })); ring.renderOrder = 2; g.add(ring); }
         return g;
       });
       t.position.set(...e.at);
@@ -543,6 +662,7 @@ async function start(canvas, { props, onLost }) {
       const p = take(e.round ? 'round specks' : 'specks', () => {
         const m = new THREE.PointsMaterial({ sizeAttenuation: false });
         if (e.round) { m.map = glowTexture([[0, 'rgba(255,255,255,1)'], [.8, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]); m.transparent = true; m.depthWrite = false; }
+        m.fog = false; // the specks are a signal, not scenery
         const points = new THREE.Points(new THREE.BufferGeometry(), m); points.renderOrder = 5; return points;
       });
       p.material.color.set(e.colour); p.material.size = e.size * world.scale;
@@ -694,7 +814,7 @@ async function start(canvas, { props, onLost }) {
         const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
         const m = haloMaterial(); m.uniforms.map.value = map;
         const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), m);
-        disc.renderOrder = 1; return disc;
+        disc.renderOrder = 1; disc.layers.enable(BLOOM); return disc;
       });
       g.material.uniforms.uTime.value = clock;
       const key = JSON.stringify(e.stops), map = /** @type {THREE.CanvasTexture} */ (g.material.uniforms.map.value);
@@ -748,9 +868,9 @@ async function start(canvas, { props, onLost }) {
     'throat forming': roundGlow('throat'),
     'formation glow': roundGlow('formation glow', true),
     flash(e) {
-      const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
+      const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide, fog: false }));
       if (e.style === 'bright') {
-        const s = take('flash bright', () => new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture([[0, 'rgba(255,255,255,1)'], [.55, 'rgba(255,255,255,.9)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthTest: false })));
+        const s = take('flash bright', () => { const b = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture([[0, 'rgba(255,255,255,1)'], [.55, 'rgba(255,255,255,.9)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthTest: false, fog: false })); b.layers.enable(BLOOM); return b; });
         s.renderOrder = 8; s.material.color.set(e.colour); s.position.set(...e.at); s.scale.setScalar(e.radius * 2);
         return;
       }
@@ -775,17 +895,31 @@ async function start(canvas, { props, onLost }) {
         worlds.forEach(dispose); worlds = views.map(view => build(view.look || look, view, H)); size = key;
       }
       tick();
+      const started = performance.now();
+      uFresnel.value = level === 'low' ? 0 : 1;
       renderer.setScissorTest(true);
       views.forEach((view, i) => {
         world = worlds[i];
         for (const pool of world.pools.values()) pool.used = 0;
         for (const entry of view.list) DRAW[entry.kind]?.(entry);
         for (const pool of world.pools.values()) pool.items.forEach((o, j) => { if (j >= pool.used) o.visible = false; });
+        world.scene.fog = level === 'low' ? null : world.fog;
+        if (world.scene.fog) world.scene.fog.color.copy(/** @type {any} */ (world.scene.background) || new THREE.Color(0));
         // Viewports count from the canvas's bottom; each view fills the full height.
         renderer.setViewport(view.left, 0, view.width, H); renderer.setScissor(view.left, 0, view.width, H);
         renderer.render(world.scene, world.cam);
+        if (level === 'high') bloom(world, H);
       });
+      // Under auto, the first frames' draw time decides the level; the clock's pin is no matter.
+      if (choice === 'auto') { samples.push(performance.now() - started); if (samples.length === QUALITY_FRAMES) judge(); }
     },
+    /**
+     * Takes a level, or auto, which reads the next frames afresh; the next frame draws at it.
+     * @param {'auto' | 'low' | 'medium' | 'high'} c
+     */
+    setQuality(c) { choose(c); },
+    // The level in use, whether auto picked it, and the median draw time auto last read, in ms.
+    quality() { return { level, auto: choice === 'auto' || choice === 'settled', median }; },
     // Pins the clock at `t` seconds, or lets it run again with null.
     freeze
   };

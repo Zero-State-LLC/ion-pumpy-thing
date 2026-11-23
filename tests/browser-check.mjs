@@ -348,6 +348,33 @@ async function main() {
           })()`);
           if (!(motion.live > 0)) failures.push(`${where(view)}: the plasma body does not move; two frames ${MOTION_WAIT_MS} ms apart are the same`);
           if (motion.frozen !== 0) failures.push(`${where(view)}: the plasma body moves with its clock pinned; ${motion.frozen} pixels differ between two frames at freeze(1)`);
+          // Each quality level draws this scene (docs/VISUAL-AUDIT.md, slice 5): a frame that isn't
+          // blank, with no error, and the three frames differ, since each level adds to the last.
+          const levels = await evaluate(`(() => {
+            const r = window.__lab.view3D(), frame = window.__lab.scene3D();
+            const c = document.getElementById('gl'), gl = c.getContext('webgl2') || c.getContext('webgl');
+            const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, frames = {}, out = {};
+            r.freeze(1);
+            for (const level of ['low', 'medium', 'high']) {
+              r.setQuality(level);
+              try { r.draw(frame); } catch (e) { out[level] = { error: String(e) }; continue; }
+              const px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px); frames[level] = px;
+              let differ = 0; for (let i = 0; i < px.length; i += 4) if (px[i] !== px[0] || px[i + 1] !== px[1] || px[i + 2] !== px[2]) differ++;
+              out[level] = { fraction: differ / (w * h), reports: r.quality().level };
+            }
+            const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; };
+            if (frames.low && frames.medium) out.lowToMedium = differ(frames.low, frames.medium);
+            if (frames.medium && frames.high) out.mediumToHigh = differ(frames.medium, frames.high);
+            r.setQuality('auto'); r.freeze(null);
+            return out;
+          })()`);
+          for (const level of ['low', 'medium', 'high']) {
+            if (levels[level].error) failures.push(`${where(view)}: drawing at ${level} quality threw ${levels[level].error}`);
+            else if (!(levels[level].fraction >= DRAWN_FRACTION)) failures.push(`${where(view)}: the 3D frame at ${level} quality is blank (${(levels[level].fraction * 100).toFixed(2)} % of its pixels differ from its corner)`);
+            else if (levels[level].reports !== level) failures.push(`${where(view)}: set to ${level} quality, the renderer reports ${levels[level].reports}`);
+          }
+          if (levels.lowToMedium === 0) failures.push(`${where(view)}: medium quality draws the same frame as low; the fresnel rim and depth tint change nothing`);
+          if (levels.mediumToHigh === 0) failures.push(`${where(view)}: high quality draws the same frame as medium; the bloom changes nothing`);
         }
         views3d++;
       }

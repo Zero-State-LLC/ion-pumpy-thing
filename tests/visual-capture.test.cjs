@@ -67,3 +67,27 @@ test('the slice-2 set has every shot, with Hold drawn inside its gate and every 
   const total = readdirSync(slice2).reduce((sum, f) => sum + statSync(path.join(slice2, f)).size, 0);
   assert.ok(total < 4 * 1024 * 1024, `slice-2 set is ${(total / 1024 / 1024).toFixed(1)} MB`);
 });
+
+// Slice 5 of docs/VISUAL-AUDIT.md: the set is taken at high, the level auto starts on at a desktop,
+// so the bloom's cost is what the gate from slice 2 measures; every 3D shot must still draw inside it.
+test('the slice-5 set is taken at high, with every 3D shot inside the slice-2 gate', () => {
+  const slice5 = path.join(root, 'docs', 'visual-audit', 'slice-5');
+  const index = JSON.parse(readFileSync(path.join(slice5, 'index.json'), 'utf8'));
+  assert.equal(index.set, 'slice-5');
+  assert.equal(index.quality, 'high', 'the set records the level it was taken at');
+  assert.equal(index.frozenAt, 1);
+  assert.equal(index.shots.length, 48);
+  for (const shot of index.shots) {
+    assert.ok(existsSync(path.join(slice5, shot.file)), `${shot.file} is missing`);
+    assert.deepEqual(shot.errors, [], `${shot.name} threw`);
+    if (shot.view !== '3d') continue;
+    const [median, p95] = shot.window === 'phone' ? [3.5, 5.0] : [3.0, 4.0];
+    assert.ok(shot.drawMs.median <= median && shot.drawMs.p95 <= p95, `${shot.name} draws in ${shot.drawMs.median} / ${shot.drawMs.p95} ms at high, over the ${median} / ${p95} gate`);
+  }
+  const { statSync, readdirSync } = require('node:fs');
+  const total = readdirSync(slice5).reduce((sum, f) => sum + statSync(path.join(slice5, f)).size, 0);
+  assert.ok(total < 4 * 1024 * 1024, `slice-5 set is ${(total / 1024 / 1024).toFixed(1)} MB`);
+  const audit = readFileSync(path.join(root, 'docs', 'VISUAL-AUDIT.md'), 'utf8');
+  const hold = index.shots.find(s => s.name === 'hold-3d-desktop').drawMs;
+  assert.ok(audit.includes(`Slice 5, result`) && audit.includes(`${hold.median.toFixed(1)} / ${hold.p95.toFixed(1)} ms desktop`), 'the audit quotes Hold\'s draw cost at high');
+});

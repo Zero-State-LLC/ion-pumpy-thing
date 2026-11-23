@@ -89,7 +89,9 @@ function boot(storage = new Map(), options = {}) {
   if (stand) window.IonView3D = { async start(canvas, given) {
     Object.assign(stand, { canvas, given });
     if (stand.fails) throw Error('WebGL is off');
-    return { draw: frame => scenes.push(JSON.parse(JSON.stringify(frame))) };
+    // Its quality level, as the real renderer keeps it: the game's choice, or auto's pick.
+    stand.quality = given.quality || 'auto';
+    return { draw: frame => scenes.push(JSON.parse(JSON.stringify(frame))), setQuality: q => { stand.quality = q; }, quality: () => ({ level: stand.quality === 'auto' ? 'high' : stand.quality, auto: stand.quality === 'auto', median: null }) };
   } };
   vm.runInNewContext(script, sandbox, { filename: 'index.html' });
   return { lab: window.__lab, ids, document, window, storage, drawing, frames, sounds, scenes, view3d: stand };
@@ -2517,7 +2519,7 @@ test('the 3D view switch starts on where the renderer starts, is remembered on t
   toggle.checked = false; toggle.onchange();
   assert.equal(nextScene(game), null, 'no 3D frame once off'); assert.equal(game.ids.get('gl').hidden, true);
   assert.ok(game.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
-  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: false });
+  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: false, quality: 'auto' });
   leave(game); assert.equal(game.storage.get('ipt-run-v2'), savedBefore, 'the saved run is unchanged');
   const again = await bootIn3D('ready-to-converge', { storage: game.storage });
   assert.equal(again.ids.get('view-3d').checked, false, 'remembered off');
@@ -2526,6 +2528,30 @@ test('the 3D view switch starts on where the renderer starts, is remembered on t
   const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
   assert.equal(blocked.ids.get('view-3d').checked, true);
   blocked.ids.get('view-3d').checked = false; assert.doesNotThrow(() => blocked.ids.get('view-3d').onchange());
+});
+
+test('the quality select starts on auto, is kept on this device beside the 3D view switch, goes to the renderer as it changes, and its status line says what auto chose', async () => {
+  const game = await bootIn3D('ready-to-converge');
+  const select = game.ids.get('view-quality');
+  assert.equal(select.value, 'auto');
+  assert.equal(game.view3d.given.quality, 'auto'); assert.equal(game.view3d.given.phone, false, 'no coarse pointer in the harness');
+  assert.equal(typeof game.view3d.given.onQuality, 'function', 'the renderer reports what auto chose');
+  game.view3d.given.onQuality({ level: 'high', auto: true, median: 1.23 });
+  assert.match(text(game, 'view-quality-status'), /Auto chose high: a frame draws in about 1\.2 ms here\./);
+  select.value = 'low'; select.onchange();
+  assert.equal(game.view3d.quality, 'low', 'the running renderer takes the level at once');
+  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: true, quality: 'low' });
+  assert.equal(text(game, 'view-quality-status'), '', 'nothing to say about a level the player chose');
+  const again = await bootIn3D('ready-to-converge', { storage: game.storage });
+  assert.equal(again.ids.get('view-quality').value, 'low', 'remembered');
+  assert.equal(again.view3d.given.quality, 'low', 'and given to the renderer at start');
+  // A saved setting the game does not know, or storage that throws, leaves the select on auto.
+  const odd = await bootIn3D('ready-to-converge', { storage: new Map([['ion-pumpy-view-v1', JSON.stringify({ on: true, quality: 'ultra' })]]) });
+  assert.equal(odd.ids.get('view-quality').value, 'auto');
+  const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
+  assert.equal(blocked.ids.get('view-quality').value, 'auto');
+  blocked.ids.get('view-quality').value = 'high'; assert.doesNotThrow(() => blocked.ids.get('view-quality').onchange());
+  assert.equal(blocked.view3d.quality, 'high');
 });
 
 test('where the renderer cannot start, or loses WebGL, the flat view draws and the switch says why', async () => {

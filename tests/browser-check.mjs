@@ -35,7 +35,7 @@ const TOGGLED = [[2, 'fu-screen', 'electron screening on'], [4, 'op-throat', 'th
 // each, is drawn. 30 % of the way through the transit, the front of the airliner, its nose and
 // forward fuselage, is past the entrance, the canvas's middle row, so nothing may be drawn in
 // the frame's top half. (Halfway, too little is left on a 320 px phone to count as drawn.)
-const VIEWS_3D = [[0, null, 'Ignite, glass jar and pump', null, null], [1, null, 'Hold, plasma ball between coils', null, null], [2, null, 'Fuel, reactor core', null, null],
+const VIEWS_3D = [[0, null, 'Ignite, glass jar and pump', null, null], [1, null, 'Hold, plasma ball between coils', null, 'motion'], [2, null, 'Fuel, reactor core', null, null],
   [2, 'fu-screen', 'Fuel, reactor core with electron screening', null, null], [3, null, 'Orbit, both cameras', null, 'split'],
   [4, 'op-plates', 'Open, plates', null, null], [4, 'op-throat', 'Open, throat', null, null], [4, 'op-cavity', 'Open, plasma cavity', null, null],
   [5, 'cv-thermal', 'Converge, thermal view', 10, null], [5, 'cv-visible', 'Converge, visible view', 10, null],
@@ -49,6 +49,8 @@ const START_3D_MS = 15000;
 // How much of a 3D frame, as a fraction of its pixels, must differ from its corner for it to count as drawn.
 // A blank frame has none; the smallest view, the transit diagram on a 320 px phone, has about 0.8 %.
 const DRAWN_FRACTION = 0.005;
+// How long, in milliseconds, between the two frames that show the plasma body moving.
+const MOTION_WAIT_MS = 500;
 // How far, in CSS pixels, a glyph may reach past a canvas edge before it counts as cut off.
 // Half a pixel absorbs the canvas's whole-pixel rounding of its drawing size and anti-aliasing.
 const TOLERANCE = 0.5;
@@ -329,6 +331,24 @@ async function main() {
         if (!(drawn.fraction >= DRAWN_FRACTION)) failures.push(`${where(view)}: the 3D frame is blank (${(drawn.fraction * 100).toFixed(2)} % of its pixels differ from its corner)`);
         if (also === 'cut' && drawn.beyond) failures.push(`${where(view)}: ${drawn.beyond} pixels of the airliner are drawn past the entrance`);
         if (also === 'split') drawn.halves.forEach((f, i) => { if (!(f >= DRAWN_FRACTION)) failures.push(`${where(view)}: camera ${i + 1}'s half of the 3D frame is blank (${(f * 100).toFixed(2)} % of its pixels differ from its corner)`); });
+        // The plasma body moves on the renderer's own clock and holds still when that clock is
+        // pinned (GLOSSARY.md, Plasma body and Reduced motion). The same scene list is drawn twice
+        // by hand, so only the clock can differ between the two frames.
+        if (also === 'motion') {
+          const motion = await evaluate(`(async () => {
+            const r = window.__lab.view3D(), frame = window.__lab.scene3D();
+            const c = document.getElementById('gl'), gl = c.getContext('webgl2') || c.getContext('webgl');
+            const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+            const read = () => { const px = new Uint8Array(w * h * 4); r.draw(frame); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px); return px; };
+            const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; };
+            r.freeze(null); const a = read(); await new Promise(res => setTimeout(res, ${MOTION_WAIT_MS})); const b = read();
+            r.freeze(1); const c1 = read(); await new Promise(res => setTimeout(res, ${MOTION_WAIT_MS})); const c2 = read();
+            r.freeze(null);
+            return { live: differ(a, b), frozen: differ(c1, c2) };
+          })()`);
+          if (!(motion.live > 0)) failures.push(`${where(view)}: the plasma body does not move; two frames ${MOTION_WAIT_MS} ms apart are the same`);
+          if (motion.frozen !== 0) failures.push(`${where(view)}: the plasma body moves with its clock pinned; ${motion.frozen} pixels differ between two frames at freeze(1)`);
+        }
         views3d++;
       }
       // The views draw labels, so measuring none means the measuring has stopped working, not that all is well.

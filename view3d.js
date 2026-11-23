@@ -623,10 +623,10 @@ async function start(canvas, { props, onLost }) {
      */
     draw(frame) {
       const { width: W, height: H, pixelRatio, look, views } = frame;
-      const key = JSON.stringify([W, H, pixelRatio, look, views.map(({ left, width, origin, camera }) => [left, width, origin, camera])]);
+      const key = JSON.stringify([W, H, pixelRatio, look, views.map(({ left, width, origin, camera, look: viewLook }) => [left, width, origin, camera, viewLook || look])]);
       if (key !== size) {
         renderer.setPixelRatio(Math.min(pixelRatio, 2)); renderer.setSize(W, H, false);
-        worlds.forEach(dispose); worlds = views.map(view => build(look, view, H)); size = key;
+        worlds.forEach(dispose); worlds = views.map(view => build(view.look || look, view, H)); size = key;
       }
       renderer.setScissorTest(true);
       views.forEach((view, i) => {

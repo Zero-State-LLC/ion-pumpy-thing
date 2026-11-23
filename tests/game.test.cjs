@@ -2036,7 +2036,7 @@ test('the 3D view loads the airliner, the plate mount, the vacuum chamber, the p
 test('Open\'s plates in 3D: two plates set apart by the gap and as tall as the area the player sets, as the flat view draws them, each held by a plate mount prop at its real 100 mm', async () => {
   for (const [ld, la] of [[3, 0], [1, 6], [4, 2.5]]) {
     const game = await openIn3D('plates', { 'op-d': ld, 'op-a': la }), frame = nextScene(game);
-    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)'); assert.equal(frame.views.length, 1);
+    assert.equal(frame.look, 'lab', 'real apparatus, so lit as a lab (docs/adr/0007)'); assert.equal(frame.views.length, 1);
     assert.deepEqual([frame.views[0].left, frame.views[0].width, frame.views[0].origin], [0, 390, [195, 292.5 / 2]]);
     assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
     // The flat view's plates, in pixels: centred 47 % of the way down, the gap and height set by the logarithmic controls.
@@ -2112,6 +2112,7 @@ test('Open\'s plasma cavity in 3D: the bubble is as big as the flat view\'s and 
   for (let i = 0; i < 4; i++) {
     flat.lab.advance(0.25); game.lab.advance(0.25);
     const frame = nextScene(game), [bubble] = entries(frame, 'bubble');
+    assert.equal(frame.look, 'diagram', 'an idea, not hardware, so still a diagram (docs/adr/0007)');
     assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE });
     near(bubble.radius * LAB_SCALE, cavityView(flat).bubble, `the bubble at ${(i + 1) / 4} s`);
   }
@@ -2170,14 +2171,14 @@ function holdWalls(game) {
   return walls;
 }
 
-test('Hold in 3D: a diagram side on at the lab\'s scale, with the plasma ball and its cusp leaks where, as big and as open as the flat view draws them, inside and outside the beta band', async () => {
+test('Hold in 3D: a lab side on at the lab\'s scale, with the plasma ball and its cusp leaks where, as big and as open as the flat view draws them, inside and outside the beta band', async () => {
   for (const reduced of [false, true]) {
     const flat = bootFromSavedRun(savedRunOn(1), { reduced }), game = await holdIn3D({ reduced });
     let t = 0;
     for (const [name, beta] of [...IN_BAND, ...OUT_OF_BAND]) {
       holdSteady(flat, .5, { beta, from: t }); t = holdSteady(game, .5, { beta, from: t });
       const why = `${name}${reduced ? ', reduced motion' : ''}`, frame = nextScene(game);
-      assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)');
+      assert.equal(frame.look, 'lab', 'real apparatus, so lit as a lab (docs/adr/0007)');
       assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
       const want = holdView(flat), ball = holdBall(flat), [drawn] = entries(frame, 'plasma ball'), [leaks] = entries(frame, 'cusp leaks');
       labPixels(drawn.at).forEach((v, k) => near(v, ball.at[k], `the ball where the flat view draws it at ${why}`));
@@ -2289,13 +2290,13 @@ const rgba = colour => colour.match(/^rgba?\(([^)]+)\)$/)[1].split(',').map(Numb
 const hexOf = ([r, g, b]) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 const FUEL_CASES = ['dt', 'pb'].flatMap(fuel => [false, true].flatMap(screening => [[fuel, screening, .3], [fuel, screening, fuel === 'dt' ? 1.8 : 2.8]]));
 
-test('Fuel in 3D: a diagram end on at the lab\'s scale, where what burns and how much come from the fuel\'s activity: the helium and the neutrons where the flat view draws them, for both fuels, with electron screening on and off', async () => {
+test('Fuel in 3D: a lab end on at the lab\'s scale, where what burns and how much come from the fuel\'s activity: the helium and the neutrons where the flat view draws them, for both fuels, with electron screening on and off', async () => {
   const counts = {};
   for (const [fuel, screening, lt] of FUEL_CASES) {
     const game = await fuelIn3D(), why = `${fuel} at ${(10 ** lt).toFixed(1)} keV${screening ? ', screened' : ''}`;
     fuelPlay(game, { fuel, lt, screening });
     const frame = nextScene(game), list = frame.views[0].list, flat = flatAfter(game);
-    assert.equal(frame.look, 'diagram', 'a schematic, so drawn as a diagram (docs/adr/0004)');
+    assert.equal(frame.look, 'lab', 'real apparatus, so lit as a lab (docs/adr/0007)');
     assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'end on, at the lab\'s scale');
     for (const kind of ['helium', 'neutrons']) {
       const dots = flat[kind], [specks] = list.filter(e => e.kind === 'specks' && e.of === kind);
@@ -2412,7 +2413,7 @@ const nearBox = (a, b, why) => a.forEach((v, k) => assert.ok(Math.abs(v - b[k]) 
 // Pressures above, in and below the Ignite band, with what the readout says about each.
 const IGNITE_PRESSURES = [[760, 'above'], [5, 'above'], [1, 'in'], [.4, 'in'], [.1, 'below']];
 
-test('Ignite in 3D: a diagram side on at the lab\'s scale, where the piston travels with each stroke and presses the plasma in to its front only while the pressure is in its band, above, in and below it', async () => {
+test('Ignite in 3D: a lab side on at the lab\'s scale, where the piston travels with each stroke and presses the plasma in to its front only while the pressure is in its band, above, in and below it', async () => {
   for (const reduced of [false, true]) for (const [p, band] of IGNITE_PRESSURES) {
     const game = await igniteIn3D(p, { reduced });
     // At rest, a stroke's start, part way and done: each stroke takes a fifth of the pressure.
@@ -2425,7 +2426,7 @@ test('Ignite in 3D: a diagram side on at the lab\'s scale, where the piston trav
       const inBand = pressureNote(game) === 'in the band', why = `${p} torr ${moment} (${torr(game)} torr)${reduced ? ', reduced motion' : ''}`;
       if (moment === 'at rest') assert.equal(inBand, band === 'in', `${p} torr stays ${band} the band at rest`);
       const frame = nextScene(game), flat = flatAfterIgnite(game);
-      assert.equal(frame.look, 'diagram', 'a lab schematic, so drawn as a diagram (docs/adr/0004)');
+      assert.equal(frame.look, 'lab', 'real apparatus, so lit as a lab (docs/adr/0007)');
       assert.deepEqual(cameraOf(frame), { angle: 0, scale: LAB_SCALE }, 'side on, at the lab\'s scale');
       const [piston] = entries(frame, 'piston'), [front] = entries(frame, 'compression front');
       nearBox(boxAround(piston.at, 2 * piston.radius, piston.thickness), flat.head.box, `the piston's head where the flat view draws it at ${why}`);

@@ -7,7 +7,7 @@ What this audit is not: a device test (ADR 0006 keeps iOS Safari, Android Chrome
 
 ## Scoring
 
-0 = absent, 1 = placeholder, 2 = functional, 3 = competent, 4 = polished, 5 = premium. One row per scene the browser check draws in 3D. The 3D column scores the 3D view; the flat view is the fallback and is scored once, below the table.
+0 = absent, 1 = placeholder, 2 = functional, 3 = competent, 4 = polished, 5 = premium. One row per scene the browser check draws in 3D. The 3D column scores the 3D view; the flat view is scored once, below the table.
 
 | Scene (look) | Materials | Lighting | Depth and composition | Effects (plasma, field, energy) | Readability and science clarity | Motion and feel | Draw cost, desktop (median / p95 ms) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ What this audit is not: a device test (ADR 0006 keeps iOS Safari, Android Chrome
 | Converge, visible (visible) | 2 | 2 | 2 | 2 | 4 | 3 | 0.3 / 0.5 |
 | Converge, transit diagram (diagram) | 1 | 0 | 1 | 1 | 5 | 2 | 0.1 / 0.3 |
 
-Flat view (the fallback): materials and lighting n/a, depth 1, effects 2, readability 4, motion 2. It is the design the 3D view reproduces, so it is where the 3D view's ceiling currently sits.
+Flat view: materials and lighting n/a, depth 1, effects 2, readability 4, motion 2. It is the design the 3D view reproduces, so it is where the 3D view's ceiling currently sits.
 
 Phone window: every scene is captured at 390 px; no clipping, no overflow and no page errors in any shot. Scores are the same as desktop; nothing degrades at phone size, and nothing improves.
 
@@ -39,11 +39,11 @@ Phone window: every scene is captured at 390 px; no clipping, no overflow and no
 7. **No bloom, no depth cue, no atmosphere.** The visible flash in Converge is a white sprite; the clouds are flat grey ellipses; the backgrounds are solid tokens. There is no post-processing of any kind.
 8. **Performance headroom is large.** Worst scene (Hold) 4.5 ms median / 8.0 ms p95 (4.4 / 5.3 in the phone window) on a desktop GPU; the rest under 1.5 ms. The budget for everything below is roughly 10 ms on this hardware before a 60 Hz frame is at risk, and much less on a phone GPU, where nothing has been measured (ADR 0006). The one existing hot spot, Hold's per-frame tube rebuild, should be fixed before anything is added to that scene.
 
-What is right and must stay: the orthographic camera and the 50 m scale bar (ADR 0004); the thermal scale and its meaning (ADR 0004 precedence rule); the two Orbit cameras' sensor distinction (#89); all text on the 2D canvas; the scene-list contract (ADR 0003); the flat fallback; the labels and the "Schematic · not to scale" marks.
+What is right and must stay: the orthographic camera and the 50 m scale bar (ADR 0004); the thermal scale and its meaning (ADR 0004 precedence rule); the two Orbit cameras' sensor distinction (#89); all text on the 2D canvas; the scene-list contract (ADR 0003); the flat view; the labels and the "Schematic · not to scale" marks.
 
 ## What the upgrade should do, in slices
 
-Each slice is a stacked PR with its failing test first, each needs the owner's go before it opens, and no slice merges without a separate yes. The decision that makes slices 3 and 4 possible is an ADR (0007) that amends ADR 0004: it keeps orthographic cameras, the thermal scale and scene-list rendering, and adds a lit **lab** look for the scenes that depict apparatus. The owner chose this (option b) on 22 November 2026 PT over keeping everything unlit (a) or lighting and texturing everything (c).
+Each slice is a stacked PR with its failing test first, each needs the owner's go before it opens, and no slice merges without a separate yes. The decision that makes slices 3 and 4 possible is [ADR 0007](adr/0007-a-lab-look-for-apparatus-views.md), which amends ADR 0004: it keeps orthographic cameras, the thermal scale and scene-list rendering, and adds a lit **lab** look for the views that depict apparatus. The owner chose this (option b) on 22 November 2026 PT over keeping everything unlit (a) or lighting and texturing everything (c).
 
 | Slice | Addresses | What changes | Verified by |
 | --- | --- | --- | --- |
@@ -55,8 +55,10 @@ Each slice is a stacked PR with its failing test first, each needs the owner's g
 
 Not in scope: the Orbit camera presentation (landed in #89), copy (#81), device qualification (ADR 0006), Meshy rights (ADR 0005, tracked separately), perspective cameras or textured heat-look props (ADR 0004).
 
-## Open questions for the owner
+## Decisions taken (22 November 2026 PT)
 
-- Slice 3: lit lab look for Ignite, Hold, Fuel and Open-plates only, leaving Open-cavity and Transit as diagrams? (Recommended: yes; those two carry a "not to scale" mark and depict a schematic, not apparatus.)
-- Slice 4: refine the existing Meshy tasks (paid, texture stage on four lab props, the airliner excluded since both its views are untextured by ADR 0004) or detail in Blender only? (Recommended: Blender first, Meshy texture only where the result is weak; textures are discarded in heat views anyway.)
-- Slice 5: bloom budget. Recommended default: bloom on at desktop, off on phones under the auto level, player override in the 3D view's settings.
+- Slice 3: Ignite, Hold, Fuel (both views) and Open-plates switch to the lab look; Open-cavity and Transit stay diagrams (ADR 0007).
+- Slice 2: under reduced motion the plasma noise freezes at its first frame; the structure stays, the motion goes.
+- Slice 4: Blender detailing first; a paid Meshy texture pass only on a prop whose surface is still the weak point after slice 3 lights it. The airliner is excluded (ADR 0004 keeps heat-look props untextured).
+- Slice 5: three quality levels (low: no post; medium: fresnel and depth tint; high: adds selective bloom on emissive plasma and the flash), auto-picked from the first 60 frames' draw time, bloom on by default at desktop and off on phones under auto, with a per-device player override beside the 3D view switch.
+- Phones: slices are gated on desktop timings and the 390 px emulated window (ADR 0006 keeps the physical-device rows Pending); the auto quality level protects phone GPUs at runtime.

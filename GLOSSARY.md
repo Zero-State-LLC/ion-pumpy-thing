@@ -86,6 +86,10 @@ _Avoid_: WebGL mode, 3D mode
 A step's 2D drawing, shown when the 3D view is switched off or can't run. It draws the same state as the 3D view.
 _Avoid_: 2D mode, fallback
 
+**Look**:
+The way a view's scene is coloured and shaded, set per view in its scene list: **heat** (every surface on the thermal scale), **visible** (visible light, lit), **lab** (visible light, lit, with the materials of real apparatus such as glass, copper and polished metal) or **diagram** (flat schematic fills, unlit).
+_Avoid_: render mode, style, theme
+
 **Thermal scale**:
 The heat-camera colour key used to distinguish warmer and cooler regions in the game's illustrated scenes. It is not a measurement of the source videos' original temperatures.
 _Avoid_: decorative gradient, rainbow theme

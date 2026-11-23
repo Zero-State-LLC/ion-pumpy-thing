@@ -10,7 +10,7 @@ interface Window {
 interface SceneView {
   left: number, width: number, origin: [number, number],
   camera: { angle: number, scale: number },
-  look?: 'heat' | 'visible' | 'diagram',
+  look?: 'heat' | 'visible' | 'lab' | 'diagram',
   list: any[]
 }
 
@@ -18,7 +18,7 @@ interface SceneView {
 interface Window {
   IonView3D: {
     start(canvas: HTMLCanvasElement, options: { props: { airliner: string }, onLost: () => void }): Promise<{
-      draw(frame: { width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'diagram', views: SceneView[] }): void
+      draw(frame: { width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'lab' | 'diagram', views: SceneView[] }): void
     }>
   };
 }

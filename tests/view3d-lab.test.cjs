@@ -41,10 +41,10 @@ test('the lab look lights its scene with a key, a fill and a rim light that turn
 });
 
 test('lab materials are chosen by prop kind, glass, copper, brushed or polished, and coloured by the entry', () => {
-  assert.match(surface, /\(colour, kind\)/, 'surface() takes the prop kind');
-  const lab = source.match(/\n  const LAB = \{[\s\S]*?\n  \};/);
+  assert.match(surface, /\(colour, kind = 'brushed'\)/, 'surface() takes the prop kind; a prop that names none is brushed metal');
+  const lab = source.match(/\nconst LAB = \{[\s\S]*?\n\};/);
   assert.ok(lab, 'one table of lab materials');
-  for (const kind of ['glass', 'copper', 'brushed', 'polished']) assert.match(lab[0], new RegExp(`\\n    ${kind}: `), `${kind} is one`);
+  for (const kind of ['glass', 'copper', 'brushed', 'polished']) assert.match(lab[0], new RegExp(`\\n  ${kind}: `), `${kind} is one`);
   assert.match(lab[0], /glass: .*MeshPhysicalMaterial/, 'glass is physical: clearcoat and transmission-free transparency');
   assert.equal(lab[0].match(/metalness: /g)?.length, 4, 'each sets metalness');
   assert.equal(lab[0].match(/roughness: /g)?.length, 4, 'and roughness');

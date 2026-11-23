@@ -90,6 +90,10 @@ _Avoid_: 2D mode, fallback
 The way a view's scene is coloured and shaded, set per view in its scene list: **heat** (every surface on the thermal scale), **visible** (visible light, lit), **lab** (visible light, lit, with the materials of real apparatus such as glass, copper and polished metal) or **diagram** (flat schematic fills, unlit).
 _Avoid_: render mode, style, theme
 
+**Prop kind**:
+What a prop in the lab look is made of, one of glass, copper, brushed or polished metal, named by the renderer's draw table for each scene-list entry kind and used only to choose the lab material (ADR 0007). It is not stored in the scene list or the model, so a heat view colours the same prop by temperature.
+_Avoid_: material type, texture, finish
+
 **Thermal scale**:
 The heat-camera colour key used to distinguish warmer and cooler regions in the game's illustrated scenes. It is not a measurement of the source videos' original temperatures.
 _Avoid_: decorative gradient, rainbow theme

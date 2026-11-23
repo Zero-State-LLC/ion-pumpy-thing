@@ -258,6 +258,31 @@ function breathMaterial() {
   });
 }
 
+// The lab look's materials, one per prop kind (docs/adr/0007), each in the colour the scene entry
+// gives; no textures, so a heat view still colours the same prop by its temperature (docs/adr/0004).
+const LAB = {
+  glass: colour => new THREE.MeshPhysicalMaterial({ color: colour, metalness: 0, roughness: 0.08, transparent: true, opacity: 0.22, clearcoat: 1, clearcoatRoughness: 0.06, side: THREE.DoubleSide, depthWrite: false }),
+  copper: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide }),
+  brushed: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.8, roughness: 0.55, side: THREE.DoubleSide }),
+  polished: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.95, roughness: 0.18, side: THREE.DoubleSide })
+};
+// What the lab's metals reflect: a grey room with three soft boxes, one above, one to each side,
+// rendered once into a reflection map. No image asset; nothing to load or credit.
+function studio() {
+  const room = new THREE.Scene();
+  room.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshStandardMaterial({ color: 0x3a3f4c, roughness: 0.9, metalness: 0, side: THREE.BackSide })));
+  /** @param {[number, number, number]} at */
+  const panel = (w, h, at, strength, tint) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ emissive: tint, emissiveIntensity: strength, color: 0 }));
+    m.position.set(...at); m.lookAt(0, 0, 0); room.add(m);
+  };
+  panel(4, 2, [0, 4.9, 0], 6, 0xfff4e6);
+  panel(2, 3, [-4.9, 0.5, -1], 3, 0xe8f0ff);
+  panel(2, 3, [4.9, -0.5, 1], 1.5, 0xffffff);
+  room.add(new THREE.PointLight(0xffffff, 40, 0, 2));
+  return room;
+}
+
 /**
  * Starts WebGL on `canvas` and loads the props. Rejects where WebGL can't start.
  * @param {HTMLCanvasElement} canvas
@@ -273,6 +298,7 @@ async function start(canvas, { props, onLost }) {
   const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges, chamber.geometry, chamber.edges,
     housing.geometry, housing.edges, handle.geometry, handle.edges]);
   const ramp = rampTexture();
+  const pmrem = new THREE.PMREMGenerator(renderer), environment = pmrem.fromScene(studio(), 0.04).texture; pmrem.dispose();
   // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
   let worlds = [], world = null, size = '';
   // The one clock every moving material reads, in seconds since the renderer started. Pinned at
@@ -315,6 +341,17 @@ async function start(canvas, { props, onLost }) {
       const sun = new THREE.DirectionalLight(0xffffff, 2.2);
       sun.position.set(-60, -90, -140).applyAxisAngle(new THREE.Vector3(1, 0, 0), -th); scene.add(sun);
     }
+    if (look === 'lab') {
+      // A key from the upper left in front, a cooler fill from the lower right, a rim from behind
+      // the upper right, all turned with the camera as the visible look's sun is, over the studio's
+      // reflections (docs/adr/0007). No shadow maps: a side-on orthographic view gains nothing from them.
+      const axis = new THREE.Vector3(1, 0, 0);
+      const key = new THREE.DirectionalLight(0xfff1e0, 2.6); key.position.set(-70, -110, -120).applyAxisAngle(axis, -th);
+      const fill = new THREE.DirectionalLight(0xdbe6ff, 0.9); fill.position.set(90, 50, -90).applyAxisAngle(axis, -th);
+      const rim = new THREE.DirectionalLight(0xffffff, 1.6); rim.position.set(50, -80, 130).applyAxisAngle(axis, -th);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.35), key, fill, rim);
+      scene.environment = environment; scene.environmentIntensity = 1.1;
+    }
     const outline = look === 'heat' ? [token('--ink'), .85] : look === 'visible' ? ['#2a3045', 1] : [token('--deep'), 1];
     return { look, cam, scene, outline, scale, view, pools: new Map() };
   }
@@ -326,8 +363,10 @@ async function start(canvas, { props, onLost }) {
     if (pool.used === pool.items.length) { const o = make(); world.scene.add(o); pool.items.push(o); }
     const o = pool.items[pool.used++]; o.visible = true; return o;
   }
-  const surface = colour => world.look === 'heat' ? heatMaterial(ramp)
+  // A prop's surface for the world's look; `kind` is what the prop is made of, read by the lab look alone.
+  const surface = (colour, kind = 'brushed') => world.look === 'heat' ? heatMaterial(ramp)
     : world.look === 'visible' ? new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide })
+    : world.look === 'lab' ? LAB[kind](colour)
     : new THREE.MeshBasicMaterial({ color: colour, side: THREE.DoubleSide });
   const paint = (material, entry, heat, colour) => {
     if (material instanceof THREE.ShaderMaterial) material.uniforms.uHeat.value = entry[heat];
@@ -413,15 +452,24 @@ async function start(canvas, { props, onLost }) {
       t.material.color.set(e.colour); t.material.opacity = e.opacity;
       swapGeometry(t, new THREE.BufferGeometry().setFromPoints(e.points.map(p => new THREE.Vector3(...p))));
     },
+    // A cold mark on the thermal scale, and in the heat look an edge round it in the outline colour:
+    // the same tube a little wider, drawn back face only after the mark, so only its rim shows past
+    // the mark's own faces, and the cold shape reads at a glance (docs/VISUAL-AUDIT.md, finding 5).
     'cold mark'(e) {
-      const m = take('cold mark', () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true })));
+      const m = take('cold mark', () => {
+        const mark = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true }));
+        const edge = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, side: THREE.BackSide }));
+        edge.renderOrder = 1; mark.add(edge); return mark;
+      });
       m.material.color.set(e.colour); m.material.opacity = e.opacity;
       swapGeometry(m, tube(e.path, e.width / 2));
+      const edge = /** @type {any} */ (m.children[0]); edge.visible = world.look === 'heat';
+      if (edge.visible) { edge.material.color.set(world.outline[0]); edge.material.opacity = world.outline[1]; swapGeometry(edge, tube(e.path, e.width / 2 + Math.max(e.width * 0.3, 0.2))); }
     },
     // Open's plates: boxes, as the list sizes them, outlined.
     plate(e) {
       const p = take('plate', () => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), surface('#ffffff'));
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), surface('#ffffff', 'polished'));
         m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMaterial()));
         return m;
       });
@@ -439,7 +487,7 @@ async function start(canvas, { props, onLost }) {
         const outer = new THREE.Group(), inner = new THREE.Group();
         // Into the game's frame: the file's up (+Y) is the game's -y, up the canvas in a side-on view.
         inner.rotation.x = Math.PI; outer.add(inner);
-        inner.add(new THREE.Mesh(mount.geometry, surface('#ffffff')), new THREE.LineSegments(mount.edges, lineMaterial()));
+        inner.add(new THREE.Mesh(mount.geometry, surface('#ffffff', 'brushed')), new THREE.LineSegments(mount.edges, lineMaterial()));
         return outer;
       });
       g.position.set(...e.at);
@@ -506,7 +554,7 @@ async function start(canvas, { props, onLost }) {
     // Fuel's reactor wall, end on: a ring of tube as wide as the flat view's stroke. It writes no
     // depth, so the neutrons' impacts, listed on its middle line, show over it as in the flat view.
     'reactor wall'(e) {
-      const w = take('reactor wall', () => { const m = new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff')); m.material.depthWrite = false; return m; });
+      const w = take('reactor wall', () => { const m = new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed')); m.material.depthWrite = false; return m; });
       w.position.set(...e.at); paint(w.material, e, 'heat', 'colour');
       swapGeometry(w, new THREE.TorusGeometry(e.radius, e.width / 2, 12, 128));
     },
@@ -522,7 +570,7 @@ async function start(canvas, { props, onLost }) {
         // Into the game's frame: the file's up (+Y) is the game's -y, up the canvas in a side-on view.
         inner.rotation.x = Math.PI; outer.add(inner);
         const far = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)];
-        const body = new THREE.Mesh(chamber.geometry, surface('#ffffff')), edges = new THREE.LineSegments(chamber.edges, lineMaterial());
+        const body = new THREE.Mesh(chamber.geometry, surface('#ffffff', 'brushed')), edges = new THREE.LineSegments(chamber.edges, lineMaterial());
         for (const o of [body, edges]) /** @type {any} */ (o.material).clippingPlanes = far;
         inner.add(body, edges); return outer;
       });
@@ -533,11 +581,12 @@ async function start(canvas, { props, onLost }) {
     },
     // A coil: a ring round the y axis, its left and right halves each as opaque as the list gives
     // over the sky's colour, as the flat view fills its coils over the background, outlined round
-    // its top and bottom.
+    // its top and bottom. In the lab look the halves are copper, and the list's opacity, the
+    // coil's current, shows instead as how warmly the copper glows.
     coil(e) {
       const c = take('coil', () => {
         const g = new THREE.Group();
-        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), world.look === 'lab' ? surface('#ffffff', 'copper') : new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
         for (let i = 0; i < 2; i++) g.add(new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial()));
         for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })));
         return g;
@@ -547,9 +596,13 @@ async function start(canvas, { props, onLost }) {
       [left, right].forEach((half, i) => {
         // Half a torus, turned to the left (x below 0) or right half, then laid round the y axis.
         const geometry = new THREE.TorusGeometry(e.radius, e.tube, 12, 48, Math.PI).rotateZ(i ? -Math.PI / 2 : Math.PI / 2).rotateX(Math.PI / 2);
-        swapGeometry(half, geometry); half.material.color.set(e.colour); half.material.opacity = e.opacity[i];
-        // Behind it, the same half in the sky's colour, opaque, so nothing behind shows through.
-        swapGeometry(backing[i], geometry.clone()); backing[i].material.color.copy(/** @type {any} */ (world.scene.background) || new THREE.Color(0));
+        swapGeometry(half, geometry); half.material.color.set(e.colour);
+        if (world.look === 'lab') { half.material.emissive.set(e.colour); half.material.emissiveIntensity = 0.35 * e.opacity[i]; }
+        else half.material.opacity = e.opacity[i];
+        // Behind it, the same half in the sky's colour, opaque, so nothing behind shows through;
+        // not in the lab look, whose copper is opaque itself and would be fought for depth.
+        backing[i].visible = world.look !== 'lab';
+        if (backing[i].visible) { swapGeometry(backing[i], geometry.clone()); backing[i].material.color.copy(/** @type {any} */ (world.scene.background) || new THREE.Color(0)); }
       });
       [top, bottom].forEach((rim, i) => {
         swapGeometry(rim, new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, k) => new THREE.Vector3(Math.cos(k / 64 * TAU) * e.radius, (i ? 1 : -1) * e.tube, Math.sin(k / 64 * TAU) * e.radius))));
@@ -586,8 +639,8 @@ async function start(canvas, { props, onLost }) {
     },
     // Ignite's pipe from the jar to the pump: a tube as wide as the flat view's stroke.
     pipe(e) {
-      const p = take('pipe', () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial()));
-      p.material.color.set(e.colour); swapGeometry(p, tube([e.from, e.to], e.width / 2));
+      const p = take('pipe', () => new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed')));
+      paint(p.material, e, 'heat', 'colour'); swapGeometry(p, tube([e.from, e.to], e.width / 2));
     },
     // The pump's barrel, cut away as the vacuum chamber is: only its far half, so the piston inside shows.
     'piston housing'(e) {
@@ -596,7 +649,7 @@ async function start(canvas, { props, onLost }) {
         // Into the game's frame: the file's up (+Y) is the game's -y, up the canvas in a side-on view.
         inner.rotation.x = Math.PI; outer.add(inner);
         const far = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)];
-        const body = new THREE.Mesh(housing.geometry, surface('#ffffff')), edges = new THREE.LineSegments(housing.edges, lineMaterial());
+        const body = new THREE.Mesh(housing.geometry, surface('#ffffff', 'brushed')), edges = new THREE.LineSegments(housing.edges, lineMaterial());
         for (const o of [body, edges]) /** @type {any} */ (o.material).clippingPlanes = far;
         inner.add(body, edges); return outer;
       });
@@ -612,7 +665,7 @@ async function start(canvas, { props, onLost }) {
       const g = take('pump handle', () => {
         const outer = new THREE.Group(), inner = new THREE.Group();
         inner.rotation.x = Math.PI; outer.add(inner);
-        inner.add(new THREE.Mesh(handle.geometry, surface('#ffffff')), new THREE.LineSegments(handle.edges, lineMaterial()));
+        inner.add(new THREE.Mesh(handle.geometry, surface('#ffffff', 'brushed')), new THREE.LineSegments(handle.edges, lineMaterial()));
         return outer;
       });
       g.position.set(...e.at); g.children[0].scale.setScalar(e.span / handle.span);
@@ -622,7 +675,7 @@ async function start(canvas, { props, onLost }) {
     piston(e) {
       const p = take('piston', () => {
         const g = new THREE.Group();
-        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff')));
+        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff', 'brushed')));
         return g;
       });
       const [head, rod] = /** @type {any[]} */ (p.children);
@@ -661,12 +714,15 @@ async function start(canvas, { props, onLost }) {
         const haze = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
         // Drawn with the see-through things, in order, so the glow lies under it as in the flat view.
         const rim = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide }));
-        haze.renderOrder = 2; rim.renderOrder = 3;
-        const g = new THREE.Group(); g.add(haze, rim); return g;
+        // The jar itself, in the lab look: a glass sphere at the jar's radius, over the haze.
+        const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), surface('#ffffff', 'glass'));
+        haze.renderOrder = 2; rim.renderOrder = 3; shell.renderOrder = 4;
+        const g = new THREE.Group(); g.add(haze, rim, shell); return g;
       });
-      const [haze, rim] = /** @type {any[]} */ (j.children);
+      const [haze, rim, shell] = /** @type {any[]} */ (j.children);
       j.position.set(...e.at);
       haze.scale.setScalar(e.inside); haze.material.color.set(e.hazeColour); haze.material.opacity = e.haze;
+      shell.visible = world.look === 'lab'; shell.scale.setScalar(e.radius); if (shell.visible) shell.material.color.set(e.colour);
       rim.material.color.set(e.colour); facing(rim);
       swapGeometry(rim, new THREE.RingGeometry(e.radius - e.width / 2, e.radius + e.width / 2, 128));
     },
@@ -709,7 +765,7 @@ async function start(canvas, { props, onLost }) {
   return {
     /**
      * Draws one frame: each view's scene list through its camera, in its part of the canvas.
-     * @param {{ width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'diagram', views: SceneView[] }} frame
+     * @param {{ width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'lab' | 'diagram', views: SceneView[] }} frame
      */
     draw(frame) {
       const { width: W, height: H, pixelRatio, look, views } = frame;

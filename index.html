@@ -732,8 +732,8 @@ const ignite = stage({
   },
   // The glass jar and the hand pump in 3D where the flat view draws them: the piston's travel
   // with each stroke and, while the pressure is in its band, the plasma pressed in to its front,
-  // from the step's pressure each frame (docs/adr/0003). Side on, at the lab's scale, as a
-  // diagram (docs/adr/0004).
+  // from the step's pressure each frame (docs/adr/0003). Side on, at the lab's scale, lit as a
+  // lab: glass jar, brushed pump (docs/adr/0007).
   scene() {
     const sc = labScale(), m = px => px / sc, { cx, cy, R, px, ph, pw, top, py } = igniteLayout(this);
     // A point on the canvas, `x`, `y` px from its top left, in metres from the scene's origin.
@@ -753,7 +753,7 @@ const ignite = stage({
       // The plasma pressed in: the front while the pressure is in its band, as the flat view's dashes.
       ...(pressureBand(this.m.p) === 'in' ? [{ kind: 'compression front', at: pt(cx, cy), radius: m(R * FRONT_RADIUS), width: m(1.5), colour: COL.cold, opacity: 0.9, dash: [m(5), m(4)] }] : [])
     ];
-    return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+    return { look: 'lab', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
   },
   // The whole flat view, or over the 3D view (`flat` false) only its words and marks.
   draw(flat = true) {
@@ -983,7 +983,8 @@ const hold = stage({
     goal(this.lock / 6, this.lock >= 6 ? 'Held near beta one, and held in place: the high-beta cusp at work, with coils outside the plasma.' : 'Keep beta between 0.75 and 1 and the plasma ball centred for 6 seconds.');
   },
   // The plasma ball between its coils in the vacuum chamber, in 3D where the flat view draws it:
-  // the ball and its cusp leaks, from the step's beta, each frame (docs/adr/0003).
+  // the ball and its cusp leaks, from the step's beta, each frame (docs/adr/0003). Lit as a lab:
+  // brushed chamber, copper coils (docs/adr/0007).
   scene() {
     const sc = labScale(), L = holdLayout(this), m = px => px / sc, y = m(L.cy - H / 2), at = [m(L.bx - W / 2), y, 0];
     const leak = cuspLeakLook(leakBallRadius(this, L), this.beta);
@@ -1000,7 +1001,7 @@ const hold = stage({
       { kind: 'cusp leaks', at, edge: m(leak.edge), plume: m(leak.plume), halfAngle: leak.halfAngle, angles: CUSP_ANGLES, colour: leak.colour,
         edgeWidth: m(leak.edgeWidth), edgeOpacity: leak.edgeOpacity, plumeWidth: m(leak.plumeWidth), plumeOpacity: leak.plumeOpacity }
     ];
-    return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+    return { look: 'lab', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
   },
   // The whole flat view, or over the 3D view (`flat` false) only its words and marks.
   draw(flat = true) {
@@ -1156,7 +1157,7 @@ const fuel = stage({
     goal(this.hold / 3, this.hold >= 3 ? burned : this.dose > 0.5 && this.fuel === 'dt' ? 'This fuel makes neutrons that hit the chamber wall. Try Hydrogen + boron-11 to reduce neutron exposure.' : 'Choose Hydrogen + boron-11 and keep the fusion reaction active for 3 seconds.');
   },
   // The reactor core in 3D where the flat view draws it: what burns and how much, from the fuel's
-  // activity, each frame (docs/adr/0003). End on, at the lab's scale, as a diagram (docs/adr/0004).
+  // activity, each frame (docs/adr/0003). End on, at the lab's scale, lit as a lab (docs/adr/0007).
   scene() {
     const sc = labScale(), { cx, cy, R, hotness } = fuelLayout(this), m = px => px / sc, y = m(cy - H / 2), at = [0, y, 0];
     // A point `dx`, `dy` px from the core's middle.
@@ -1170,7 +1171,7 @@ const fuel = stage({
       ...(this.screening ? [{ kind: 'specks', of: 'electrons', points: screeningElectrons(R).map(([dx, dy]) => pt(dx, dy)), size: m(2.6), colour: COL.ink, round: true }] : []),
       products('a', 5.6, COL.cold, 'helium'), products('n', 4.4, COL.hot, 'neutrons')
     ];
-    return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+    return { look: 'lab', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
   },
   // The whole flat view, or over the 3D view (`flat` false) only its words and marks.
   draw(flat = true) {
@@ -1415,8 +1416,9 @@ const open = stage({
     goal(fits && this.assumed ? 1 : (fits ? 0.5 : 0), fits && this.assumed ? 'Open. Negative energy from the orbs holds a throat wide enough for the wings, as Morris and Thorne require.' : !fits ? 'Make the throat wider than the 60.9 m wingspan. Then select Draw negative energy from the orbs to hold it open.' : 'Wide enough. Now draw negative energy from the orbs to hold it open.');
   },
   // The scene list for the 3D view (docs/adr/0003). The throat view draws the airliner and the
-  // throat below it, in metres at the flat view's scale; the plates and the plasma cavity are
-  // schematics, drawn as diagrams (docs/adr/0004) at the lab's scale (labScale).
+  // throat below it, in metres at the flat view's scale; the plates are lit as a lab and the
+  // plasma cavity, an idea rather than hardware, stays a diagram (docs/adr/0007), both at the
+  // lab's scale (labScale).
   scene() {
     if (this.view === 'plates') return platesScene(this);
     if (this.view === 'cavity') return cavityScene(this);
@@ -1481,7 +1483,7 @@ function platesScene(st) {
   for (const side of [-1, 1]) list.push({ kind: 'plate', at: [side * m(gap) / 2, y, 0], size: [m(8), h, h], colour: COL.muted });
   // Kind, place, size and colour only (docs/adr/0003): the renderer turns each base away from the gap.
   for (const side of [-1, 1]) list.push({ kind: 'plate mount', at: [side * m(gap) / 2, y + h / 2, 0], height: PLATE_MOUNT_HEIGHT, colour: '#aab3c5' });
-  return { look: 'diagram', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
+  return { look: 'lab', views: [wholeCanvas({ angle: 0, scale: sc }, list)] };
 }
 function drawPlates(st, flat = true) {
   const { cx, cy, gap, height } = platesLayout(st);

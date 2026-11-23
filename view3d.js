@@ -9,6 +9,7 @@
 // The game imports this file after its first flat frame and calls window.IonView3D.start.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { sector, strip, stripIndex } from './view3d-shapes.js';
 
 const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
@@ -79,6 +80,18 @@ function tube(points, radius, closed = false) {
   return new THREE.TubeGeometry(/** @type {any} */ (path), pts.length * 6, radius, 6, false);
 }
 function swapGeometry(mesh, geometry) { mesh.geometry.dispose(); mesh.geometry = geometry; }
+// A mesh over a strip of `k` vertex pairs (view3d-shapes.js) whose positions are rewritten in
+// place each frame by `reshape`, so its buffers live as long as the mesh does.
+function stripMesh(k, closed, material) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6 * k), 3));
+  g.setIndex(new THREE.BufferAttribute(stripIndex(k, closed), 1));
+  const m = new THREE.Mesh(g, material); m.frustumCulled = false; return m;
+}
+function reshape(mesh, write) {
+  const position = /** @type {THREE.BufferAttribute} */ (mesh.geometry.getAttribute('position'));
+  write(/** @type {Float32Array} */ (position.array)); position.needsUpdate = true;
+}
 
 /* ── The airliner prop: its mesh file is presentation, sized by the list ── */
 async function loadAirliner(url) {
@@ -153,20 +166,95 @@ function bubbleMaterial() {
     transparent: true, depthWrite: false
   });
 }
-// The plasma ball: the flat view's radial gradient, from its core colour at the middle to its
-// colour at 45 % of the radius on screen, 0.7 as opaque, and out to nothing at the edge.
+// Simplex noise in three dimensions, for the plasma body's filaments and edge. Ian McEwan and
+// Stefan Gustavson's GLSL implementation (Ashima Arts, MIT licence, github.com/ashima/webgl-noise),
+// reproduced so the body needs no texture asset.
+const SNOISE = `
+  vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
+  vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+  float snoise(vec3 v) {
+    const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+    vec3 i = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
+    vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
+    vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy;
+    i = mod289(i);
+    vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+    float n_ = 0.142857142857; vec3 ns = n_ * D.wyz - D.xzx;
+    vec4 j = p - 49.0 * floor(p * ns.z * ns.z); vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
+    vec4 x = x_ * ns.x + ns.yyyy; vec4 y = y_ * ns.x + ns.yyyy; vec4 h = 1.0 - abs(x) - abs(y);
+    vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
+    vec4 s0 = floor(b0) * 2.0 + 1.0; vec4 s1 = floor(b1) * 2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
+    vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
+    vec3 p0 = vec3(a0.xy, h.x); vec3 p1 = vec3(a0.zw, h.y); vec3 p2 = vec3(a1.xy, h.z); vec3 p3 = vec3(a1.zw, h.w);
+    vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+    vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0); m = m * m;
+    return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
+  }`;
+// How far past the entry's radius a plasma body's turbulent edge may reach: its sphere is drawn
+// this much larger and the shader cuts it back to a noisy edge, so nothing lies beyond it.
+const BODY_REACH = 1.08;
+// A plasma body (GLOSSARY.md): the flat view's radial gradient, its core colour out to 35 % of
+// the radius on screen, its colour at 45 %, 0.7 as opaque, and nothing at the edge, with the
+// shell's filaments brightened toward the core colour where the noise runs high, and the edge
+// moved in and out by the same noise, drifting about 5 % of the radius a second on the
+// renderer's clock. The entry gives only size, colours and opacity (docs/adr/0003).
 function plasmaMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms: { uCore: { value: new THREE.Vector3() }, uColour: { value: new THREE.Vector3() }, uOpacity: { value: 1 } },
+    uniforms: { uCore: { value: new THREE.Vector3() }, uColour: { value: new THREE.Vector3() }, uOpacity: { value: 1 }, uTime: { value: 0 } },
     vertexShader: `varying vec3 vN;
       void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform vec3 uCore; uniform vec3 uColour; uniform float uOpacity; varying vec3 vN;
+    fragmentShader: `uniform vec3 uCore; uniform vec3 uColour; uniform float uOpacity; uniform float uTime; varying vec3 vN;
+      ${SNOISE}
       void main() {
-        float u = length(normalize(vN).xy);
-        vec4 mid = vec4(uColour, uOpacity * 0.7);
-        gl_FragColor = u < 0.45 ? mix(vec4(uCore, uOpacity), mid, u / 0.45) : mix(mid, vec4(uColour, 0.0), (u - 0.45) / 0.55);
+        vec3 n = normalize(vN);
+        // The sphere is BODY_REACH times the entry's radius, so radii here are in the entry's units.
+        vec3 p = vec3(n.xy * ${BODY_REACH}, n.z); float u = length(p.xy), drift = uTime * 0.15;
+        float edge = 1.0 + ${BODY_REACH - 1} * snoise(p * 2.0 + vec3(0.0, 0.0, drift));
+        if (u > edge) discard;
+        float t = u / edge;
+        vec4 core = vec4(uCore, uOpacity), mid = vec4(uColour, uOpacity * 0.7);
+        vec4 c = t < 0.35 ? core : t < 0.45 ? mix(core, mid, (t - 0.35) / 0.10) : mix(mid, vec4(uColour, 0.0), (t - 0.45) / 0.55);
+        float f = snoise(p * 3.0 + vec3(drift * 0.7, -drift, drift * 0.3));
+        float filament = smoothstep(0.35, 0.65, f) * smoothstep(0.3, 0.5, t) * (1.0 - t);
+        c.rgb = mix(c.rgb, uCore, filament * 0.8); c.a = min(1.0, c.a + filament * 0.35 * uOpacity);
+        gl_FragColor = c;
       }`,
     transparent: true, depthWrite: false
+  });
+}
+// A halo on a plane (Ignite's glow round the jar): its radial gradient texture, read along a
+// radius the noise moves in and out by up to 5 % on the renderer's clock, so its edge breathes
+// and its structure stays. Not a plasma body (GLOSSARY.md); no core, shell or filaments.
+function haloMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { map: { value: null }, uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform sampler2D map; uniform float uTime; varying vec2 vUv;
+      ${SNOISE}
+      void main() {
+        vec2 d = (vUv - 0.5) * 2.0; float r = length(d);
+        float breath = 1.0 + 0.05 * snoise(vec3(d * 2.5, uTime * 0.15));
+        if (r * breath > 1.0) discard;
+        gl_FragColor = texture2D(map, 0.5 + d * breath * 0.5);
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide
+  });
+}
+// A glow ring round a formation (Orbit's formation glow): one colour at one opacity, breathing
+// by up to 12 % with the noise along its length on the renderer's clock.
+function breathMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColour: { value: new THREE.Color() }, uOpacity: { value: 1 }, uTime: { value: 0 } },
+    vertexShader: `varying vec3 vP;
+      void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uColour; uniform float uOpacity; uniform float uTime; varying vec3 vP;
+      ${SNOISE}
+      void main() { gl_FragColor = vec4(uColour, uOpacity * (1.0 + 0.12 * snoise(vec3(vP.xy * 0.08, uTime * 0.2)))); }`,
+    transparent: true, depthTest: false, side: THREE.DoubleSide
   });
 }
 
@@ -187,6 +275,21 @@ async function start(canvas, { props, onLost }) {
   const ramp = rampTexture();
   // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
   let worlds = [], world = null, size = '';
+  // The one clock every moving material reads, in seconds since the renderer started. Pinned at
+  // `t` it stops advancing, which is how tests and captures hold a frame and how reduced motion
+  // keeps the structure and drops the movement (GLOSSARY.md). The setting is read once, at start.
+  let clock = 0, pinned = null, last = performance.now();
+  /** @param {number | null} t */
+  function freeze(t) { pinned = t; if (t !== null) clock = t; }
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) freeze(0);
+  function tick() { const now = performance.now(); if (pinned === null) clock += (now - last) / 1000; last = now; }
+  // A plasma body, a sphere drawn larger than the entry's radius for its edge to move in.
+  const body = (kind, order) => e => {
+    const b = take(kind, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), plasmaMaterial()); m.renderOrder = order; return m; });
+    const { uCore, uColour, uOpacity, uTime } = b.material.uniforms;
+    uCore.value.copy(shaderColour(e.core)); uColour.value.copy(shaderColour(e.colour)); uOpacity.value = e.opacity; uTime.value = clock;
+    b.position.set(...e.at); b.scale.setScalar(e.radius * BODY_REACH);
+  };
 
   function dispose(w) {
     // A world's own geometry and materials go; the prop's shared geometry and the textures stay.
@@ -236,9 +339,15 @@ async function start(canvas, { props, onLost }) {
   const project = p => { const v = new THREE.Vector3(...p).applyMatrix4(world.cam.matrixWorldInverse); return [v.x * world.scale, -v.y * world.scale]; };
   // Rings round each point and an outline round their triangle, standing `pad` further out from
   // the centre on screen, as the flat view's orbGlow: the throat forming, the Formation's glow.
-  const roundGlow = kind => e => {
-    const material = m => { m.material.color.set(e.colour); m.material.opacity = e.opacity; m.renderOrder = 5; return m; };
-    const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
+  // A ring round each point and an outline round them all; `breathing` rings take the glow ring
+  // material and move with the clock, the others hold one colour.
+  const roundGlow = (kind, breathing = false) => e => {
+    const material = m => {
+      if (m.material instanceof THREE.ShaderMaterial) { const u = m.material.uniforms; u.uColour.value.set(e.colour); u.uOpacity.value = e.opacity; u.uTime.value = clock; }
+      else { m.material.color.set(e.colour); m.material.opacity = e.opacity; }
+      m.renderOrder = 5; return m;
+    };
+    const make = () => new THREE.Mesh(new THREE.BufferGeometry(), breathing ? breathMaterial() : new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
     for (const p of e.points) {
       const r = material(take(kind + ' ring', make));
       swapGeometry(r, new THREE.RingGeometry(e.ring - e.width / 2, e.ring + e.width / 2, 48));
@@ -404,24 +513,8 @@ async function start(canvas, { props, onLost }) {
     // Fuel's burning core: a disc fading from its middle's colour (`core`), as opaque as `opacity`,
     // to nothing in its edge colour (`colour`), as the flat view's gradient. Its brightness changes
     // with the temperature slider, so the disc repaints its own texture rather than cache one per value.
-    'core glow'(e) {
-      const g = take('core glow', () => {
-        const c = document.createElement('canvas'); c.width = c.height = 128;
-        const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
-        const m = new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide });
-        const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), m); disc.renderOrder = 2; return disc;
-      });
-      const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
-      const key = `${e.core} ${e.opacity} ${e.colour}`, map = /** @type {THREE.CanvasTexture} */ (g.material.map);
-      if (map.userData.key !== key) {
-        const c = /** @type {HTMLCanvasElement} */ (map.image), g2 = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
-        const gradient = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
-        gradient.addColorStop(0, `rgba(${rgb(e.core)},${e.opacity})`); gradient.addColorStop(1, `rgba(${rgb(e.colour)},0)`);
-        g2.clearRect(0, 0, 128, 128); g2.fillStyle = gradient; g2.fillRect(0, 0, 128, 128);
-        map.userData.key = key; map.needsUpdate = true;
-      }
-      facing(g).position.set(...e.at); g.scale.setScalar(e.radius);
-    },
+    // Fuel's core: a plasma body, as Hold's ball is.
+    'core glow'(e) { body('core glow', 2)(e); },
     // Hold's vacuum chamber, cut away: only its far half, so the ball and coils inside it show.
     'vacuum chamber'(e) {
       const g = take('vacuum chamber', () => {
@@ -463,36 +556,31 @@ async function start(canvas, { props, onLost }) {
         rim.material.color.set(e.edge);
       });
     },
-    'plasma ball'(e) {
-      const b = take('plasma ball', () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), plasmaMaterial()); m.renderOrder = 3; return m; });
-      const { uCore, uColour, uOpacity } = b.material.uniforms;
-      uCore.value.copy(shaderColour(e.core)); uColour.value.copy(shaderColour(e.colour)); uOpacity.value = e.opacity;
-      b.position.set(...e.at); b.scale.setScalar(e.radius);
-    },
+    'plasma ball'(e) { body('plasma ball', 3)(e); },
     // The field's edge round the ball, broken at each leak, and the plasma pluming out of each:
     // in the plane facing a side-on camera, in front of everything, as the flat view draws them.
     'cusp leaks'(e) {
-      const n = e.angles.length, l = take('cusp leaks', () => {
+      // Each leak: the field's edge from it to the next leak, a ring sector as wide as the flat
+      // view's stroke; the plume, a sector from the edge out to its reach; and the plume's
+      // outline, a strip round it. All rewritten in place each frame as the ball eases.
+      const n = e.angles.length, ARC = 32, PLUME = 12, l = take('cusp leaks', () => {
         const g = new THREE.Group();
-        for (let i = 0; i < 3 * n; i++) {
-          const m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
-          m.renderOrder = 6; g.add(m);
-        }
+        const material = () => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+        const sizes = [[ARC + 1, false], [PLUME + 1, false], [PLUME + 3, true]];
+        for (const [k, closed] of sizes) for (let i = 0; i < n; i++) { const m = stripMesh(k, closed, material()); m.renderOrder = 6; g.add(m); }
         return g;
       });
       l.position.set(...e.at);
       const half = e.halfAngle, parts = /** @type {any[]} */ (l.children);
+      const at = (r, t) => [Math.cos(t) * r, Math.sin(t) * r];
       e.angles.forEach((a, i) => {
         const next = i + 1 < n ? e.angles[i + 1] : e.angles[0] + TAU, [arc, fill, outline] = [parts[i], parts[n + i], parts[2 * n + i]];
-        // The edge from this leak to the next, a tube as wide as the flat view's stroke.
-        swapGeometry(arc, new THREE.TorusGeometry(e.edge, e.edgeWidth / 2, 6, 32, next - a - 2 * half).rotateZ(a + half));
+        reshape(arc, out => sector(out, e.edge - e.edgeWidth / 2, e.edge + e.edgeWidth / 2, a + half, next - half, ARC));
         arc.material.color.set(e.colour); arc.material.opacity = e.edgeOpacity;
-        // The plume: out from the edge to its reach across the leak's opening, filled and outlined.
-        const at = (r, t) => new THREE.Vector2(Math.cos(t) * r, Math.sin(t) * r), plume = new THREE.Shape();
-        plume.moveTo(...at(e.edge, a - half).toArray()); plume.lineTo(...at(e.plume, a - half).toArray());
-        plume.absarc(0, 0, e.plume, a - half, a + half, false); plume.lineTo(...at(e.edge, a + half).toArray()); plume.closePath();
-        swapGeometry(fill, new THREE.ShapeGeometry(plume, 12));
-        swapGeometry(outline, tube(plume.getPoints(12).map(p => [p.x, p.y, 0]), e.plumeWidth / 2, true));
+        reshape(fill, out => sector(out, e.edge, e.plume, a - half, a + half, PLUME));
+        // Round the plume: up its left side, across its reach, down its right side and straight back.
+        const rim = Array.from({ length: PLUME + 1 }, (_, k) => at(e.plume, a - half + 2 * half * k / PLUME));
+        reshape(outline, out => strip(out, [at(e.edge, a - half), ...rim, at(e.edge, a + half)], e.plumeWidth, true));
         for (const m of [fill, outline]) { m.material.color.set(e.colour); m.material.opacity = e.plumeOpacity; }
       });
     },
@@ -551,10 +639,12 @@ async function start(canvas, { props, onLost }) {
       const g = take('plasma glow', () => {
         const c = document.createElement('canvas'); c.width = c.height = 128;
         const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
-        const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+        const m = haloMaterial(); m.uniforms.map.value = map;
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), m);
         disc.renderOrder = 1; return disc;
       });
-      const key = JSON.stringify(e.stops), map = /** @type {THREE.CanvasTexture} */ (g.material.map);
+      g.material.uniforms.uTime.value = clock;
+      const key = JSON.stringify(e.stops), map = /** @type {THREE.CanvasTexture} */ (g.material.uniforms.map.value);
       if (map.userData.key !== key) {
         const c = /** @type {HTMLCanvasElement} */ (map.image), g2 = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
         const gradient = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -600,7 +690,7 @@ async function start(canvas, { props, onLost }) {
       swapGeometry(f, geometry); facing(f).position.set(...e.at); f.scale.set(1, -1, 1);
     },
     'throat forming': roundGlow('throat'),
-    'formation glow': roundGlow('formation glow'),
+    'formation glow': roundGlow('formation glow', true),
     flash(e) {
       const make = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide }));
       if (e.style === 'bright') {
@@ -628,6 +718,7 @@ async function start(canvas, { props, onLost }) {
         renderer.setPixelRatio(Math.min(pixelRatio, 2)); renderer.setSize(W, H, false);
         worlds.forEach(dispose); worlds = views.map(view => build(view.look || look, view, H)); size = key;
       }
+      tick();
       renderer.setScissorTest(true);
       views.forEach((view, i) => {
         world = worlds[i];
@@ -638,7 +729,9 @@ async function start(canvas, { props, onLost }) {
         renderer.setViewport(view.left, 0, view.width, H); renderer.setScissor(view.left, 0, view.width, H);
         renderer.render(world.scene, world.cam);
       });
-    }
+    },
+    // Pins the clock at `t` seconds, or lets it run again with null.
+    freeze
   };
 }
 

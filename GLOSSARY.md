@@ -94,6 +94,14 @@ _Avoid_: render mode, style, theme
 The heat-camera colour key used to distinguish warmer and cooler regions in the game's illustrated scenes. It is not a measurement of the source videos' original temperatures.
 _Avoid_: decorative gradient, rainbow theme
 
+**Plasma body**:
+The drawn volume of a plasma: a bright core, a translucent shell, filaments within the shell and a turbulent edge, drawn in both views at the size the step gives it. Glows round a jar or a ring of orbs are not bodies.
+_Avoid_: sprite, blob, glow texture
+
+**Reduced motion**:
+The player's system setting asking for less movement. The game keeps every structure and stops its motion.
+_Avoid_: animations off, static mode
+
 ## Physics in play
 
 **Pressure band**:

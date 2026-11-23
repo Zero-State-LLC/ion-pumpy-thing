@@ -135,7 +135,7 @@ for (const glob of ['assets/*.glb', 'assets/audio/*.mp3', 'vendor/three/addons/*
       fs.mkdirSync(path.join(site, 'scripts'));
       fs.copyFileSync(path.join(root, 'scripts', 'build-dist.sh'), path.join(site, 'scripts', 'build-dist.sh'));
       for (const f of ['404.html', 'favicon.ico', 'ga4.js', 'index.html', 'privacy.html', 'robots.txt', 'site.webmanifest', 'sitemap.xml',
-        'assets/apple-touch-icon.png', 'assets/favicon-64.png', 'assets/og-image.png', 'audio.js', 'audio-cues.js', 'view3d.js',
+        'assets/apple-touch-icon.png', 'assets/favicon-64.png', 'assets/og-image.png', 'audio.js', 'audio-cues.js', 'view3d.js', 'view3d-shapes.js',
         'vendor/three/three.module.js', 'vendor/three/three.core.js', 'vendor/three/LICENSE']) touch(f);
       const globbed = { 'assets/*.glb': 'assets/airliner.glb', 'assets/audio/*.mp3': 'assets/audio/pump.mp3', 'vendor/three/addons/**/*.js': 'vendor/three/addons/loaders/GLTFLoader.js' };
       for (const [g, f] of Object.entries(globbed)) if (g !== glob) touch(f);

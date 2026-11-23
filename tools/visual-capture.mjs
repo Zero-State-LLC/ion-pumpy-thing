@@ -22,12 +22,16 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WINDOWS = [['desktop', 1280, 800, 1], ['phone', 390, 844, 2]];
-// Step, the view's button (null for a step with one view), the shot's name, and the replay per cent.
-const SCENES = [[0, null, 'ignite', null], [1, null, 'hold', null], [2, null, 'fuel', null], [2, 'fu-screen', 'fuel-screened', null],
+// Step, the view's button (null for a step with one view), the shot's name, the replay per cent,
+// and for a scene the saved run does not reach on its own, the keys that take it there.
+const SCENES = [[0, null, 'ignite', null], [1, null, 'hold', null], [1, null, 'hold-open', null, ['ho-pad', 'ArrowDown', 40]],
+  [2, null, 'fuel', null], [2, 'fu-screen', 'fuel-screened', null],
   [3, null, 'orbit', null], [4, 'op-plates', 'open-plates', null], [4, 'op-throat', 'open-throat', null], [4, 'op-cavity', 'open-cavity', null],
   [5, 'cv-thermal', 'converge-thermal', 10], [5, 'cv-visible', 'converge-visible', 10], [5, 'cv-transit', 'converge-transit', 30]];
 const VIEW_PREFS = 'ion-pumpy-view-v1';
 const START_3D_MS = 20000;
+// The second the renderer's clock is pinned at for 3D shots.
+const FROZEN_AT_S = 1;
 const FRAMES = 90;
 
 function findChrome() {
@@ -129,7 +133,7 @@ async function main() {
   const profile = mkdtempSync(join(tmpdir(), 'ipt-capture-'));
   const { proc, browserUrl } = await launch(chrome, profile);
   const page = await connect(browserUrl);
-  const index = { set, browser: chrome, gpu: process.env.GPU === 'swiftshader' ? 'swiftshader' : 'machine', frames: FRAMES, shots: [] };
+  const index = { set, browser: chrome, gpu: process.env.GPU === 'swiftshader' ? 'swiftshader' : 'machine', frames: FRAMES, frozenAt: FROZEN_AT_S, shots: [] };
   const errors = [];
   try {
     await page.send('Page.enable'); await page.send('Runtime.enable');
@@ -156,10 +160,11 @@ async function main() {
       await page.send('Emulation.setDeviceMetricsOverride', { width, height, screenWidth: width, screenHeight: height, deviceScaleFactor: dpr, mobile: name === 'phone' });
       for (const view of ['flat', '3d']) {
         await loadSavedRun(view === '3d');
-        for (const [step, button, scene, at] of SCENES) {
+        for (const [step, button, scene, at, keys] of SCENES) {
           const label = `${scene}-${view}-${name}`;
           await evaluate(`document.getElementById('step-${step}').click();` + (button ? ` document.getElementById('${button}').click();` : '')
-            + (at === null ? '' : ` (s => { s.value = '${at}'; s.dispatchEvent(new Event('input', { bubbles: true })); })(document.getElementById('cv-scrub'))`));
+            + (at === null ? '' : ` (s => { s.value = '${at}'; s.dispatchEvent(new Event('input', { bubbles: true })); })(document.getElementById('cv-scrub'))`)
+            + (keys ? ` (e => { for (let i = 0; i < ${keys[2]}; i++) e.dispatchEvent(new KeyboardEvent('keydown', { key: '${keys[1]}', bubbles: true })); })(document.getElementById('${keys[0]}'))` : ''));
           let shown = view === 'flat';
           if (view === '3d') shown = await evaluate(`new Promise(r => { const t0 = performance.now(); (function wait() {
             if (!document.getElementById('gl').hidden) return r(true);
@@ -169,6 +174,9 @@ async function main() {
           if (shown) {
             await settle();
             await evaluate(`document.querySelector('.view').scrollIntoView({ block: 'start' })`);
+            // Every 3D shot is taken with the renderer's clock pinned at the same second, so the
+            // plasma bodies are caught mid-drift and one set compares with the next.
+            if (view === '3d') await evaluate(`window.__lab.view3D().freeze(${FROZEN_AT_S})`);
             await evaluate('window.__capture.reset()');
             // Let FRAMES frames go by, then read their draw times, in the 3D view.
             const stats = await evaluate(`new Promise(r => { let n = 0; (function tick() { if (++n >= ${FRAMES}) return r(window.__capture.take()); requestAnimationFrame(tick); })(); })`);

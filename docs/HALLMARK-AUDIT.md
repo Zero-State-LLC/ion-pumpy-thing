@@ -36,3 +36,7 @@ The edge-crowding reflex includes a four-pixel margin on a locked step button an
 **Unresolved static conflict:** Hallmark still marks the deliberately multi-colour thermal-camera scale as a Floor-2a purple/pink gradient. It represents a science-oriented intensity legend, not decoration. Keep the scale pending a reviewed palette decision. Do not misreport the static score as clean or change the colour semantics merely to silence Hallmark.
 
 Real iOS Safari, Android Chrome, VoiceOver and TalkBack sessions have not been completed by this automation. Mark those gates pending until real-device evidence exists.
+
+## Owner-approved thermal-scale decision (22 November 2026 PT)
+
+Under the accepted [ADR 0004 amendment](adr/0004-3d-views-keep-each-views-camera.md), retain the multicolour thermal scale because it communicates scientific heat-camera meaning, even though Hallmark static Floor 2a rejects the purple/pink gradient. **The static Hallmark result remains FAIL; this is an explicit design-rule conflict, not a waiver or a passing lint check.** Continue independent rendered contrast and scene-legibility checks. A palette change requires separately reviewed scientific and accessibility evidence. Device testing remains mandatory under [ADR 0006](adr/0006-physical-device-qualification-before-audit-closure.md) before audit closure.

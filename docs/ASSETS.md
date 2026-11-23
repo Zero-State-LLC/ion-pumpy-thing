@@ -29,3 +29,21 @@ Replacing a file means a new row, or a new hash and date in its row, in the same
 - To rebuild `assets/vacuum-chamber.glb`: download the preview mesh of the task above while Meshy keeps it, check its hash, and run `python tools/clean-vacuum-chamber.py preview.glb assets/vacuum-chamber.glb` (Python 3 with numpy). The output's hash should match the table.
 - The piston housing and pump handle are props: shape only. The housing is a flanged barrel with a capped top, the handle a T with a short stem, a small hub and a threaded tip; both plain metal with no text, logo or marking, no textures and no materials, 3,193 and 1,663 triangles. The Ignite step sizes the housing's wall and height to the flat view's barrel, so the game draws it narrower and taller than the file, and cuts away its near half, so the piston inside shows. The piston, its travel, the pipe, the jar, the plasma's glow, its front and its particles are drawn by the game from the step's numbers, not from props.
 - To rebuild `assets/piston-housing.glb` and `assets/pump-handle.glb`: download the preview mesh of each task above while Meshy keeps it, check its hash, and run `python tools/clean-pump.py housing preview.glb assets/piston-housing.glb` or `python tools/clean-pump.py handle preview.glb assets/pump-handle.glb` (Python 3 with numpy). Each output's hash should match the table.
+
+## Generation-time rights evidence gate, accepted 22 November 2026 (PT)
+
+Under [ADR 0005](adr/0005-meshy-rights-evidence-before-qualification.md), the generating customer's paid-plan ownership claim in the `Licence` column remains **an assertion, not yet independently evidenced** for this project. [Meshy's ownership guidance](https://help.meshy.ai/en/articles/10137554-what-is-the-ownership-of-the-generated-models) describes the paid-plan/private-ownership and free-plan/CC BY 4.0 distinction and conditions involving input rights and Community publication. Current public terms alone do not establish the actual plan or license for historical tasks.
+
+| Shipped asset | Meshy task ID to match | Generation-time entitlement proof | Input-rights and Community setting | Reviewer/receipt reference |
+| --- | --- | --- | --- | --- |
+| `assets/airliner.glb` | `01a2019b-00ff-7076-a476-f5d88d89e7d2` | **Pending** | **Pending** | **Pending** |
+| `assets/plate-mount.glb` | `01a201df-0f52-7716-991d-dc55dd6e4b36` | **Pending** | **Pending** | **Pending** |
+| `assets/vacuum-chamber.glb` | `01a20218-b1f0-73f1-a350-a3f07100af6e` | **Pending** | **Pending** | **Pending** |
+| `assets/piston-housing.glb` | `01a20269-b61a-75f8-921b-73ccb7caf173` | **Pending** | **Pending** | **Pending** |
+| `assets/pump-handle.glb` | `01a2026a-b172-74d4-a272-96078fe17bb6` | **Pending** | **Pending** | **Pending** |
+
+Required evidence for each: exact task ID, date/time of generation, account's relevant plan/license at that time, rights in source prompts or uploaded references, Community-share/license status, applicable published terms/version, and matching final output SHA-256 from the table above. A qualified reviewer should examine private receipts and add **only a sanitized receipt pointer, review date, and explicit pass/blocker** here. No passwords, API keys, payment details or personally identifying invoices may be committed. Missing proof is not an infringement conclusion. Remediation, if needed, requires a separate owner choice.
+
+### Receipt ownership, accepted 22 November 2026 PT
+
+The authorized operator of the **original Meshy generating account** must provide receipts privately, and a **separate rights reviewer** must validate them before marking any row passed. The two people are **unassigned**; all five rows remain **Pending**. The reviewer records only a date, sanitized evidence pointer, applicable license/terms determination and a per-asset verdict. This is not permission to expose account, payment, device, or identity records in the repository. Escalate missing or conflicting rights evidence for an owner decision.

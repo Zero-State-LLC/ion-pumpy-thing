@@ -63,6 +63,7 @@ test('the slice-2 set has every shot, with Hold drawn inside its gate and every 
     const d = index.shots.find(s => s.name === name).drawMs;
     assert.ok(d.median <= median && d.p95 <= p95, `${name} draws in ${d.median} / ${d.p95} ms, over its ${median} / ${p95} gate`);
   }
+  const { statSync, readdirSync } = require('node:fs');
   const total = readdirSync(slice2).reduce((sum, f) => sum + statSync(path.join(slice2, f)).size, 0);
   assert.ok(total < 4 * 1024 * 1024, `slice-2 set is ${(total / 1024 / 1024).toFixed(1)} MB`);
 });

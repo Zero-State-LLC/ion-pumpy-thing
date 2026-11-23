@@ -133,7 +133,7 @@ async function main() {
   const profile = mkdtempSync(join(tmpdir(), 'ipt-capture-'));
   const { proc, browserUrl } = await launch(chrome, profile);
   const page = await connect(browserUrl);
-  const index = { set, browser: chrome, gpu: process.env.GPU === 'swiftshader' ? 'swiftshader' : 'machine', frames: FRAMES, shots: [] };
+  const index = { set, browser: chrome, gpu: process.env.GPU === 'swiftshader' ? 'swiftshader' : 'machine', frames: FRAMES, frozenAt: FROZEN_AT_S, shots: [] };
   const errors = [];
   try {
     await page.send('Page.enable'); await page.send('Runtime.enable');

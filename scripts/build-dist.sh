@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy the production Pages files into dist/, preserving paths: the 17 listed
+# Copy the production Pages files into dist/, preserving paths: the 18 listed
 # below, then the globbed sound effects, three.js addons and props.
 # Fail if any required file is missing. Do not include tests, docs, or .github.
 set -euo pipefail
@@ -22,6 +22,7 @@ files=(
   audio.js
   audio-cues.js
   view3d.js
+  view3d-shapes.js
   vendor/three/three.module.js
   vendor/three/three.core.js
   vendor/three/LICENSE

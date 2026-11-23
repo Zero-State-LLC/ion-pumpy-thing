@@ -21,8 +21,9 @@ test('the capture tool refuses to run without a set name', () => {
 
 test('the capture tool drives every step the game has, in the flat and the 3D view', () => {
   const source = readFileSync(tool, 'utf8');
-  const steps = new Set([...source.matchAll(/\[(\d), (?:null|'[\w-]+'), '[\w-]+', (?:null|\d+)\]/g)].map(m => Number(m[1])));
-  assert.deepEqual([...steps].sort(), [0, 1, 2, 3, 4, 5]);
+  const scenes = [...source.matchAll(/\[(\d), (?:null|'[\w-]+'), '([\w-]+)', (?:null|\d+)(?:, \[[^\]]*\])?\]/g)];
+  assert.deepEqual([...new Set(scenes.map(m => Number(m[1])))].sort(), [0, 1, 2, 3, 4, 5]);
+  assert.ok(scenes.some(m => m[2] === 'hold-open'), 'the Hold step is captured with its cusp leaks open as well as closed');
   assert.match(source, /for \(const view of \['flat', '3d'\]\)/);
 });
 

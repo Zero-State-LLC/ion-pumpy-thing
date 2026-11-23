@@ -9,6 +9,7 @@
 // The game imports this file after its first flat frame and calls window.IonView3D.start.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { sector, strip, stripIndex } from './view3d-shapes.js';
 
 const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
@@ -79,6 +80,18 @@ function tube(points, radius, closed = false) {
   return new THREE.TubeGeometry(/** @type {any} */ (path), pts.length * 6, radius, 6, false);
 }
 function swapGeometry(mesh, geometry) { mesh.geometry.dispose(); mesh.geometry = geometry; }
+// A mesh over a strip of `k` vertex pairs (view3d-shapes.js) whose positions are rewritten in
+// place each frame by `reshape`, so its buffers live as long as the mesh does.
+function stripMesh(k, closed, material) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6 * k), 3));
+  g.setIndex(new THREE.BufferAttribute(stripIndex(k, closed), 1));
+  const m = new THREE.Mesh(g, material); m.frustumCulled = false; return m;
+}
+function reshape(mesh, write) {
+  const position = /** @type {THREE.BufferAttribute} */ (mesh.geometry.getAttribute('position'));
+  write(/** @type {Float32Array} */ (position.array)); position.needsUpdate = true;
+}
 
 /* ── The airliner prop: its mesh file is presentation, sized by the list ── */
 async function loadAirliner(url) {
@@ -472,27 +485,27 @@ async function start(canvas, { props, onLost }) {
     // The field's edge round the ball, broken at each leak, and the plasma pluming out of each:
     // in the plane facing a side-on camera, in front of everything, as the flat view draws them.
     'cusp leaks'(e) {
-      const n = e.angles.length, l = take('cusp leaks', () => {
+      // Each leak: the field's edge from it to the next leak, a ring sector as wide as the flat
+      // view's stroke; the plume, a sector from the edge out to its reach; and the plume's
+      // outline, a strip round it. All rewritten in place each frame as the ball eases.
+      const n = e.angles.length, ARC = 32, PLUME = 12, l = take('cusp leaks', () => {
         const g = new THREE.Group();
-        for (let i = 0; i < 3 * n; i++) {
-          const m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
-          m.renderOrder = 6; g.add(m);
-        }
+        const material = () => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+        const sizes = [[ARC + 1, false], [PLUME + 1, false], [PLUME + 3, true]];
+        for (const [k, closed] of sizes) for (let i = 0; i < n; i++) { const m = stripMesh(k, closed, material()); m.renderOrder = 6; g.add(m); }
         return g;
       });
       l.position.set(...e.at);
       const half = e.halfAngle, parts = /** @type {any[]} */ (l.children);
+      const at = (r, t) => [Math.cos(t) * r, Math.sin(t) * r];
       e.angles.forEach((a, i) => {
         const next = i + 1 < n ? e.angles[i + 1] : e.angles[0] + TAU, [arc, fill, outline] = [parts[i], parts[n + i], parts[2 * n + i]];
-        // The edge from this leak to the next, a tube as wide as the flat view's stroke.
-        swapGeometry(arc, new THREE.TorusGeometry(e.edge, e.edgeWidth / 2, 6, 32, next - a - 2 * half).rotateZ(a + half));
+        reshape(arc, out => sector(out, e.edge - e.edgeWidth / 2, e.edge + e.edgeWidth / 2, a + half, next - half, ARC));
         arc.material.color.set(e.colour); arc.material.opacity = e.edgeOpacity;
-        // The plume: out from the edge to its reach across the leak's opening, filled and outlined.
-        const at = (r, t) => new THREE.Vector2(Math.cos(t) * r, Math.sin(t) * r), plume = new THREE.Shape();
-        plume.moveTo(...at(e.edge, a - half).toArray()); plume.lineTo(...at(e.plume, a - half).toArray());
-        plume.absarc(0, 0, e.plume, a - half, a + half, false); plume.lineTo(...at(e.edge, a + half).toArray()); plume.closePath();
-        swapGeometry(fill, new THREE.ShapeGeometry(plume, 12));
-        swapGeometry(outline, tube(plume.getPoints(12).map(p => [p.x, p.y, 0]), e.plumeWidth / 2, true));
+        reshape(fill, out => sector(out, e.edge, e.plume, a - half, a + half, PLUME));
+        // Round the plume: up its left side, across its reach, down its right side and straight back.
+        const rim = Array.from({ length: PLUME + 1 }, (_, k) => at(e.plume, a - half + 2 * half * k / PLUME));
+        reshape(outline, out => strip(out, [at(e.edge, a - half), ...rim, at(e.edge, a + half)], e.plumeWidth, true));
         for (const m of [fill, outline]) { m.material.color.set(e.colour); m.material.opacity = e.plumeOpacity; }
       });
     },

@@ -33,8 +33,8 @@ test('a strip runs width wide along its points, open or closed, with the index t
   assert.equal(strip(out, points, 2, false), out);
   near(vertex(out, 0)[1], -1, 'at an open end the strip is offset straight across the first segment');
   near(vertex(out, 1)[1], 1, 'by half the width each side');
-  near(vertex(out, 4)[0], 9, 'at the far end the strip is offset across the last segment');
-  near(vertex(out, 5)[0], 11, 'by half the width each side');
+  near(vertex(out, 4)[0], 11, 'at the far end the strip is offset across the last segment, right hand first');
+  near(vertex(out, 5)[0], 9, 'by half the width each side');
   near(Math.abs(vertex(out, 2)[0] - vertex(out, 3)[0]), 2, 'a right-angle corner is mitred: its two vertices are a width apart in x');
   near(Math.abs(vertex(out, 2)[1] - vertex(out, 3)[1]), 2, 'and a width apart in y');
 

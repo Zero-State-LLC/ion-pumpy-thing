@@ -30,6 +30,8 @@ const SCENES = [[0, null, 'ignite', null], [1, null, 'hold', null], [1, null, 'h
   [5, 'cv-thermal', 'converge-thermal', 10], [5, 'cv-visible', 'converge-visible', 10], [5, 'cv-transit', 'converge-transit', 30]];
 const VIEW_PREFS = 'ion-pumpy-view-v1';
 const START_3D_MS = 20000;
+// The second the renderer's clock is pinned at for 3D shots.
+const FROZEN_AT_S = 1;
 const FRAMES = 90;
 
 function findChrome() {
@@ -172,6 +174,9 @@ async function main() {
           if (shown) {
             await settle();
             await evaluate(`document.querySelector('.view').scrollIntoView({ block: 'start' })`);
+            // Every 3D shot is taken with the renderer's clock pinned at the same second, so the
+            // plasma bodies are caught mid-drift and one set compares with the next.
+            if (view === '3d') await evaluate(`window.__lab.view3D().freeze(${FROZEN_AT_S})`);
             await evaluate('window.__capture.reset()');
             // Let FRAMES frames go by, then read their draw times, in the 3D view.
             const stats = await evaluate(`new Promise(r => { let n = 0; (function tick() { if (++n >= ${FRAMES}) return r(window.__capture.take()); requestAnimationFrame(tick); })(); })`);

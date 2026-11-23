@@ -1011,7 +1011,9 @@ const hold = stage({
     ctx.setLineDash([2, 5]); ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy - R0 * 1.9); ctx.lineTo(cx, cy + R0 * 1.9); ctx.stroke(); ctx.setLineDash([]);
     if (f > 0) {
       ctx.strokeStyle = COL.cold; ctx.lineWidth = 1;
-      for (let k = 1; k <= 4; k++) { ctx.globalAlpha = f * (0.6 - k * 0.1); ctx.beginPath(); ctx.ellipse(cx, cy, R0 * (1.05 + 0.4 * k), R0 * (1.35 + 0.17 * k), 0, 0, TAU); ctx.stroke(); }
+      // The field lines breathe, a slow pulse of a tenth on the step's clock, still under reduced motion.
+      const pulse = reduced ? 1 : 1 + 0.1 * Math.sin(TAU * 0.2 * this.t);
+      for (let k = 1; k <= 4; k++) { ctx.globalAlpha = f * (0.6 - k * 0.1) * pulse; ctx.beginPath(); ctx.ellipse(cx, cy, R0 * (1.05 + 0.4 * k), R0 * (1.35 + 0.17 * k), 0, 0, TAU); ctx.stroke(); }
       ctx.globalAlpha = 1;
     }
     if (flat) for (const sy of [-1, 1]) for (const sx of [-1, 1]) {
@@ -2281,7 +2283,9 @@ const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(snapshot);
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 // Test hook: the test clock, the physics models and the source revision, nothing else (docs/adr/0001).
-window.__lab = { advance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCE_REVISION };
+window.__lab = { advance, formation, camB, transitModel, fuelActivity, plasmaPressure, SOURCE_REVISION,
+  // The 3D renderer and the current step's frame for it, for the browser check to draw by hand.
+  view3D: () => view3d.renderer, scene3D: () => ({ width: W, height: H, pixelRatio: DPR, ...STAGES[S.stage].scene() }) };
 })();
 </script>
 <script src="ga4.js" defer></script>

@@ -6,6 +6,8 @@
 // audit is about what a player sees; GPU=swiftshader forces the software renderer.
 //
 //   node tools/visual-capture.mjs <set-name>        e.g. baseline, slice-2
+//   --quality=<low|medium|high>   pin the 3D view's quality level (default: high, the desktop
+//                                 level under auto; auto's own timing is not what is captured)
 //   CHROME_PATH=/path/to/chrome   choose the browser   GPU=swiftshader   software WebGL
 //
 // For each scene it saves <set>/<scene>-<view>-<window>.png, a screenshot of the scene's canvas
@@ -124,8 +126,8 @@ const DRAW_RECORDER = `(() => {
 })();`;
 
 async function main() {
-  const set = process.argv[2];
-  if (!set || set.startsWith('-')) { console.error('Usage: node tools/visual-capture.mjs <set-name>'); process.exit(2); }
+  const set = process.argv[2], quality = (process.argv.find(a => a.startsWith('--quality=')) || '--quality=high').slice('--quality='.length);
+  if (!set || set.startsWith('-') || !['low', 'medium', 'high'].includes(quality)) { console.error('Usage: node tools/visual-capture.mjs <set-name> [--quality=low|medium|high]'); process.exit(2); }
   const chrome = findChrome();
   if (!chrome) { console.error('No Chrome or Edge found (set CHROME_PATH).'); process.exit(1); }
   const out = join(root, 'docs', 'visual-audit', set); mkdirSync(out, { recursive: true });
@@ -133,7 +135,7 @@ async function main() {
   const profile = mkdtempSync(join(tmpdir(), 'ipt-capture-'));
   const { proc, browserUrl } = await launch(chrome, profile);
   const page = await connect(browserUrl);
-  const index = { set, browser: chrome, gpu: process.env.GPU === 'swiftshader' ? 'swiftshader' : 'machine', frames: FRAMES, frozenAt: FROZEN_AT_S, shots: [] };
+  const index = { set, quality, browser: chrome, gpu: process.env.GPU === 'swiftshader' ? 'swiftshader' : 'machine', frames: FRAMES, frozenAt: FROZEN_AT_S, shots: [] };
   const errors = [];
   try {
     await page.send('Page.enable'); await page.send('Runtime.enable');
@@ -148,7 +150,7 @@ async function main() {
     const loadSavedRun = async view3d => {
       const run = JSON.parse(readFileSync(join(root, 'tests', 'fixtures', 'completed-run.json'), 'utf8'));
       const saved = JSON.stringify({ sourceRevision: await evaluate('window.__lab.SOURCE_REVISION'), ...run });
-      await loadWith(`localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)}); localStorage.setItem('${VIEW_PREFS}', '${JSON.stringify({ on: view3d })}')`);
+      await loadWith(`localStorage.setItem('ipt-run-v2', ${JSON.stringify(saved)}); localStorage.setItem('${VIEW_PREFS}', '${JSON.stringify({ on: view3d, quality })}')`);
       if (await currentStep() !== run.stage) throw new Error('The completed-run saved run did not load.');
     };
     const info = await evaluate(`(() => { const c = document.createElement('canvas'); const gl = c.getContext('webgl2') || c.getContext('webgl'); if (!gl) return null;

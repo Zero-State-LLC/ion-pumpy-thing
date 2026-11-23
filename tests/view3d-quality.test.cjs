@@ -51,7 +51,7 @@ test('bloom is selective: the plasma bodies, Ignite\'s glow and the bright flash
   assert.match(draw, /if \(level === 'high'\) bloom\(/, 'the pass runs at high alone');
   assert.match(source, /\n  function bloom\(/, 'the pass');
   assert.match(source, /cam\.layers\.set\(BLOOM\)/, 'which draws the bloom layer alone into a render target');
-  assert.match(source, /AdditiveBlending/, 'and adds the blur back over the frame');
+  assert.match(source, /blendSrc: THREE\.OneFactor, blendDst: THREE\.OneMinusSrcColorFactor/, 'and screens the blur over the frame, so a body cannot go past white');
   assert.doesNotMatch(source, /EffectComposer|UnrealBloomPass/, 'without the addons: the per-view scissor would fight a composer');
 });
 
@@ -61,10 +61,12 @@ test('medium adds a depth tint behind the origin in the lab and visible looks, n
   assert.match(draw, /world\.scene\.fog = level === 'low' \? null : world\.fog/, 'on at medium and above');
   assert.match(draw, /fog\.color\.copy\(/, 'in the sky\'s colour, as the entry sets it each frame');
   for (const kind of ['orb', 'triangle', 'flash', 'throat']) assert.match(entry(kind), /fog: false/, `${kind} keeps its colour: it is a signal, not scenery`);
-  const glass = source.match(/\n  glass: [\s\S]*?\n  \},\n/);
-  assert.ok(glass, 'glass material');
-  assert.match(glass[0], /onBeforeCompile/, 'the rim is added to the physical shader');
-  assert.match(glass[0], /uFresnel/, 'by a uniform');
+  const rim = source.match(/\nfunction fresnel\(material\) \{[\s\S]*?\n\}\n/);
+  assert.ok(rim, 'a fresnel() helper');
+  assert.match(rim[0], /onBeforeCompile/, 'the rim is added to the physical shader');
+  assert.match(rim[0], /uFresnel/, 'by a uniform');
+  assert.match(rim[0], /geometryViewDir/, 'against the view direction, the camera axis under an orthographic camera');
+  assert.match(source, /glass: colour => fresnel\(new THREE\.MeshPhysicalMaterial\(/, 'on the lab look\'s glass');
   assert.match(draw, /uFresnel\.value = level === 'low' \? 0 : 1/, 'off at low');
 });
 

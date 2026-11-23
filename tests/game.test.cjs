@@ -2519,7 +2519,7 @@ test('the 3D view switch starts on where the renderer starts, is remembered on t
   toggle.checked = false; toggle.onchange();
   assert.equal(nextScene(game), null, 'no 3D frame once off'); assert.equal(game.ids.get('gl').hidden, true);
   assert.ok(game.drawing.some(c => c[0] === 'fillRect'), 'the flat view draws');
-  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: false });
+  assert.deepEqual(JSON.parse(game.storage.get('ion-pumpy-view-v1')), { on: false, quality: 'auto' });
   leave(game); assert.equal(game.storage.get('ipt-run-v2'), savedBefore, 'the saved run is unchanged');
   const again = await bootIn3D('ready-to-converge', { storage: game.storage });
   assert.equal(again.ids.get('view-3d').checked, false, 'remembered off');
@@ -2548,7 +2548,7 @@ test('the quality select starts on auto, is kept on this device beside the 3D vi
   // A saved setting the game does not know, or storage that throws, leaves the select on auto.
   const odd = await bootIn3D('ready-to-converge', { storage: new Map([['ion-pumpy-view-v1', JSON.stringify({ on: true, quality: 'ultra' })]]) });
   assert.equal(odd.ids.get('view-quality').value, 'auto');
-  const blocked = await bootIn3D('ready-to-converge', { noStorage: true });
+  const blocked = await bootIn3D('ready-to-converge', { noStorage: true, rejected: true });
   assert.equal(blocked.ids.get('view-quality').value, 'auto');
   blocked.ids.get('view-quality').value = 'high'; assert.doesNotThrow(() => blocked.ids.get('view-quality').onchange());
   assert.equal(blocked.view3d.quality, 'high');

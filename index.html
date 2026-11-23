@@ -338,6 +338,8 @@ footer p { margin: 0; }
   <div class="view-settings">
     <label for="view-3d"><input id="view-3d" type="checkbox" checked> 3D view</label>
     <p id="view-3d-status" class="statusline" role="status"></p>
+    <label for="view-quality">Quality <select id="view-quality"><option value="auto">Auto</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+    <p id="view-quality-status" class="statusline" role="status"></p>
   </div>
 
   <main class="deck" id="deck">
@@ -388,10 +390,17 @@ new ResizeObserver(fit).observe(cv);
 // three.js on #gl, behind #cv, and the step draws only its text and diagram marks on #cv. The
 // renderer loads after the first flat frame. The flat view draws while it loads, and wherever
 // the player turns the 3D view off or the renderer can't start or loses WebGL. The switch's
-// setting is kept on this device under its own key, apart from the saved run.
-const VIEW_PREFS = 'ion-pumpy-view-v1', glCanvas = $('#gl'), view3dSwitch = $('#view-3d');
-const view3d = { on: true, state: 'idle', renderer: null }; // state: idle, loading, ready, unavailable or lost
-try { const prefs = JSON.parse(localStorage.getItem(VIEW_PREFS) || 'null'); if (prefs && typeof prefs.on === 'boolean') view3d.on = prefs.on; } catch (_) {}
+// setting and the quality level the player picks (auto by default: the renderer times its first
+// frames and chooses) are kept on this device under their own key, apart from the saved run.
+const VIEW_PREFS = 'ion-pumpy-view-v1', glCanvas = $('#gl'), view3dSwitch = $('#view-3d'), qualitySelect = $('#view-quality');
+const QUALITY_CHOICES = ['auto', 'low', 'medium', 'high'];
+const view3d = { on: true, quality: 'auto', state: 'idle', renderer: null }; // state: idle, loading, ready, unavailable or lost
+try {
+  const prefs = JSON.parse(localStorage.getItem(VIEW_PREFS) || 'null');
+  if (prefs && typeof prefs.on === 'boolean') view3d.on = prefs.on;
+  if (prefs && QUALITY_CHOICES.includes(prefs.quality)) view3d.quality = prefs.quality;
+} catch (_) {}
+function saveViewPrefs() { try { localStorage.setItem(VIEW_PREFS, JSON.stringify({ on: view3d.on, quality: view3d.quality })); } catch (_) {} }
 function paintViewSwitch() {
   const failed = view3d.state === 'unavailable' || view3d.state === 'lost';
   view3dSwitch.checked = view3d.on && !failed; view3dSwitch.disabled = failed;
@@ -409,13 +418,21 @@ glCanvas.addEventListener('webglcontextrestored', () => {
 function load3D() {
   view3d.state = 'loading';
   Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))
-    .then(() => window.IonView3D.start(glCanvas, { props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb', pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb' }, onLost: () => stop3D('lost') }))
+    .then(() => window.IonView3D.start(glCanvas, {
+      props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb', pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb' },
+      onLost: () => stop3D('lost'),
+      quality: view3d.quality, phone: matchMedia('(pointer: coarse)').matches,
+      onQuality: q => { if (view3d.quality === 'auto') set('view-quality-status', `Auto chose ${q.level}: a frame draws in about ${q.median.toFixed(1)} ms here.`); }
+    }))
     .then(r => { if (view3d.state === 'loading') { view3d.renderer = r; view3d.state = 'ready'; paintViewSwitch(); } })
     .catch(() => { if (view3d.state === 'loading') stop3D('unavailable'); });
 }
-view3dSwitch.onchange = () => {
-  view3d.on = view3dSwitch.checked;
-  try { localStorage.setItem(VIEW_PREFS, JSON.stringify({ on: view3d.on })); } catch (_) {}
+view3dSwitch.onchange = () => { view3d.on = view3dSwitch.checked; saveViewPrefs(); };
+qualitySelect.value = view3d.quality;
+qualitySelect.onchange = () => {
+  view3d.quality = QUALITY_CHOICES.includes(qualitySelect.value) ? qualitySelect.value : 'auto';
+  saveViewPrefs(); set('view-quality-status', '');
+  if (view3d.renderer) view3d.renderer.setQuality(view3d.quality);
 };
 paintViewSwitch();
 // A step's scene is a look and a view for each camera on screen. Each view gives the part of the

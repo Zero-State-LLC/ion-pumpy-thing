@@ -17,8 +17,10 @@ interface SceneView {
 // Set by view3d.js, the 3D view's renderer, which the game loads after its first flat frame.
 interface Window {
   IonView3D: {
-    start(canvas: HTMLCanvasElement, options: { props: { airliner: string }, onLost: () => void }): Promise<{
-      draw(frame: { width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'lab' | 'diagram', views: SceneView[] }): void
+    start(canvas: HTMLCanvasElement, options: { props: { airliner: string }, onLost: () => void, quality?: 'auto' | 'low' | 'medium' | 'high', phone?: boolean, onQuality?: (q: { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }) => void }): Promise<{
+      draw(frame: { width: number, height: number, pixelRatio: number, look: 'heat' | 'visible' | 'lab' | 'diagram', views: SceneView[] }): void,
+      setQuality(choice: 'auto' | 'low' | 'medium' | 'high'): void,
+      quality(): { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }
     }>
   };
 }

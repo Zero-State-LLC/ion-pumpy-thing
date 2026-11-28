@@ -156,6 +156,55 @@ async function loadPumpPart(url, name, measure) {
   return { geometry, edges: new THREE.EdgesGeometry(geometry, 60), height: box.max.y - box.min.y, [measure]: size };
 }
 
+/* ── Slice 7 lab props: reactor vessel (bore along Z), split electromagnet coil (left/right halves
+   flat in XZ), and measured single-mesh hardware (jar manifold, piston head, inline pipe union) ── */
+async function loadReactorVessel(url) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  /** @type {THREE.BufferGeometry | null} */
+  let geometry = null, boreRadius = 0;
+  gltf.scene.traverse(o => { if (o instanceof THREE.Mesh && o.name === 'vessel') { geometry = o.geometry; boreRadius = o.userData.boreRadius; } });
+  if (!geometry) throw new Error('The reactor vessel prop has no vessel mesh.');
+  if (!(boreRadius > 0)) throw new Error('The reactor vessel prop gives no boreRadius.');
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  const outerRadius = Math.max(Math.abs(box.min.x), Math.abs(box.max.x), Math.abs(box.min.y), Math.abs(box.max.y));
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 55), boreRadius, outerRadius, depth: box.max.z - box.min.z };
+}
+
+async function loadCoil(url) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  const parts = {};
+  let majorRadius = 0, halfHeight = 0;
+  gltf.scene.traverse(o => {
+    if (o instanceof THREE.Mesh && (o.name === 'left' || o.name === 'right')) {
+      parts[o.name] = o.geometry;
+      majorRadius = o.userData.majorRadius || majorRadius;
+      halfHeight = o.userData.halfHeight || halfHeight;
+    }
+  });
+  if (!parts.left || !parts.right) throw new Error('The electromagnet coil prop has no left or right mesh.');
+  if (!(majorRadius > 0) || !(halfHeight > 0)) throw new Error('The electromagnet coil prop gives no dimensions.');
+  return { parts, majorRadius, halfHeight };
+}
+
+async function loadMeasuredProp(url, name, measure) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  /** @type {THREE.BufferGeometry | null} */
+  let geometry = null, size = 0, extraHeight = 0;
+  gltf.scene.traverse(o => {
+    if (o instanceof THREE.Mesh && o.name === name) {
+      geometry = o.geometry;
+      size = Number(o.userData[measure]) || 0;
+      extraHeight = Number(o.userData.height) || 0;
+    }
+  });
+  if (!geometry) throw new Error(`The ${name} prop has no ${name} mesh.`);
+  if (!(size > 0)) throw new Error(`The ${name} prop gives no ${measure}.`);
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 55), height: extraHeight || (box.max.y - box.min.y), size };
+}
+
 // A colour as three.js shader uniforms take it, unconverted, so it matches the flat view's.
 const shaderColour = hex => new THREE.Vector3(...rgb(hex).map(v => v / 255));
 // The plasma bubble: void inside, its rim, the outer 28 % of its radius on screen, turning to the
@@ -438,7 +487,7 @@ void main() { gl_FragColor = vec4(texture2D(map, vUv).rgb * strength, 1.0);
  * player's level or 'auto'; `phone` says auto should start at medium; `onQuality` hears what
  * auto settles on.
  * @param {HTMLCanvasElement} canvas
- * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string }, onLost: () => void, quality?: 'auto' | 'low' | 'medium' | 'high', phone?: boolean, onQuality?: (q: { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }) => void }} options
+ * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string, reactorVessel: string, jarManifold: string, electromagnetCoil: string, pistonHead: string, pipeUnion: string }, onLost: () => void, quality?: 'auto' | 'low' | 'medium' | 'high', phone?: boolean, onQuality?: (q: { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }) => void }} options
  */
 async function start(canvas, { props, onLost, quality = 'auto', phone = false, onQuality = () => {} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -463,11 +512,21 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     if (median > QUALITY_BUDGET_MS && level !== 'low') { level = QUALITY[QUALITY.indexOf(level) - 1]; return; }
     choice = 'settled'; onQuality({ level, auto: true, median });
   }
-  const [airliner, mount, chamber, housing, handle] = await Promise.all([loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber),
-    loadPumpPart(props.pistonHousing, 'housing', 'wallRadius'), loadPumpPart(props.pumpHandle, 'handle', 'span')]);
+  const [airliner, mount, chamber, housing, handle, vessel, jarManifold, coilProp, pistonHead, pipeUnion] = await Promise.all([
+    loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber),
+    loadPumpPart(props.pistonHousing, 'housing', 'wallRadius'), loadPumpPart(props.pumpHandle, 'handle', 'span'),
+    loadReactorVessel(props.reactorVessel), loadMeasuredProp(props.jarManifold, 'manifold', 'seatRadius'),
+    loadCoil(props.electromagnetCoil), loadMeasuredProp(props.pistonHead, 'piston', 'radius'),
+    loadMeasuredProp(props.pipeUnion, 'union', 'length')
+  ]);
   // The props' geometry is shared by every world, so it stays when a world goes.
-  const shared = new Set([...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges, chamber.geometry, chamber.edges,
-    housing.geometry, housing.edges, handle.geometry, handle.edges]);
+  const shared = new Set([
+    ...Object.values(airliner.parts), ...Object.values(airliner.edges), mount.geometry, mount.edges,
+    chamber.geometry, chamber.edges, housing.geometry, housing.edges, handle.geometry, handle.edges,
+    vessel.geometry, vessel.edges, jarManifold.geometry, jarManifold.edges,
+    ...Object.values(coilProp.parts),
+    pistonHead.geometry, pistonHead.edges, pipeUnion.geometry, pipeUnion.edges
+  ]);
   const ramp = rampTexture();
   const pmrem = new THREE.PMREMGenerator(renderer), environment = pmrem.fromScene(studio(), 0.04).texture; pmrem.dispose();
   // A world for each view: its camera, scene and pooled objects. `world` is the one being drawn.
@@ -784,7 +843,7 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       swapGeometry(p, geometry);
     },
     // Fuel's reactor wall, end on: the active first-wall torus coloured by neutron exposure,
-    // seated inside a recessed cylindrical laboratory chamber liner with flange ribs in the lab look.
+    // framed by the machined ConFlat reactor vessel viewport and a recessed chamber bore in lab look.
     'reactor wall'(e) {
       const w = take('reactor wall', () => {
         const g = new THREE.Group();
@@ -792,29 +851,24 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
         ring.material.depthWrite = false;
         g.add(ring);
         if (world.look === 'lab') {
-          const liner = new THREE.Mesh(new THREE.CylinderGeometry(1.02, 0.92, 1, 64, 1, true).rotateX(Math.PI / 2), surface('#1a2342', 'brushed'));
-          const collar = new THREE.Mesh(new THREE.TorusGeometry(1.07, 0.032, 12, 96), surface('#2b365a', 'brushed'));
-          const ribs = new THREE.Group();
-          for (let i = 0; i < 12; i++) {
-            const a = i / 12 * TAU;
-            const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.04, 12).rotateX(Math.PI / 2), surface('#7a87aa', 'polished'));
-            bolt.position.set(Math.cos(a) * 1.07, Math.sin(a) * 1.07, 0.01);
-            ribs.add(bolt);
-          }
-          g.add(liner, collar, ribs);
+          const liner = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.68, 1, 64, 1, true).rotateX(Math.PI / 2), surface('#141c36', 'brushed'));
+          const bulkhead = new THREE.Group();
+          bulkhead.add(new THREE.Mesh(vessel.geometry, surface('#364468', 'brushed')), new THREE.LineSegments(vessel.edges, lineMaterial()));
+          g.add(liner, bulkhead);
         }
         return g;
       });
       w.position.set(...e.at);
-      const [ring, liner, collar, ribs] = /** @type {any[]} */ (w.children);
+      const [ring, liner, bulkhead] = /** @type {any[]} */ (w.children);
       paint(ring.material, e, 'heat', 'colour');
       swapGeometry(ring, new THREE.TorusGeometry(e.radius, e.width / 2, 12, 128));
-      if (liner) {
+      if (liner && bulkhead) {
+        const k = e.radius * 1.26 / vessel.outerRadius;
+        bulkhead.scale.setScalar(k);
+        bulkhead.position.z = vessel.depth * k * 0.55 + e.width * 0.65;
         const depth = e.radius * 0.9;
         liner.scale.set(e.radius, e.radius, depth);
-        liner.position.z = depth / 2 + e.width * 0.4;
-        collar.scale.setScalar(e.radius); collar.position.z = e.width * 0.35;
-        ribs.scale.setScalar(e.radius); ribs.position.z = e.width * 0.35;
+        liner.position.z = depth / 2 + vessel.depth * k * 0.45 + e.width * 0.65;
       }
     },
     // Fuel's burning core: a disc fading from its middle's colour (`core`), as opaque as `opacity`,
@@ -840,12 +894,19 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     },
     // A coil: a ring round the y axis, its left and right halves each as opaque as the list gives
     // over the sky's colour, as the flat view fills its coils over the background, outlined round
-    // its top and bottom. In the lab look the halves are copper, and the list's opacity, the
-    // coil's current, shows instead as how warmly the copper glows.
+    // its top and bottom. In the lab look the halves use the split Bitter magnet coil prop in copper,
+    // and the list's opacity, the coil's current, shows as how warmly each copper half glows.
     coil(e) {
       const c = take('coil', () => {
         const g = new THREE.Group();
-        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), world.look === 'lab' ? surface('#ffffff', 'copper') : new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+        const sides = ['left', 'right'];
+        for (let i = 0; i < 2; i++) {
+          if (world.look === 'lab') {
+            g.add(new THREE.Mesh(coilProp.parts[sides[i]], surface('#ffffff', 'copper')));
+          } else {
+            g.add(new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+          }
+        }
         for (let i = 0; i < 2; i++) g.add(new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial()));
         for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })));
         return g;
@@ -853,19 +914,27 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       c.position.set(...e.at);
       const [left, right, top, bottom, ...backing] = /** @type {any[]} */ (c.children);
       [left, right].forEach((half, i) => {
-        // Half a torus, turned to the left (x below 0) or right half, then laid round the y axis.
-        const geometry = new THREE.TorusGeometry(e.radius, e.tube, 12, 48, Math.PI).rotateZ(i ? -Math.PI / 2 : Math.PI / 2).rotateX(Math.PI / 2);
-        swapGeometry(half, geometry); half.material.color.set(e.colour);
-        if (world.look === 'lab') { half.material.emissive.set(e.colour); half.material.emissiveIntensity = 0.35 * e.opacity[i]; }
-        else half.material.opacity = e.opacity[i];
-        // Behind it, the same half in the sky's colour, opaque, so nothing behind shows through;
-        // not in the lab look, whose copper is opaque itself and would be fought for depth.
-        backing[i].visible = world.look !== 'lab';
-        if (backing[i].visible) { swapGeometry(backing[i], geometry.clone()); backing[i].material.color.copy(/** @type {any} */ (world.scene.background) || new THREE.Color(0)); }
+        half.material.color.set(e.colour);
+        if (world.look === 'lab') {
+          const sx = e.radius / coilProp.majorRadius, sy = (e.tube / coilProp.halfHeight) * 1.15;
+          half.scale.set(sx, sy, sx);
+          half.material.emissive.set(e.colour); half.material.emissiveIntensity = 0.35 * e.opacity[i];
+        } else {
+          // Half a torus, turned to the left (x below 0) or right half, then laid round the y axis.
+          const geometry = new THREE.TorusGeometry(e.radius, e.tube, 12, 48, Math.PI).rotateZ(i ? -Math.PI / 2 : Math.PI / 2).rotateX(Math.PI / 2);
+          swapGeometry(half, geometry);
+          half.material.opacity = e.opacity[i];
+          backing[i].visible = true;
+          swapGeometry(backing[i], geometry.clone()); backing[i].material.color.copy(/** @type {any} */ (world.scene.background) || new THREE.Color(0));
+        }
+        if (world.look === 'lab') backing[i].visible = false;
       });
       [top, bottom].forEach((rim, i) => {
-        swapGeometry(rim, new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, k) => new THREE.Vector3(Math.cos(k / 64 * TAU) * e.radius, (i ? 1 : -1) * e.tube, Math.sin(k / 64 * TAU) * e.radius))));
-        rim.material.color.set(e.edge);
+        rim.visible = world.look !== 'lab';
+        if (rim.visible) {
+          swapGeometry(rim, new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, k) => new THREE.Vector3(Math.cos(k / 64 * TAU) * e.radius, (i ? 1 : -1) * e.tube, Math.sin(k / 64 * TAU) * e.radius))));
+          rim.material.color.set(e.edge);
+        }
       });
     },
     'plasma ball'(e) { body('plasma ball', 3)(e); },
@@ -902,22 +971,29 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       });
     },
     // Ignite's pipe from the jar to the pump: a tube as wide as the flat view's stroke, with
-    // machined coupling collars at the jar port and pump intake in the lab look.
+    // machined coupling collars at the ends and an inline vacuum flange union in the lab look.
     pipe(e) {
       const p = take('pipe', () => {
         const g = new THREE.Group();
         g.add(new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed')));
         if (world.look === 'lab') {
           for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20).rotateZ(Math.PI / 2), surface('#8f9bbb', 'polished')));
+          const union = new THREE.Group();
+          union.rotation.x = Math.PI;
+          union.add(new THREE.Mesh(pipeUnion.geometry, surface('#98a6c4', 'brushed')), new THREE.LineSegments(pipeUnion.edges, lineMaterial()));
+          g.add(union);
         }
         return g;
       });
-      const [line, leftCollar, rightCollar] = /** @type {any[]} */ (p.children);
+      const [line, leftCollar, rightCollar, union] = /** @type {any[]} */ (p.children);
       paint(line.material, e, 'heat', 'colour'); swapGeometry(line, tube([e.from, e.to], e.width / 2));
-      if (leftCollar && rightCollar) {
+      if (leftCollar && rightCollar && union) {
         const r = e.width * 1.9, len = e.width * 2.8;
         leftCollar.position.set(...e.from); leftCollar.scale.set(len, r, r);
         rightCollar.position.set(...e.to); rightCollar.scale.set(len, r, r);
+        const span = Math.hypot(e.to[0] - e.from[0], e.to[1] - e.from[1]);
+        union.position.set((e.from[0] + e.to[0]) / 2, (e.from[1] + e.to[1]) / 2, (e.from[2] + e.to[2]) / 2);
+        union.scale.setScalar((span * 0.56) / pipeUnion.size);
       }
     },
     // The pump's barrel, cut away as the vacuum chamber is: only its far half, so the piston inside shows.
@@ -938,8 +1014,7 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       for (const o of inner.children) /** @type {any} */ (o).material.clippingPlanes[0].constant = -e.at[2];
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
     },
-    // The pump's handle, keeping its exact listed grip span while reinforcing vertical bar thickness
-    // so the T-handle stays clearly readable even on 320 px phone viewports.
+    // The pump's handle, sized uniformly to its exact listed grip span.
     'pump handle'(e) {
       const g = take('pump handle', () => {
         const outer = new THREE.Group(), inner = new THREE.Group();
@@ -948,30 +1023,38 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
         return outer;
       });
       const s = e.span / handle.span;
-      g.position.set(...e.at); g.children[0].scale.set(s, s * 1.65, s * 1.5);
+      g.position.set(...e.at); g.children[0].scale.set(s, s, s);
       paint(/** @type {any} */ (g.children[0].children[0]).material, e, 'heat', 'colour');
     },
-    // The piston, built each frame where the stroke has it: a disc of a head with O-ring seal
-    // grooves in the lab look, and a rod up from it.
+    // The piston, built each frame where the stroke has it: a grooved machined piston head prop
+    // inside the cut-away barrel in the lab look, and a rod up from it.
     piston(e) {
       const p = take('piston', () => {
         const g = new THREE.Group();
-        for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff', 'brushed')));
         if (world.look === 'lab') {
-          for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.TorusGeometry(1.01, 0.08, 8, 32).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x161b2a, metalness: 0.1, roughness: 0.85 })));
+          const head = new THREE.Group();
+          head.rotation.x = Math.PI;
+          head.add(new THREE.Mesh(pistonHead.geometry, surface('#ffffff', 'brushed')), new THREE.LineSegments(pistonHead.edges, lineMaterial()));
+          g.add(head, new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff', 'brushed')));
+        } else {
+          for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff', 'brushed')));
         }
         return g;
       });
-      const [head, rod, sealA, sealB] = /** @type {any[]} */ (p.children);
-      head.position.set(...e.at); head.scale.set(e.radius, e.thickness, e.radius);
+      const [head, rod] = /** @type {any[]} */ (p.children);
+      head.position.set(...e.at);
+      if (world.look === 'lab') {
+        const sr = e.radius / pistonHead.size, sh = (e.thickness / pistonHead.height) * 1.25;
+        head.scale.set(sr, sh, sr);
+        paint(head.children[0].material, e, 'heat', 'colour');
+      } else {
+        head.scale.set(e.radius, e.thickness, e.radius);
+        paint(head.material, e, 'heat', 'colour');
+      }
       // From the rod's top down to the head's top face.
       const length = e.at[1] - e.thickness / 2 - e.rodTop[1];
       rod.visible = length > 0; rod.position.set(e.rodTop[0], e.rodTop[1] + length / 2, e.rodTop[2]); rod.scale.set(e.rodWidth / 2, Math.max(length, 1e-6), e.rodWidth / 2);
-      for (const part of [head, rod]) paint(part.material, e, 'heat', 'colour');
-      if (sealA && sealB) {
-        sealA.position.set(e.at[0], e.at[1] - e.thickness * 0.22, e.at[2]); sealA.scale.set(e.radius, e.thickness * 1.1, e.radius);
-        sealB.position.set(e.at[0], e.at[1] + e.thickness * 0.22, e.at[2]); sealB.scale.set(e.radius, e.thickness * 1.1, e.radius);
-      }
+      paint(rod.material, e, 'heat', 'colour');
     },
     // Ignite's plasma glow: a disc fading through the list's stops, [at, colour, opacity], out to
     // its radius, as the flat view's gradient. The stops change with the pressure, so the disc
@@ -996,7 +1079,7 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       facing(g).position.set(...e.at); g.scale.setScalar(e.radius);
     },
     // The glass jar: the gas left in it, a ball of haze `inside` across, its outline, and in the
-    // lab look a physical glass shell seated on a low machined laboratory ring cradle.
+    // lab look a physical glass shell seated on the bolted stainless-steel jar manifold pedestal.
     'glass jar'(e) {
       const j = take('glass jar', () => {
         const haze = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
@@ -1004,7 +1087,9 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
         const rim = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide }));
         // The jar itself, in the lab look: a glass sphere at the jar's radius, over the haze.
         const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), surface('#ffffff', 'glass'));
-        const cradle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.08, 32), surface('#556182', 'brushed'));
+        const cradle = new THREE.Group();
+        cradle.rotation.x = Math.PI;
+        cradle.add(new THREE.Mesh(jarManifold.geometry, surface('#6b799c', 'brushed')), new THREE.LineSegments(jarManifold.edges, lineMaterial()));
         haze.renderOrder = 2; rim.renderOrder = 3; shell.renderOrder = 4; cradle.renderOrder = 1;
         const g = new THREE.Group(); g.add(haze, rim, shell, cradle); return g;
       });
@@ -1013,7 +1098,10 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       haze.scale.setScalar(e.inside); haze.material.color.set(e.hazeColour); haze.material.opacity = e.haze;
       shell.visible = world.look === 'lab'; shell.scale.setScalar(e.radius); if (shell.visible) shell.material.color.set(e.colour);
       cradle.visible = world.look === 'lab';
-      if (cradle.visible) { cradle.scale.setScalar(e.radius); cradle.position.set(0, e.radius * 0.98, 0); }
+      if (cradle.visible) {
+        cradle.scale.setScalar((e.radius * 0.30) / jarManifold.size);
+        cradle.position.set(0, e.radius * 0.945, 0);
+      }
       rim.material.color.set(e.colour); facing(rim);
       swapGeometry(rim, new THREE.RingGeometry(e.radius - e.width / 2, e.radius + e.width / 2, 128));
     },

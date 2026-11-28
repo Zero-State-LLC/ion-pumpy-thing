@@ -151,18 +151,18 @@ test('Hold 3D cusp leaks use radial-fade plasma plume shaders and open flared bo
   assert.match(leaks, /strip\(out, \[at\(e\.edge, a - half\), \.\.\.rim, at\(e\.edge, a \+ half\)\], e\.plumeWidth \* 0\.7, false\)/, 'open boundary without inner chord');
 });
 
-test('Fuel 3D reactor wall builds a recessed cylindrical lab chamber liner and flange collar behind the exposure ring', () => {
+test('Fuel 3D reactor wall builds a recessed cylindrical lab chamber liner and vessel bulkhead behind the exposure ring', () => {
   const wall = entry('reactor wall');
   assert.match(wall, /CylinderGeometry\(/, 'recessed cylindrical chamber liner');
-  assert.match(wall, /TorusGeometry\(1\.07/, 'outer containment flange collar');
+  assert.match(wall, /vessel\.geometry/, 'machined ConFlat reactor vessel bulkhead');
   assert.match(wall, /world\.look === 'lab'/, 'lab-look presentation only');
 });
 
-test('Ignite 3D apparatus reinforces pump handle vertical readability, adds pipe collars, piston O-rings and jar cradle', () => {
-  assert.match(entry('pump handle'), /scale\.set\(s, s \* 1\.65, s \* 1\.5\)/, 'reinforced grip bar thickness at exact listed span');
-  assert.match(entry('pipe'), /leftCollar && rightCollar/, 'coupling collars at jar and pump ends');
-  assert.match(entry('piston'), /sealA && sealB/, 'piston head O-ring seal bands');
-  assert.match(entry('glass jar'), /cradle/, 'machined lab base cradle under glass jar');
+test('Ignite 3D apparatus uses machined lab hardware for pump handle, pipe coupling, piston head and jar cradle', () => {
+  assert.match(entry('pump handle'), /scale\.set\(s, s, s\)/, 'uniform scale on CNC-machined T-handle at exact listed span');
+  assert.match(entry('pipe'), /leftCollar && rightCollar && union/, 'coupling collars and inline flange union');
+  assert.match(entry('piston'), /pistonHead\.geometry/, 'grooved machined piston head prop');
+  assert.match(entry('glass jar'), /jarManifold\.geometry/, 'bolted stainless-steel jar manifold cradle');
 });
 
 test('studio environment lights front-facing orthographic metals and Open/Visible views use upgraded shaders and lighting', () => {

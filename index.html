@@ -419,7 +419,12 @@ function load3D() {
   view3d.state = 'loading';
   Promise.resolve().then(() => window.IonView3D || import('./view3d.js'))
     .then(() => window.IonView3D.start(glCanvas, {
-      props: { airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb', pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb' },
+      props: {
+        airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb',
+        pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb', reactorVessel: 'assets/reactor-vessel.glb',
+        jarManifold: 'assets/jar-manifold.glb', electromagnetCoil: 'assets/electromagnet-coil.glb', pistonHead: 'assets/piston-head.glb',
+        pipeUnion: 'assets/pipe-union.glb'
+      },
       onLost: () => stop3D('lost'),
       quality: view3d.quality, phone: matchMedia('(pointer: coarse)').matches,
       onQuality: q => { if (view3d.quality === 'auto') set('view-quality-status', `Auto chose ${q.level}: a frame draws in about ${q.median.toFixed(1)} ms here.`); }
@@ -1217,8 +1222,8 @@ const fuel = stage({
         ctx.beginPath(); ctx.arc(cx + q.x * R, cy + q.y * R, q.k === 'n' ? 2.2 : 2.8, 0, TAU); ctx.fill();
       });
     }
-    label('wall', cx + R + 10, cy + 4);
-    label('field edge', cx + R * 0.6 * 0.71 + 6, cy - R * 0.6 * 0.71 - 4, COL.cold);
+    label('wall', cx + R + 10, cy + 4, COL.muted, 'left', true);
+    label('field edge', cx + R * 0.6 * 0.71 + 6, cy - R * 0.6 * 0.71 - 4, COL.cold, 'left', true);
     ctx.fillStyle = COL.cold; ctx.beginPath(); ctx.arc(38, H - 34, 2.8, 0, TAU); ctx.fill(); label('helium (charged)', 48, H - 30);
     ctx.fillStyle = COL.hot; ctx.beginPath(); ctx.arc(38, H - 18, 2.2, 0, TAU); ctx.fill(); label('neutron', 48, H - 14);
     if (this.screening) { ctx.fillStyle = COL.ink; ctx.beginPath(); ctx.arc(38, H - 50, 1.3, 0, TAU); ctx.fill(); label('electron', 48, H - 46); }

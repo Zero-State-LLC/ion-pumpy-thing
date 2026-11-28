@@ -29,9 +29,13 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap">
 <style>
 /* Hallmark · custom experimental-physics-console · scope: app · signature: viewport-first 3D lab bench with docked telemetry console */
-/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V5 · weakest: static .scale thermal gradient conflict (ADR 0004 scientific requirement) */
+/* Hallmark · pre-emit critique: P4 H5 E5 S5 R5 V5 · weakest: static .scale thermal gradient conflict (ADR 0004 scientific requirement) */
+/* Hallmark · answered F4 · Learning/Timed is a segmented mode toggle filling only [aria-pressed="true"], and cyan .btn.pump distinguishes the live laboratory actuator from warm amber step progression */
+/* Hallmark · answered F21 · Ledger's h3 ("Timed practice board") is preceded at runtime by the dynamically rendered h2#stage-title heading */
 :root {
   color-scheme: dark;
+  scrollbar-color: var(--line-strong) var(--deep);
+  scrollbar-width: thin;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   /* Colour — calibrated to the thermal-optical world (docs/adr/0004) */
@@ -83,7 +87,8 @@
   --radius: 2px;
 }
 html, body { background: var(--deep); overflow-x: clip; }
-body { margin: 0; color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.5; }
+body { margin: 0; color: var(--ink); caret-color: var(--warm); font-family: var(--body); font-size: var(--fs-md); line-height: 1.5; }
+::selection { background: var(--warm); color: var(--deep); }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 * { box-sizing: border-box; }
@@ -96,10 +101,10 @@ a { color: var(--cold); text-underline-offset: 2px; }
 
 .wrap {
   max-width: 1480px; margin: 0 auto;
-  padding-block: var(--sp-3) var(--sp-6);
+  padding-block: var(--sp-2) var(--sp-5);
   padding-left: max(var(--sp-4), env(safe-area-inset-left, 0px));
   padding-right: max(var(--sp-4), env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-2);
 }
 
 /* ── Top Command Bar: single unified facility header & sequence rail ── */
@@ -140,17 +145,17 @@ a { color: var(--cold); text-underline-offset: 2px; }
 
 /* Live status bar: always mounted in the accessibility tree (never display: none on role="status")
    and reserves one quiet line so transient save/run notices never shift the simulation deck. */
-.status { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-4); min-height: 1.45em; }
+.status { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-4); min-height: 1.25em; }
 .statusline { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
 .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warm); background: var(--panel); }
 .confirm p { margin: 0; flex: 1 1 28ch; }
 
 /* ── Primary Viewport-First Laboratory Workspace ── */
 .deck { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(350px, 440px); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
-.stage-col { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); display: flex; flex-direction: column; min-width: 0; }
+.stage-col { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-2)); display: flex; flex-direction: column; min-width: 0; }
 .view {
   position: relative; background: var(--sky); border: 1px solid var(--line-strong);
-  aspect-ratio: 4 / 3; max-height: calc(100dvh - 148px); width: 100%; max-width: 100%;
+  aspect-ratio: 4 / 3; max-height: calc(100dvh - 136px); width: 100%; max-width: 100%;
   overflow: hidden; user-select: none; -webkit-user-select: none;
 }
 .view canvas { display: block; width: 100%; height: 100%; }
@@ -167,20 +172,21 @@ a { color: var(--cold); text-underline-offset: 2px; }
 
 /* ── Docked Bench Utility Strip under the simulation viewport ── */
 .bench-bar {
-  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
-  gap: var(--sp-2) var(--sp-4);
-  padding: var(--sp-2) var(--sp-3);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
   background: var(--panel-inset);
   border: 1px solid var(--line); border-top: 0;
 }
-.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; margin: 0; }
+.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); align-items: center; margin: 0; }
 .view-settings label { display: inline-flex; gap: var(--sp-2); align-items: center; font-size: var(--fs-xs); color: var(--muted); cursor: pointer; }
 .view-settings input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--cold); cursor: pointer; }
 .view-settings select {
   font: 500 var(--fs-xs) var(--body); color: var(--ink); background: var(--panel);
   border: 1px solid var(--line-control); border-radius: var(--radius); padding: var(--sp-0) var(--sp-2); min-height: 28px; cursor: pointer;
 }
-.bench-drawers { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: flex-start; }
+.bench-drawers { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); align-items: center; }
+.bench-drawers:has([open]) { flex: 1 0 100%; margin-left: 0; align-items: flex-start; }
 .sound-settings, .key { font-size: var(--fs-xs); color: var(--muted); }
 .sound-settings summary, .key summary { cursor: pointer; color: var(--cold); min-height: 28px; display: inline-flex; align-items: center; font-weight: 500; }
 .sound-settings[open], .key[open] { width: 100%; padding-top: var(--sp-2); border-top: 1px solid var(--line); margin-top: var(--sp-1); }
@@ -202,8 +208,8 @@ a { color: var(--cold); text-underline-offset: 2px; }
 .panel {
   background: var(--panel); color: var(--ink);
   border: 1px solid var(--line); border-top: 2px solid var(--line-strong);
-  padding: var(--sp-4);
-  display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0;
   transition: border-top-color 160ms ease-out;
 }
 .panel.complete { border-top-color: var(--cold); }
@@ -211,13 +217,13 @@ a { color: var(--cold); text-underline-offset: 2px; }
 .panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; overflow-wrap: break-word; min-width: 0; }
 .panel h3 { font: 600 var(--fs-sm) var(--body); color: var(--ink); margin: 0; }
 .panel p { margin: 0; max-width: 60ch; }
-.brief { color: var(--ink); font-size: var(--fs-md); line-height: 1.5; }
+.brief { color: var(--ink); font-size: var(--fs-md); line-height: 1.45; }
 .note { color: var(--muted); font-size: var(--fs-sm); line-height: 1.45; }
 
-/* Live Objective Track */
-.goal { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--panel-inset); border: 1px solid var(--line-strong); }
+/* Live Objective Track — hairline surface rung (never a nested card box) */
+.goal { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0 0 var(--sp-2); background: transparent; border: 0; border-bottom: 1px solid var(--line); }
 .goal #goaltext { font-size: var(--fs-sm); color: var(--ink); }
-.goal.ok { border-color: var(--cold); }
+.goal.ok { border-bottom-color: var(--cold); }
 .goal.ok #goaltext::before { content: "\2713  "; content: "\2713  " / ""; color: var(--cold); font-weight: 600; }
 .goal .bar { height: 5px; background: var(--line); border: 1px solid var(--line-control); overflow: hidden; }
 .goal .bar i { display: block; height: 100%; width: 0; background: var(--warm); }
@@ -280,7 +286,7 @@ input[type=range]:not(:disabled):hover::-moz-range-thumb { transform: scaleY(1.0
 .btn.engage { border-color: var(--cold); color: var(--cold); background: transparent; }
 .btn.pump {
   font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase;
-  padding: var(--sp-3); background: var(--cold); border-color: var(--cold); color: var(--deep);
+  padding: var(--sp-2) var(--sp-3); min-height: 44px; background: var(--cold); border-color: var(--cold); color: var(--deep);
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .btn.pump:active { transform: translateY(2px); }
@@ -371,6 +377,13 @@ footer strong { color: var(--ink); font-weight: 600; }
   .btn.pump:active, input[type=range]:hover::-webkit-slider-thumb, input[type=range]:hover::-moz-range-thumb { transform: none; }
 }
 
+/* ── Mid-Width Split-Screen / Landscape Tablet (861px–1120px) ── */
+@media (min-width: 861px) and (max-width: 1120px) {
+  .deck { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 370px); gap: var(--sp-3); }
+  .bench-bar { gap: var(--sp-1) var(--sp-2); }
+  .view-settings { gap: var(--sp-1) var(--sp-2); }
+}
+
 /* ── Adaptive Mobile Bench (<= 860px): Sticky viewport + docked console, secondary settings deferred below ── */
 @media (max-width: 860px) {
   .wrap { padding-block: var(--sp-2) var(--sp-5); gap: var(--sp-2); }
@@ -382,7 +395,7 @@ footer strong { color: var(--ink); font-weight: 600; }
     padding: var(--sp-1) var(--sp-3); border: 1px solid var(--warm); border-radius: var(--radius);
     background: var(--warm); color: var(--deep); font: 600 var(--fs-xs) var(--body); text-decoration: none; white-space: nowrap;
   }
-  .steps { width: calc(100% + 8px); min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .steps { width: calc(100% + 8px); min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   .steps button { white-space: nowrap; padding: var(--sp-1) var(--sp-3); }
   .steps button, .btn, .seg button { min-height: 44px; }
   .hud { width: 100%; max-width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-1) var(--sp-2); }
@@ -392,6 +405,7 @@ footer strong { color: var(--ink); font-weight: 600; }
   .view { order: 1; position: relative; top: auto; max-height: none; width: 100%; }
   .panel { order: 2; width: 100%; padding: var(--sp-3); border-top: 2px solid var(--line-strong); }
   .bench-bar { order: 3; width: 100%; border-top: 1px solid var(--line); }
+  .bench-drawers { margin-left: 0; }
   .ledger li { grid-template-columns: 1fr; gap: var(--sp-1); }
   footer { grid-template-columns: 1fr; }
 }
@@ -2131,8 +2145,8 @@ const ledger = stage({
       ['scen', 'Game rule', `A centred 60.9 m wingspan has ${fmt(passage.clearance, 2)} m clearance per wing. At 250 m/s, the 63.7 m aircraft passes the entrance in ${fmt(passage.duration, 3)} s.`]
     ];
     return `
-      <dl class="reads">
-        <div><dt>${res.mode === 'learn' ? 'Learning run' : 'Score'}</dt><dd>${res.mode === 'learn' ? '6 experiments complete' : fmt(res.score)}<small>${res.mode === 'learn' ? 'No time penalty' : res.rank}</small></dd></div>
+      <dl class="reads two">
+        <div class="wide"><dt>${res.mode === 'learn' ? 'Learning run' : 'Score'}</dt><dd>${res.mode === 'learn' ? '6 experiments complete' : fmt(res.score)}<small>${res.mode === 'learn' ? 'No time penalty' : res.rank}</small></dd></div>
         <div><dt>Active time</dt><dd>${res.mode === 'learn' ? 'Untimed' : clock(res.secs)}<small>${res.mode === 'learn' ? 'Explore at your pace' : '25 points per active second'}</small></dd></div>
         <div><dt>Mistimed</dt><dd>${res.misses}<small>${res.mode === 'challenge' ? '300 points each' : 'Practice attempts'}</small></dd></div>
         <div><dt>Spare negative energy</dt><dd>${fmt(res.extra, 1)} Jupiter masses<small>${res.mode === 'challenge' ? '40 points per Jupiter mass' : 'Throat wider than the wings need'}</small></dd></div>
@@ -2435,8 +2449,7 @@ function frame(now) {
 function start(d) {
   let saved = d;
   if (!validSnapshot(saved)) { try { saved = JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); } catch (_) {} }
-  // The label key is open on wide screens and folded on phones, where it would push the experiment down.
-  const key = $('#key'); if (key) key.open = matchMedia('(min-width: 861px)').matches;
+  // The label key stays folded by default so the docked bench bar stays a crisp single row on all viewports.
   fit(); if (!restore(saved)) show(0);
   if (saved && saved.sourceRevision !== SOURCE_REVISION) {
     set('restore-status', 'Source assumptions have changed in this edition. Your previous run cannot resume. A new Learning run has started, but your best Timed score is kept.');

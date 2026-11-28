@@ -40,3 +40,11 @@ Real iOS Safari, Android Chrome, VoiceOver and TalkBack sessions have not been c
 ## Owner-approved thermal-scale decision (22 November 2026 PT)
 
 Under the accepted [ADR 0004 amendment](adr/0004-3d-views-keep-each-views-camera.md), retain the multicolour thermal scale because it communicates scientific heat-camera meaning, even though Hallmark static Floor 2a rejects the purple/pink gradient. **The static Hallmark result remains FAIL; this is an explicit design-rule conflict, not a waiver or a passing lint check.** Continue independent rendered contrast and scene-legibility checks. A palette change requires separately reviewed scientific and accessibility evidence. Device testing remains mandatory under [ADR 0006](adr/0006-physical-device-qualification-before-audit-closure.md) before audit closure.
+
+## Post-Overhaul & Polish Static Recheck (28 November 2026 PT, `#100` / `#104`)
+
+Re-ran `node .agents/skills/hallmark/scripts/sloplint.mjs index.html --scope app --genre playful` after the viewport-first Experimental Physics Console overhaul (`#100`) and layout polish pass (`#104`):
+
+- **Static result:** **`1 FAIL, 0 REFLEX, 0 unanswered WARN`** (`2 ANSWERED`: `F4` segmented mode toggle / cyan laboratory pump actuator; `F21` dynamically rendered `<h2 id="stage-title">` preceding Ledger's `<h3>`).
+- **Remaining `FAIL 2a`:** Unchanged intentional ADR 0004 thermal-camera `.scale` conflict.
+- **Rendered `--render` note:** Local headless `sloplint.mjs --render` awaits a Chrome-equipped CI runner; multi-viewport browser verification (`1280×800`, `1024×768`, `390×844`) was completed directly against the built `dist/` bundle. Physical iOS Safari/VoiceOver and Android Chrome/TalkBack sessions remain **Pending** under ADR 0006.

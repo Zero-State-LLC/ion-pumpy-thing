@@ -60,3 +60,17 @@ test('accessibility review safeguards: live regions stay mounted, focus rings un
   assert.match(html, /<nav aria-label="Experiment sequence"><ol class="steps"/, 'step rail wrapped in nav landmark');
   assert.match(html, /<section class="panel" id="panel" aria-labelledby="stage-title">/, 'console panel registers as a labelled region landmark');
 });
+
+test('Hallmark layout polish (#104): single-row bench bar (#key collapsed by default), hairline goal strip, F16 chrome theming, F20 Ledger grid, mid-width rule, and answered F4/F21 stamp', () => {
+  const css = styles[0];
+  assert.doesNotMatch(html, /key\.open\s*=\s*matchMedia/, 'label key stays collapsed by default on desktop so .bench-bar stays a single row');
+  assert.match(css, /\.bench-drawers\s*\{[^}]*margin-left:\s*auto/, 'bench drawers anchor to right edge of single-row bench bar');
+  assert.match(css, /\.goal\s*\{[^}]*background:\s*transparent/, 'objective strip uses hairline surface rung instead of nested card fill (Gates 4/9)');
+  assert.match(css, /::selection\s*\{[^}]*background:\s*var\(--warm\)/, 'selection highlight themed to instrument palette (Hallmark F16)');
+  assert.match(css, /scrollbar-color:\s*var\(--line-strong\)/, 'scrollbars themed to instrument palette (Hallmark F16)');
+  assert.match(css, /caret-color:\s*var\(--warm\)/, 'caret themed to instrument palette (Hallmark F16)');
+  assert.match(html, /<dl class="reads two">\s*<div class="wide"><dt>\$\{res\.mode === 'learn'/, 'Ledger 5-cell telemetry bay uses balanced 1-wide + 2x2 grid (Hallmark F20)');
+  assert.match(css, /@media \(min-width:\s*861px\) and \(max-width:\s*1120px\)/, 'mid-width 861-1120px breakpoint tunes two-column deck proportion');
+  assert.match(css, /Hallmark\s*·\s*answered\s+F4\b/, 'Hallmark stamp records F4 answer');
+  assert.match(css, /Hallmark\s*·\s*answered\s+F21\b/, 'Hallmark stamp records F21 answer');
+});

@@ -41,3 +41,14 @@ Inspected live production (`https://ion-pumpy-thing.app`), Slice 7 (`http://127.
 
 - **ADR 0004 Thermal Scale:** Hallmark static `FAIL 2a` on `.scale` remains documented as an intentional scientific conflict per `docs/HALLMARK-AUDIT.md` — never altered to silence lint.
 - **ADR 0005 & ADR 0006:** Independent Meshy rights-receipt review (`docs/ASSETS.md`) and physical iOS/Android screen-reader testing remain open gates.
+
+## 6. Hallmark Layout Polish Pass (`#104`)
+
+Following a post-ship Hallmark layout audit of `main` (`a2d688c`), closed six concrete layout & Finish gaps without altering game rules, provenance labels, or DOM contracts:
+
+1. **Single-row `.bench-bar` & `1280×800` fold fit (`Gate 44b`):** Stopped forcing `#key` (`What the labels mean`) open on desktop boot, right-anchored `.bench-drawers` (`margin-left: auto`, expanding cleanly only when opened), and tightened `.wrap`/`.status`/`.panel`/`.view` (`calc(100dvh - 136px)`) vertical rhythm so Ignite fits inside `1280×800` without fold clipping.
+2. **Surface ladder refinement (`Gates 4 / 9`):** Flattened `.goal` from a nested `--panel-inset` bordered box to a clean hairline objective strip (`background: transparent; border-bottom: 1px solid var(--line)`).
+3. **Browser surface theming (`Finish F16`):** Added `::selection`, `caret-color`, and `scrollbar-color` tokens matching the dark thermal-optical instrument palette (including themed mobile `.steps` scrollbars).
+4. **Ledger grid balance (`Finish F20`):** Switched Ledger's 5-cell `.reads` bay to `.reads.two` with `.wide` on the lead summary cell (`1 wide + 2×2`), eliminating orphan grid cells on desktop and mobile.
+5. **Mid-width split-screen polish (`861px–1120px`):** Tuned `.deck` to `minmax(0, 1.35fr) minmax(320px, 370px)` and tightened `.bench-bar` gaps for landscape tablet and narrow desktop viewports.
+6. **Hallmark stamp answers (`F4`, `F21`):** Answered both static `WARN`s in the CSS Hallmark stamp while preserving honest ADR 0004 static `FAIL 2a` reporting on `.scale`.

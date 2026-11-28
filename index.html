@@ -1,13 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>
-/* Hallmark · source-audit polish · preserve the thermal instrument design and all game behavior */
-/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: execution; fix document overflow and label tracking without changing the experiment */
-:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: var(--sp-1) 0; border: 1px solid var(--line); border-radius: 10px; padding: var(--sp-2) var(--sp-4); }
-.sound-settings summary { cursor: pointer; min-height: 32px; }
-.sound-controls { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-6); align-items: center; padding: var(--sp-2) 0; }
-.sound-controls label { display: flex; gap: var(--sp-3); align-items: center; font-size: 13px; }
-.sound-controls input[type=range] { width: min(160px, 40vw); }
-.sound-controls input[type=checkbox] { width: 20px; height: 20px; }
-</style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>Ion Pumpy Thing</title>
 <meta name="description" content="Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the 4orbs.com wormhole account from the physics it cites, and explains that physics as you go.">
@@ -37,28 +28,32 @@
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Saira+Condensed:wght@600;700&display=swap">
 <style>
-/* Hallmark · source-audit polish · preserve the existing thermal camera and scientific labels */
-/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: execution; address overflow and label typography while retaining controls */
-/* Layout: a thermal-camera viewport on the left, an instrument panel on the right; one visual world, the night sky as a heat camera draws it. */
+/* Hallmark · custom experimental-physics-console · scope: app · signature: viewport-first 3D lab bench with docked telemetry console */
+/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V5 · weakest: static .scale thermal gradient conflict (ADR 0004 scientific requirement) */
 :root {
   color-scheme: dark;
-  /* Colour */
-  --sky: #0b1330;      /* open sky on the thermal scale */
-  --deep: #070c20;     /* page ground, colder than sky */
-  --panel: #121b3d;
-  --line: #2a3768;
-  --ink: #ece6d6;
-  --muted: #9aa6c9;
-  --locked: #8290ad;   /* locked steps: about 6:1 on --deep */
-  --hot: #ff5533;      /* engines and heat */
-  --warm: #ffae42;     /* airframe skin, measured values */
-  --cold: #62d2e8;     /* lab physics */
-  --read: #b9a2ff;     /* the 4orbs account */
-  --theory: #9fe28a;   /* a mathematical model */
-  --rule: #f49ac1;     /* a simplification made for play */
-  --flash: #ffffff;    /* the top of the thermal scale */
-  --dusk: #7a4a6a;     /* the middle of the thermal scale */
-  --void: #01030a;     /* the bottom of the scale */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Colour — calibrated to the thermal-optical world (docs/adr/0004) */
+  --sky: #0b1330;           /* open sky & optical aperture */
+  --deep: #070c20;          /* facility bench surround */
+  --panel: #0c132a;         /* docked experiment console deck */
+  --panel-inset: #080e22;   /* recessed telemetry bays & instrument wells */
+  --line: #23305a;          /* 1px decorative hairline dividers */
+  --line-strong: #374a85;   /* structural bezel borders */
+  --line-control: #5c70ad;  /* interactive control boundaries & tracks: >= 3.7:1 on --panel/--panel-inset (WCAG 1.4.11) */
+  --ink: #ece6d6;           /* primary phosphor cream */
+  --muted: #9aa6c9;         /* secondary calibrated ink */
+  --locked: #8290ad;        /* locked steps: ~6.0:1 on --deep */
+  --hot: #ff5533;           /* engines, thermal peak, D-T neutrons */
+  --warm: #ffae42;          /* measured values, active inputs, caution */
+  --cold: #62d2e8;          /* lab physics, cooled plasma, lock-in */
+  --read: #b9a2ff;          /* 4orbs account */
+  --theory: #9fe28a;        /* mathematical model */
+  --rule: #f49ac1;          /* gameplay simplification */
+  --flash: #ffffff;         /* thermal scale top */
+  --dusk: #7a4a6a;          /* thermal scale mid */
+  --void: #01030a;          /* thermal scale floor */
   --tag-lab: var(--cold);
   --tag-theory: var(--theory);
   --tag-measured: var(--warm);
@@ -68,179 +63,280 @@
   --display: "Saira Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --fs-xs: 11px;
+  --fs-xs: 12px;
   --fs-sm: 13px;
   --fs-md: 15px;
   --fs-lg: 17px;
-  --fs-xl: 22px;
-  --fs-2xl: 30px;
-  --fs-hero: clamp(34px, 6vw, 54px);
-  --track-label: .08em;
+  --fs-xl: 21px;
+  --fs-2xl: 28px;
+  --fs-hero: clamp(20px, 1.8vw, 25px);
   --track-display: .02em;
-  /* Space */
+  /* Space (4px scale) */
   --sp-0: 2px;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
   --sp-5: 20px;
-  --sp-6: 28px;
-  --sp-7: 40px;
+  --sp-6: 24px;
+  --sp-7: 36px;
   --radius: 2px;
 }
 html, body { background: var(--deep); overflow-x: clip; }
-body { color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.55; }
+body { margin: 0; color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.5; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
-.wrap {
-  max-width: 1180px; margin: 0 auto; padding-block: var(--sp-4) var(--sp-7);
-  padding-left: max(var(--sp-4), env(safe-area-inset-left, 0px));
-  padding-right: max(var(--sp-4), env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: var(--sp-3);
-}
-a { color: var(--cold); }
+a { color: var(--cold); text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--warm); outline-offset: 2px; }
+.btn.primary:focus-visible, .jump-to-controls:focus-visible { outline-color: var(--ink); }
 /* Headings take focus on step changes for screen readers; no box around them. */
 [tabindex="-1"]:focus { outline: none; }
 .vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-3) var(--sp-6); }
-.top h1 { font-family: var(--display); font-weight: 700; font-size: var(--fs-hero); line-height: 1; margin: 0; letter-spacing: var(--track-display); text-transform: uppercase; }
-.top h1 span { color: var(--cold); }
-.top p { margin: 0; max-width: 52ch; color: var(--muted); }
+.wrap {
+  max-width: 1480px; margin: 0 auto;
+  padding-block: var(--sp-3) var(--sp-6);
+  padding-left: max(var(--sp-4), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sp-4), env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+
+/* ── Top Command Bar: single unified facility header & sequence rail ── */
+.console-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line);
+}
+.top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-shrink: 0; }
+.top h1 { font-family: var(--display); font-weight: 700; font-size: var(--fs-hero); line-height: 1; margin: 0; letter-spacing: var(--track-display); text-transform: uppercase; color: var(--ink); overflow-wrap: break-word; min-width: 0; }
 .jump-to-controls { display: none; }
 
-.key { font-size: var(--fs-sm); color: var(--muted); }
-.key summary { cursor: pointer; color: var(--cold); width: max-content; max-width: 100%; min-height: 32px; }
+.rail { display: flex; flex-wrap: wrap; flex: 1 1 auto; gap: var(--sp-2) var(--sp-3); align-items: center; justify-content: space-between; min-width: 0; }
+.rail nav { min-width: 0; max-width: 100%; }
+.steps { list-style: none; margin: -4px; padding: 4px; display: flex; flex-wrap: wrap; gap: var(--sp-1); counter-reset: s; overflow-x: auto; max-width: calc(100% + 8px); }
+.steps button {
+  min-height: 32px;
+  font-family: var(--display); font-size: var(--fs-md); font-weight: 600; letter-spacing: var(--track-display); text-transform: uppercase;
+  color: var(--muted); background: var(--panel-inset); border: 1px solid var(--line-control); border-radius: var(--radius); padding: var(--sp-1) var(--sp-2);
+  cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
+  position: relative; user-select: none; -webkit-user-select: none;
+  transition: border-color 120ms ease-out, color 120ms ease-out, background-color 120ms ease-out;
+}
+.steps li:not(.end) button::before { counter-increment: s; content: counter(s); font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400; color: var(--locked); margin-right: var(--sp-1); }
+.steps button.locked { color: var(--locked); background: transparent; border-style: dashed; cursor: not-allowed; }
+.steps button .lock { fill: currentColor; }
+.steps button.done { color: var(--ink); border-color: var(--muted); }
+.steps button.done::after { content: "\2713"; content: "\2713" / ""; color: var(--cold); font-family: var(--body); font-size: var(--fs-xs); margin-left: var(--sp-0); }
+.steps button[aria-current="step"] { color: var(--deep); background: var(--ink); border-color: var(--ink); }
+.steps button[aria-current="step"]::before, .steps button[aria-current="step"]::after { color: var(--deep); }
+
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font: 400 var(--fs-sm) var(--body); color: var(--muted); }
+.hud b { color: var(--ink); font: 500 var(--fs-sm) var(--mono); font-variant-numeric: tabular-nums; min-width: 4.8em; text-align: right; }
+.hud .seg button { font: 500 var(--fs-xs) var(--body); padding: var(--sp-1) var(--sp-2); }
+#pause { min-width: 5.5em; }
+#snd { min-width: 6.2em; }
+
+/* Live status bar: always mounted in the accessibility tree (never display: none on role="status")
+   and reserves one quiet line so transient save/run notices never shift the simulation deck. */
+.status { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-4); min-height: 1.45em; }
+.statusline { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warm); background: var(--panel); }
+.confirm p { margin: 0; flex: 1 1 28ch; }
+
+/* ── Primary Viewport-First Laboratory Workspace ── */
+.deck { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(350px, 440px); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
+.stage-col { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); display: flex; flex-direction: column; min-width: 0; }
+.view {
+  position: relative; background: var(--sky); border: 1px solid var(--line-strong);
+  aspect-ratio: 4 / 3; max-height: calc(100dvh - 148px); width: 100%; max-width: 100%;
+  overflow: hidden; user-select: none; -webkit-user-select: none;
+}
+.view canvas { display: block; width: 100%; height: 100%; }
+/* The 3D view draws behind the 2D canvas, which keeps all text on top. */
+.view #gl { position: absolute; inset: 0; }
+.view #cv { position: relative; }
+.view::before, .view::after { content: ""; position: absolute; width: 16px; height: 16px; border: 1px solid var(--muted); pointer-events: none; opacity: .55; z-index: 2; }
+.view::before { left: var(--sp-2); top: var(--sp-2); border-right: 0; border-bottom: 0; }
+.view::after { right: var(--sp-2); bottom: var(--sp-2); border-left: 0; border-top: 0; }
+.scale { position: absolute; right: var(--sp-3); top: 34px; bottom: 34px; width: 10px; border: 1px solid var(--muted); z-index: 2;
+  background: linear-gradient(to bottom, var(--flash) 0%, var(--hot) 14%, var(--warm) 34%, var(--dusk) 55%, var(--sky) 76%, var(--void) 100%); }
+.scale b { position: absolute; right: var(--sp-4); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
+.scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
+
+/* ── Docked Bench Utility Strip under the simulation viewport ── */
+.bench-bar {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--panel-inset);
+  border: 1px solid var(--line); border-top: 0;
+}
+.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; margin: 0; }
+.view-settings label { display: inline-flex; gap: var(--sp-2); align-items: center; font-size: var(--fs-xs); color: var(--muted); cursor: pointer; }
+.view-settings input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--cold); cursor: pointer; }
+.view-settings select {
+  font: 500 var(--fs-xs) var(--body); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line-control); border-radius: var(--radius); padding: var(--sp-0) var(--sp-2); min-height: 28px; cursor: pointer;
+}
+.bench-drawers { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: flex-start; }
+.sound-settings, .key { font-size: var(--fs-xs); color: var(--muted); }
+.sound-settings summary, .key summary { cursor: pointer; color: var(--cold); min-height: 28px; display: inline-flex; align-items: center; font-weight: 500; }
+.sound-settings[open], .key[open] { width: 100%; padding-top: var(--sp-2); border-top: 1px solid var(--line); margin-top: var(--sp-1); }
+.sound-controls { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); align-items: center; padding: var(--sp-2) 0; }
+.sound-controls label { display: inline-flex; gap: var(--sp-2); align-items: center; font-size: var(--fs-xs); color: var(--ink); }
+.sound-controls input[type=range] { width: min(140px, 36vw); }
+.sound-controls input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--cold); }
 .key ul { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
 .key li { display: inline-flex; gap: var(--sp-2); align-items: center; white-space: nowrap; }
-.tag { font-family: var(--mono); font-size: var(--fs-xs); padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
+
+.tag { font-family: var(--body); font-size: var(--fs-xs); font-weight: 600; padding: var(--sp-0) var(--sp-2); border: 1px solid currentColor; border-radius: var(--radius); white-space: nowrap; }
 .tag.lab { color: var(--tag-lab); }
 .tag.model { color: var(--tag-theory); }
 .tag.meas { color: var(--tag-measured); }
 .tag.read { color: var(--tag-account); }
 .tag.scen { color: var(--tag-rule); }
 
-.rail { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-4); align-items: center; justify-content: space-between; }
-.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); counter-reset: s; }
-.steps button {
-  min-height: 32px;
-  font-family: var(--display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: var(--track-display); text-transform: uppercase;
-  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3);
-  cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
-  position: relative;   /* keeps the hidden ", locked" text inside the button, even when the row scrolls */
+/* ── Docked Right-Hand Experiment Console ── */
+.panel {
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-top: 2px solid var(--line-strong);
+  padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0;
+  transition: border-top-color 160ms ease-out;
 }
-.steps li:not(.end) button::before { counter-increment: s; content: counter(s); font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400; margin-right: var(--sp-1); }
-.steps button.locked { color: var(--locked); border-style: dashed; cursor: not-allowed; }
-.steps button .lock { fill: currentColor; }
-.steps button.done { color: var(--ink); border-color: var(--muted); }
-.steps button.done::after { content: "\2713"; content: "\2713" / ""; color: var(--cold); font-family: var(--body); font-size: var(--fs-sm); }
-.steps button[aria-current="step"] { color: var(--deep); background: var(--ink); border-color: var(--ink); }
-.steps button[aria-current="step"]::after { color: var(--deep); }
-.hud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font: 400 var(--fs-sm) var(--mono); color: var(--muted); }
-.hud b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 5.5em; }
-.hud .seg button { font: 400 var(--fs-xs) var(--mono); padding: var(--sp-1) var(--sp-2); }
-#pause { min-width: 7em; }
+.panel.complete { border-top-color: var(--cold); }
+.eyebrow { font: 500 var(--fs-xs) var(--body); color: var(--muted); margin: 0; }
+.panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; overflow-wrap: break-word; min-width: 0; }
+.panel h3 { font: 600 var(--fs-sm) var(--body); color: var(--ink); margin: 0; }
+.panel p { margin: 0; max-width: 60ch; }
+.brief { color: var(--ink); font-size: var(--fs-md); line-height: 1.5; }
+.note { color: var(--muted); font-size: var(--fs-sm); line-height: 1.45; }
 
-.status { display: flex; flex-direction: column; gap: var(--sp-1); }
-.statusline { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
-#run-status { min-height: 1.55em; }
-#save-status:empty { display: none; }
-.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warm); background: var(--panel); }
-.confirm p { margin: 0; flex: 1 1 28ch; }
+/* Live Objective Track */
+.goal { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--panel-inset); border: 1px solid var(--line-strong); }
+.goal #goaltext { font-size: var(--fs-sm); color: var(--ink); }
+.goal.ok { border-color: var(--cold); }
+.goal.ok #goaltext::before { content: "\2713  "; content: "\2713  " / ""; color: var(--cold); font-weight: 600; }
+.goal .bar { height: 5px; background: var(--line); border: 1px solid var(--line-control); overflow: hidden; }
+.goal .bar i { display: block; height: 100%; width: 0; background: var(--warm); }
+.goal.ok .bar i { background: var(--cold); }
 
-.deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
-.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; user-select: none; -webkit-user-select: none; }
-.view canvas { display: block; width: 100%; height: 100%; }
-/* The 3D view draws behind the 2D canvas, which keeps all text on top. */
-.view #gl { position: absolute; inset: 0; }
-.view #cv { position: relative; }
-.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: 0; }
-.view-settings label { display: flex; gap: var(--sp-3); align-items: center; font-size: 13px; }
-.view-settings input[type=checkbox] { width: 20px; height: 20px; }
-.view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
-.view::before { left: var(--sp-2); top: var(--sp-2); border-right: 0; border-bottom: 0; }
-.view::after { right: var(--sp-2); bottom: var(--sp-2); border-left: 0; border-top: 0; }
-.scale { position: absolute; right: var(--sp-3); top: 34px; bottom: 34px; width: 10px; border: 1px solid var(--muted);
-  background: linear-gradient(to bottom, var(--flash) 0%, var(--hot) 14%, var(--warm) 34%, var(--dusk) 55%, var(--sky) 76%, var(--void) 100%); }
-.scale b { position: absolute; right: var(--sp-4); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
-.scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
-
-.panel { background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
-.eyebrow { font: 400 var(--fs-xs) var(--mono); color: var(--muted); margin: 0; }
-.panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; }
-.panel h3 { font: 400 var(--fs-xs) var(--mono); color: var(--muted); margin: 0; }
-.panel p { margin: 0; max-width: 62ch; }
-.lesson { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* Expandable Scientific Explanation & Sources — clean hairline disclosure, never a nested card */
+.source-card { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: var(--sp-1) 0; }
+.source-card summary { cursor: pointer; color: var(--cold); font-size: var(--fs-sm); font-weight: 500; min-height: 32px; display: flex; align-items: center; }
+.source-card[open] summary { margin-bottom: var(--sp-2); }
+.lesson { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-sm); }
 .lesson .tag { margin-right: var(--sp-2); }
-.note { color: var(--muted); font-size: var(--fs-md); }
-.source-card { border: 1px solid var(--line); padding: var(--sp-2) var(--sp-3); }
-.source-card summary { cursor: pointer; color: var(--cold); min-height: 32px; }
-.source-card[open] summary { margin-bottom: var(--sp-3); }
-.source-card .source { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
-.source-card .refs { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); font-size: var(--fs-sm); color: var(--muted); }
-.brief { color: var(--ink); border-left: 3px solid var(--cold); padding-left: var(--sp-3); }
-.mission { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
-.mission li { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.source-card .source { margin-top: var(--sp-3); font-size: var(--fs-xs); color: var(--muted); }
+.source-card .refs { margin: var(--sp-2) 0 var(--sp-1); padding-left: var(--sp-4); font-size: var(--fs-xs); color: var(--muted); }
+
+/* Mission Checklist (Converge) */
+.mission { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-xs); }
+.mission li { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); padding: var(--sp-1) var(--sp-2); background: var(--panel-inset); border: 1px solid var(--line); }
 .mission .ready { color: var(--cold); }
 .mission .blocked { color: var(--warm); }
 
-.ctl { display: flex; flex-direction: column; gap: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-3); scroll-margin-top: var(--sp-3); }
-.ctl label { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-0) var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
-.ctl label output { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
-.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--warm); margin: var(--sp-0) 0 0; height: 24px; cursor: pointer; }
-.seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.seg button, .btn {
-  font: 500 var(--fs-sm) var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); min-height: 32px; cursor: pointer;
+/* ── Interactive Instrument Controls Deck ── */
+.ctl { display: flex; flex-direction: column; gap: var(--sp-3); padding-top: var(--sp-1); scroll-margin-top: var(--sp-3); }
+.ctl label { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); color: var(--muted); align-items: baseline; }
+.ctl label output { font-family: var(--body); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Custom Machined Instrument Sliders (WCAG 1.4.11 track contrast >= 3.7:1 + clear disabled state) */
+input[type=range] {
+  -webkit-appearance: none; appearance: none; grid-column: 1 / -1; width: 100%; height: 24px;
+  background: transparent; cursor: pointer; margin: 0;
 }
-.seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--ink); color: var(--deep); border-color: var(--ink); }
+input[type=range]:disabled { opacity: .35; cursor: not-allowed; }
+input[type=range]::-webkit-slider-runnable-track {
+  height: 4px; background: var(--line-control); border-radius: var(--radius);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 14px; height: 20px; margin-top: -8px;
+  background: var(--warm); border: 1px solid var(--deep); border-radius: var(--radius);
+  transition: transform 100ms ease-out;
+}
+input[type=range]:not(:disabled):hover::-webkit-slider-thumb { transform: scaleY(1.08); }
+input[type=range]::-moz-range-track {
+  height: 4px; background: var(--line-control); border-radius: var(--radius); border: 0;
+}
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 20px; background: var(--warm); border: 1px solid var(--deep); border-radius: var(--radius);
+  transition: transform 100ms ease-out;
+}
+input[type=range]:not(:disabled):hover::-moz-range-thumb { transform: scaleY(1.08); }
+
+.seg { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.seg button, .btn {
+  font: 500 var(--fs-sm) var(--body); color: var(--ink); background: transparent;
+  border: 1px solid var(--line-control); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3);
+  min-height: 32px; cursor: pointer; user-select: none; -webkit-user-select: none;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out, transform 80ms ease-out;
+}
+.seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--ink); color: var(--deep); border-color: var(--ink); font-weight: 600; }
 .btn.primary { background: var(--warm); border-color: var(--warm); color: var(--deep); font-weight: 600; }
-/* A step is done: its way forward becomes the biggest thing in the panel. */
-.btn.primary.ready { flex: 1 1 100%; font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3) var(--sp-3) var(--sp-2); }
-.btn.engage { border-color: var(--cold); color: var(--cold); }
-.btn.pump { font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-3); background: var(--cold); border-color: var(--cold); color: var(--deep); touch-action: none; user-select: none; -webkit-user-select: none; }
+.btn.primary.ready { flex: 1 1 100%; font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase; padding: var(--sp-2) var(--sp-3); }
+.btn.engage { border-color: var(--cold); color: var(--cold); background: transparent; }
+.btn.pump {
+  font: 700 var(--fs-xl) var(--display); letter-spacing: var(--track-display); text-transform: uppercase;
+  padding: var(--sp-3); background: var(--cold); border-color: var(--cold); color: var(--deep);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
 .btn.pump:active { transform: translateY(2px); }
-.panel.complete .btn.pump { background: transparent; color: var(--cold); }
-.btn.small { padding: var(--sp-1) var(--sp-2); font: 400 var(--fs-xs) var(--mono); }
+.panel.complete .btn.pump { background: var(--panel-inset); color: var(--cold); }
+.btn.small { padding: var(--sp-1) var(--sp-2); font: 500 var(--fs-xs) var(--body); }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
 
-.pad { position: relative; height: 150px; border: 1px solid var(--muted); background:
-  linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)), var(--deep);
-  touch-action: none; cursor: crosshair; }
-.pad i { position: absolute; width: 20px; height: 20px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
-.padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
+/* Precision 2D Magnetic Balance Pad (Hold) */
+.pad {
+  position: relative; height: 148px; border: 1px solid var(--line-control);
+  background:
+    linear-gradient(to right, transparent calc(50% - .5px), var(--line-control) calc(50% - .5px), var(--line-control) calc(50% + .5px), transparent calc(50% + .5px)),
+    linear-gradient(to bottom, transparent calc(50% - .5px), var(--line-control) calc(50% - .5px), var(--line-control) calc(50% + .5px), transparent calc(50% + .5px)),
+    var(--panel-inset);
+  touch-action: none; cursor: crosshair;
+}
+.pad i { position: absolute; width: 18px; height: 18px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
+.padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); font: 400 var(--fs-xs) var(--body); color: var(--muted); }
 .assist { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 
-.reads { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: var(--sp-3) var(--sp-4); margin: 0; }
-.reads.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.reads .wide { grid-column: 1 / -1; }
-.reads div { min-width: 0; }
-.reads dt { font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
-.reads dd { margin: 0; font: 500 var(--fs-lg) var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.reads dd small { font: 400 var(--fs-sm)/1.4 var(--body); color: var(--muted); display: block; }
-
-.meter { position: relative; height: 16px; border: 1px solid var(--muted); background: var(--deep); }
-.meter .band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--cold) 35%, transparent); }
+/* Calibrated Instrument Meters */
+.meter {
+  position: relative; height: 16px; border: 1px solid var(--line-control); background: var(--panel-inset);
+  background-image: repeating-linear-gradient(to right, transparent 0 calc(20% - 1px), var(--line-strong) calc(20% - 1px) 20%);
+}
+.meter .band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--cold) 34%, transparent); border-inline: 1px solid var(--cold); }
 .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cold); }
 .meter .fill.bad { background: var(--hot); }
 .meter .fill.sourced { background: repeating-linear-gradient(135deg, var(--read) 0 6px, transparent 6px 12px); }
 .meter .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
 .meter .need { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warm); }
-.mlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
+.mlabels { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-1); font: 400 var(--fs-xs) var(--body); color: var(--muted); }
 
-.goal { display: flex; flex-direction: column; gap: var(--sp-2); }
-.goal #goaltext { font-size: var(--fs-md); }
-.goal.ok #goaltext::before { content: "\2713  "; content: "\2713  " / ""; color: var(--cold); }
-.goal .bar { height: 4px; background: var(--deep); }
-.goal .bar i { display: block; height: 100%; width: 0; background: var(--warm); }
+/* ── Recessed 1px Hairline Telemetry Bay ── */
+.reads {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 0;
+}
+.reads.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reads .wide { grid-column: 1 / -1; }
+.reads div { min-width: 0; padding: var(--sp-2) var(--sp-3); background: var(--panel-inset); }
+.reads dt { font: 400 var(--fs-xs) var(--body); color: var(--muted); }
+.reads dd { margin: var(--sp-0) 0 0; font: 500 var(--fs-lg) var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); overflow-wrap: anywhere; }
+.reads dd small { font: 400 var(--fs-xs)/1.35 var(--body); color: var(--muted); display: block; margin-top: var(--sp-0); }
+
 .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.next-row { border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.next-row { border-top: 1px solid var(--line); padding-top: var(--sp-3); margin-top: auto; }
 
-.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
-.ledger li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; font-size: var(--fs-md); }
+/* ── Ledger & Practice Board ── */
+.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ledger li { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; font-size: var(--fs-sm); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); }
+.ledger li:last-child { border-bottom: 0; padding-bottom: 0; }
 .ledger .tag { justify-self: start; }
 .tally { font-family: var(--display); font-size: var(--fs-xl); font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-display); line-height: 1.15; }
 .tally b { color: var(--warm); font-weight: 700; }
-.sect { border-top: 1px solid var(--line); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+.sect { border-top: 1px solid var(--line); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 .board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); counter-reset: b; font-family: var(--mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .board li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: baseline; padding: var(--sp-1) 0; }
 .board li::before { counter-increment: b; content: counter(b); color: var(--muted); }
@@ -248,37 +344,70 @@ a { color: var(--cold); }
 .board li .tm { color: var(--muted); }
 .board li.me { color: var(--warm); }
 
-footer { color: var(--muted); font-size: var(--fs-md); display: flex; flex-direction: column; gap: var(--sp-2); max-width: 86ch; }
+/* ── Quiet Colophon Footer ── */
+footer {
+  margin-top: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--line);
+  color: var(--muted); font-size: var(--fs-xs); line-height: 1.55;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-3) var(--sp-5);
+}
 footer p { margin: 0; }
+footer strong { color: var(--ink); font-weight: 600; }
 
 @media (hover: hover) {
   .btn:not(:disabled):hover, .seg button:hover, .steps button:not(.locked):not([aria-current]):hover { border-color: var(--ink); color: var(--ink); }
-  .btn.primary:not(:disabled):hover, .btn.pump:hover, .seg button[aria-pressed="true"]:hover, .btn[aria-pressed="true"]:hover { filter: brightness(1.1); color: var(--deep); }
+  .btn.primary:not(:disabled):hover, .btn.pump:hover, .seg button[aria-pressed="true"]:hover, .btn[aria-pressed="true"]:hover { filter: brightness(1.08); color: var(--deep); }
   .panel.complete .btn.pump:hover { color: var(--cold); }
   .btn.engage:not(:disabled):hover { border-color: var(--cold); color: var(--cold); background: color-mix(in srgb, var(--cold) 12%, transparent); }
-  .source-card summary:hover, .key summary:hover, a:hover { color: var(--ink); }
+  .source-card summary:hover, .key summary:hover, .sound-settings summary:hover, a:hover { color: var(--ink); }
   .pad:hover { border-color: var(--ink); }
 }
 @media (pointer: coarse) {
-  .steps button, .btn, .seg button, .source-card summary, .key summary { min-height: 44px; }
-  .ctl input[type=range] { height: 44px; }
+  .steps button, .btn, .seg button, .source-card summary, .key summary, .sound-settings summary, .view-settings select, .view-settings label, .sound-controls .pulse-option { min-height: 44px; }
+  .view-settings input[type=checkbox], .sound-controls input[type=checkbox] { width: 20px; height: 20px; }
+  input[type=range] { height: 44px; }
 }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  .btn.pump:active, input[type=range]:hover::-webkit-slider-thumb, input[type=range]:hover::-moz-range-thumb { transform: none; }
+}
+
+/* ── Adaptive Mobile Bench (<= 860px): Sticky viewport + docked console, secondary settings deferred below ── */
 @media (max-width: 860px) {
-  .jump-to-controls:not([hidden]) { display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; max-width: 100%; padding: var(--sp-2) var(--sp-4); border: 1px solid var(--warm); background: var(--warm); color: var(--deep); font: 600 var(--fs-sm) var(--body); text-decoration: none; }
-  .deck { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
-  .view { position: relative; top: auto; }
-  .panel { padding: var(--sp-4); }
-  .hud { flex-wrap: wrap; }
-  /* One scrolling row of steps, so the experiment starts higher up the screen. */
-  .steps { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: var(--sp-1); }
-  .steps button { white-space: nowrap; }
+  .wrap { padding-block: var(--sp-2) var(--sp-5); gap: var(--sp-2); }
+  .console-bar { flex-direction: column; align-items: stretch; gap: var(--sp-2); padding-bottom: var(--sp-2); width: 100%; max-width: 100%; min-width: 0; }
+  .top { width: 100%; min-width: 0; }
+  .rail { flex-direction: column; align-items: stretch; width: 100%; max-width: 100%; min-width: 0; gap: var(--sp-2); }
+  .jump-to-controls:not([hidden]) {
+    display: inline-flex; align-items: center; min-height: 44px; max-width: 100%;
+    padding: var(--sp-1) var(--sp-3); border: 1px solid var(--warm); border-radius: var(--radius);
+    background: var(--warm); color: var(--deep); font: 600 var(--fs-xs) var(--body); text-decoration: none; white-space: nowrap;
+  }
+  .steps { width: calc(100% + 8px); min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .steps button { white-space: nowrap; padding: var(--sp-1) var(--sp-3); }
   .steps button, .btn, .seg button { min-height: 44px; }
+  .hud { width: 100%; max-width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-1) var(--sp-2); }
+  .hud b { text-align: left; }
+  .deck { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .stage-col { display: contents; }
+  .view { order: 1; position: relative; top: auto; max-height: none; width: 100%; }
+  .panel { order: 2; width: 100%; padding: var(--sp-3); border-top: 2px solid var(--line-strong); }
+  .bench-bar { order: 3; width: 100%; border-top: 1px solid var(--line); }
   .ledger li { grid-template-columns: 1fr; gap: var(--sp-1); }
+  footer { grid-template-columns: 1fr; }
 }
-/* On a tall phone the experiment stays in view while its controls scroll beneath it. */
+/* On a tall phone the live simulation stays pinned while its docked console scrolls beneath it. */
 @media (max-width: 860px) and (min-height: 600px) {
-  .ctl { scroll-margin-top: calc(min(75vw, 38vh) + var(--sp-3)); }
-  .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; aspect-ratio: auto; height: min(75vw, 38vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
+  .ctl { scroll-margin-top: calc(min(72vw, 36vh) + var(--sp-3)); }
+  .view { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 3; aspect-ratio: auto; height: min(72vw, 36vh); box-shadow: 0 var(--sp-2) var(--sp-4) var(--deep); }
+}
+/* Mobile landscape: side-by-side bench keeps apparatus visible beside active controls while preserving 44px coarse targets. */
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+  .console-bar { gap: var(--sp-1); padding-bottom: var(--sp-1); }
+  .deck { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr); align-items: start; gap: var(--sp-3); }
+  .stage-col { display: flex; flex-direction: column; position: sticky; top: var(--sp-1); }
+  .view { order: initial; position: relative; height: auto; max-height: calc(100dvh - 80px); aspect-ratio: 4 / 3; }
+  .panel { order: initial; }
+  .bench-bar { order: initial; }
 }
 </style>
 <!-- The 3D view's renderer (view3d.js) imports three.js from the site's own copy. -->
@@ -286,36 +415,26 @@ footer p { margin: 0; }
 </head>
 <body>
 <div class="wrap">
-  <header class="top">
-    <h1>Ion Pumpy <span>Thing</span></h1>
-    <p>Six steps from a jar of glowing gas to an airliner that isn't there. Each step builds one piece of the wormhole account set out at 4orbs.com from the physics it cites, and explains that physics as you go.</p>
-    <a id="jump-to-controls" class="jump-to-controls" href="#controls">Go to step controls</a>
+  <header class="console-bar">
+    <div class="top">
+      <h1>Ion Pumpy Thing</h1>
+      <a id="jump-to-controls" class="jump-to-controls" href="#controls">Go to step controls</a>
+    </div>
+    <div class="rail">
+      <nav aria-label="Experiment sequence"><ol class="steps" id="steps" aria-label="Steps"></ol></nav>
+      <div class="hud">
+        <div class="seg" role="group" aria-label="Mode">
+          <button type="button" id="mode-learn" aria-pressed="true">Learning</button>
+          <button type="button" id="mode-challenge" aria-pressed="false">Timed</button>
+        </div>
+        <b id="hud-time">Untimed</b>
+        <button type="button" class="btn small" id="pause">Pause</button>
+        <button type="button" class="btn small" id="snd">Sound: off</button>
+        <button type="button" class="btn small" id="restart">Restart run</button>
+      </div>
+    </div>
   </header>
 
-  <details class="key" id="key">
-    <summary>What the labels mean</summary>
-    <ul>
-      <li><span class="tag lab">Lab physics</span> done in a laboratory</li>
-      <li><span class="tag model">Theory</span> a mathematical model</li>
-      <li><span class="tag meas">Measured</span> taken from the videos by 4orbs</li>
-      <li><span class="tag read">4orbs account</span> how 4orbs connects the pieces</li>
-      <li><span class="tag scen">Game rule</span> simplified to make it playable</li>
-    </ul>
-  </details>
-
-  <div class="rail">
-    <ol class="steps" id="steps" aria-label="Steps"></ol>
-    <div class="hud">
-      <div class="seg" role="group" aria-label="Mode">
-        <button type="button" id="mode-learn" aria-pressed="true">Learning</button>
-        <button type="button" id="mode-challenge" aria-pressed="false">Timed</button>
-      </div>
-      <b id="hud-time">Untimed</b>
-      <button type="button" class="btn small" id="pause">Pause</button>
-      <button type="button" class="btn small" id="snd">Sound: off</button>
-      <button type="button" class="btn small" id="restart">Restart run</button>
-    </div>
-  </div>
   <div class="confirm" id="confirm" role="group" aria-labelledby="confirm-text" hidden>
     <p id="confirm-text"></p>
     <button type="button" class="btn primary" id="confirm-yes">Restart run</button>
@@ -326,35 +445,51 @@ footer p { margin: 0; }
     <p id="save-status" class="statusline"></p>
     <p id="restore-status" class="statusline" role="status" hidden></p>
   </div>
-  <details class="sound-settings"><summary>Sound settings</summary>
-    <div class="sound-controls">
-      <label for="sound-volume">Volume <input id="sound-volume" type="range" min="0" max="100" value="55"></label>
-      <label for="sound-ambience">Background <input id="sound-ambience" type="range" min="0" max="100" value="35"></label>
-      <label class="pulse-option"><input id="sound-pulse" type="checkbox" checked> Gentle pulse</label>
-    </div>
-    <p class="note">Sounds play when you use the controls. The electrical tones use a 7.83 Hz reference, shifted to a pitch you can hear. Turn off Gentle pulse to hear a steady tone. Sound stays off until you turn it on.</p>
-    <p id="sound-status" class="statusline" role="status"></p>
-  </details>
-  <div class="view-settings">
-    <label for="view-3d"><input id="view-3d" type="checkbox" checked> 3D view</label>
-    <p id="view-3d-status" class="statusline" role="status"></p>
-    <label for="view-quality">Quality <select id="view-quality"><option value="auto">Auto</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
-    <p id="view-quality-status" class="statusline" role="status"></p>
-  </div>
 
   <main class="deck" id="deck">
-    <section class="view" aria-label="Simulation view">
-      <canvas id="gl" aria-hidden="true" hidden></canvas>
-      <canvas id="cv" role="img" aria-label="Animated physics simulation for the current step"></canvas>
-      <div class="scale" id="scale" hidden><b>HOT</b><b>COLD</b></div>
-    </section>
-    <section class="panel" id="panel"></section>
+    <div class="stage-col">
+      <section class="view" aria-label="Simulation view">
+        <canvas id="gl" aria-hidden="true" hidden></canvas>
+        <canvas id="cv" role="img" aria-label="Animated physics simulation for the current step"></canvas>
+        <div class="scale" id="scale" hidden><b>HOT</b><b>COLD</b></div>
+      </section>
+      <div class="bench-bar">
+        <div class="view-settings">
+          <label for="view-3d"><input id="view-3d" type="checkbox" checked> 3D view</label>
+          <p id="view-3d-status" class="statusline" role="status"></p>
+          <label for="view-quality">Quality <select id="view-quality"><option value="auto">Auto</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+          <p id="view-quality-status" class="statusline" role="status"></p>
+        </div>
+        <div class="bench-drawers">
+          <details class="sound-settings"><summary>Sound settings</summary>
+            <div class="sound-controls">
+              <label for="sound-volume">Volume <input id="sound-volume" type="range" min="0" max="100" value="55"></label>
+              <label for="sound-ambience">Background <input id="sound-ambience" type="range" min="0" max="100" value="35"></label>
+              <label class="pulse-option"><input id="sound-pulse" type="checkbox" checked> Gentle pulse</label>
+            </div>
+            <p class="note">Sounds play when you use the controls. The electrical tones use a 7.83 Hz reference, shifted to a pitch you can hear. Turn off Gentle pulse to hear a steady tone. Sound stays off until you turn it on.</p>
+            <p id="sound-status" class="statusline" role="status"></p>
+          </details>
+          <details class="key" id="key">
+            <summary>What the labels mean</summary>
+            <ul>
+              <li><span class="tag lab">Lab physics</span> done in a laboratory</li>
+              <li><span class="tag model">Theory</span> a mathematical model</li>
+              <li><span class="tag meas">Measured</span> taken from the videos by 4orbs</li>
+              <li><span class="tag read">4orbs account</span> how 4orbs connects the pieces</li>
+              <li><span class="tag scen">Game rule</span> simplified to make it playable</li>
+            </ul>
+          </details>
+        </div>
+      </div>
+    </div>
+    <section class="panel" id="panel" aria-labelledby="stage-title"></section>
   </main>
 
   <footer>
+    <p><strong>Ion Pumpy Thing.</strong> Six steps from a jar of glowing gas to an airliner that isn’t there. Each step builds one piece of the wormhole account set out at 4orbs.com from the physics it cites, and explains that physics as you go.</p>
     <p><strong>Where this comes from.</strong> This edition follows <a href="https://4orbs.com/the-vanishing/part-3-the-science/">Part Three, corrected November 2026 edition (25:24)</a> and <a href="https://4orbs.com/research/satellite-videos/measurements/">the current measurements</a>. Each lesson links its source and the papers behind it. Simplifications made for play are labelled Game rule.</p>
-    <p><strong>What this is about.</strong> 4orbs.com analyses two videos of a Boeing 777-200ER and three orbs, and sets out how the physics it cites lets the orbs open a wormhole around the aircraft. This game takes that account as its premise. Each step turns one piece of it into an experiment and explains the physics underneath.</p>
-    <p><a href="/privacy">Privacy</a></p>
+    <p><strong>What this is about.</strong> 4orbs.com analyses two videos of a Boeing 777-200ER and three orbs, and sets out how the physics it cites lets the orbs open a wormhole around the aircraft. This game takes that account as its premise. Each step turns one piece of it into an experiment and explains the physics underneath. <a href="/privacy">Privacy</a></p>
   </footer>
 </div>
 

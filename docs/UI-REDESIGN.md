@@ -8,7 +8,7 @@ Inspected live production (`https://ion-pumpy-thing.app`), Slice 7 (`http://127.
 | --- | --- | --- | --- |
 | Seven stacked top chrome rows before `<main>` | Information architecture | `54px` uppercase hero + 2-line blurb + label key + step rail + HUD + empty status band + `border-radius: 10px` Sound settings box + 3D/Quality row pushed the game ~340 px down desktop and off the first screen on mobile | Collapse into one `~52px` **Console Bar** (nameplate, sequence rail, compact HUD) and dock `3D / Quality / Sound / Label key` directly beneath the simulation viewport in `.bench-bar` |
 | Duplicate legacy `<style>` block (`lines 1–10`) | Legacy accumulation | Conflicting `color-scheme: light` and `border-radius: 10px` `.sound-settings` patched above main stylesheet | Delete legacy `<style>` block; consolidate into one canonical Hallmark-stamped `<style>` |
-| Narrow blog-style `.wrap` (`1180px`, `1.25fr / 1fr`) | Spatial composition | Simulation shared ~55% of a narrow container, leaving wide dark gutters on 1440px/1920px screens while forcing vertical scroll at 1280×800 | Expand console frame to `1480px`, `1.55fr / minmax(360px, 440px)` (~62% simulation dominance), capped to `calc(100dvh - 118px)` so viewport + controls fit above the fold |
+| Narrow blog-style `.wrap` (`1180px`, `1.25fr / 1fr`) | Spatial composition | Simulation shared ~55% of a narrow container, leaving wide dark gutters on 1440px/1920px screens while forcing vertical scroll at 1280×800 | Expand console frame to `1480px`, `1.55fr / minmax(350px, 440px)` (~62% simulation dominance), capped to `calc(100dvh - 148px)` so viewport + controls + bench bar fit above the fold |
 | Two-tone colored wordmark (`Ion Pumpy <span>Thing</span>`) | Generic AI pattern (Hallmark REFLEX 38iii) | Accent cyan split-word heading | Single authoritative phosphor-cream facility nameplate (`h1`, `line-height: 1`) |
 | Monospace prose & UI labels | Generic sci-fi trope (Hallmark REFLEX 64) | `.tag`, `.eyebrow`, `.btn.small`, `.padlabels`, `.mlabels`, `.hud` set in monospace | Set all prose, buttons, tags, and axis labels in `IBM Plex Sans`; reserve `IBM Plex Mono` (`tabular-nums`) strictly for numerical measurements, timer, scores, and scale ticks |
 | Decorative callout side stripe (`.brief`) | Generic AI card trope (Hallmark WARN 3) | `border-left: 3px solid var(--cold)` | Remove side stripe; let typography hierarchy and 1px machined hairlines carry structure |
@@ -23,11 +23,21 @@ Inspected live production (`https://ion-pumpy-thing.app`), Slice 7 (`http://127.
 
 ## 3. Design System & Tokens
 
-- **Ground & Surface Hierarchy:** `--deep: #070c20` (bench surround), `--sky: #0b1330` (optical aperture), `--panel: #0c132a` (docked console deck), `--panel-inset: #080e22` (recessed telemetry cells & wells), `--line: #23305a` (1px machined hairlines), `--line-strong: #374a85` (active bezel).
+- **Ground & Surface Hierarchy:** `--deep: #070c20` (bench surround), `--sky: #0b1330` (optical aperture), `--panel: #0c132a` (docked console deck), `--panel-inset: #080e22` (recessed telemetry cells & wells), `--line: #23305a` (1px decorative hairlines), `--line-strong: #374a85` (structural bezels), `--line-control: #5c70ad` (WCAG 1.4.11 >= 3.7:1 interactive control tracks & borders).
 - **Semantic Colours (preserved unchanged from scientific spec):** `--cold: #62d2e8` (`Lab physics` / ready), `--warm: #ffae42` (`Measured` / active input / caution), `--hot: #ff5533` (heat / hazard), `--theory: #9fe28a` (`Theory`), `--read: #b9a2ff` (`4orbs account`), `--rule: #f49ac1` (`Game rule`).
 - **Motion:** Only `transform`, `opacity`, and subtle `border-color`/`background-color` state transitions (`120ms ease-out`, never `transition: all`, never animating layout geometry), with full `@media (prefers-reduced-motion: reduce)` disablement.
 
-## 4. Governance & Open Constraints
+## 4. Independent Design, Accessibility & Multi-Viewport Verification
+
+- **Multi-Viewport Browser QA (`http://127.0.0.1:8189/`):** Verified at `1440×900`, `1280×800`, `768×1024`, `390×844`, and `844×390` across fresh entry, active experiments (Ignite, Hold, Fuel, Orbit, Open, Converge), Ledger, expanded `Explanation and sources`, and docked `Sound settings` / `What the labels mean` drawers. Zero console errors, zero failed requests, zero horizontal overflow; `1280×800` auto chose `high` at `~1.3 ms/frame`; `#jump-to-controls` focused `#controls` cleanly below the sticky mobile scene (`+12 px` clearance).
+- **Independent Adversarial & WCAG 2.2 AA Review:** Caught and resolved 5 blocking accessibility issues before PR:
+  1. Kept all `role="status"` live regions permanently mounted in the accessibility tree (removed `display: none` on `.statusline:empty` and `.status`) with reserved `min-height: 1.45em` to eliminate CLS jumps.
+  2. Padded `.steps` (`padding: 4px; margin: -4px`) so `:focus-visible` rings are never clipped by `overflow-x: auto`.
+  3. Added `--line-control: #5c70ad` (>= 3.7:1 on `--panel` and `--panel-inset`) for WCAG 1.4.11 non-text contrast on slider tracks, `.pad` borders/crosshairs, `.meter` borders, `.goal .bar`, `select`, and buttons.
+  4. Preserved `44px` coarse-pointer touch targets across mobile landscape and `.bench-bar` controls (`select`, checkboxes, labels).
+  5. Added explicit `:disabled` dimming (`opacity: .35; cursor: not-allowed`) and disabled hover suppression on custom range sliders (`#cv-scrub`), plus `<nav>` and `aria-labelledby="stage-title"` landmarks.
+
+## 5. Governance & Open Constraints
 
 - **ADR 0004 Thermal Scale:** Hallmark static `FAIL 2a` on `.scale` remains documented as an intentional scientific conflict per `docs/HALLMARK-AUDIT.md` — never altered to silence lint.
 - **ADR 0005 & ADR 0006:** Independent Meshy rights-receipt review (`docs/ASSETS.md`) and physical iOS/Android screen-reader testing remain open gates.

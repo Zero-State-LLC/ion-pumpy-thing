@@ -47,3 +47,14 @@ test('mobile layout keeps simulation sticky above controls and defers secondary 
   assert.match(mobile, /\.bench-bar\s*\{[^}]*order:/, 'secondary bench bar defers below active controls on mobile');
   assert.match(mobile, /\.panel\s*\{[^}]*border-top:/, 'docked bottom-sheet console lip on mobile');
 });
+
+test('accessibility review safeguards: live regions stay mounted, focus rings unclipped, non-text contrast >= 3:1, disabled sliders dimmed', () => {
+  const css = styles[0];
+  assert.doesNotMatch(css, /\.statusline:empty\s*\{\s*display:\s*none/, 'ARIA role=status regions stay mounted in accessibility tree');
+  assert.doesNotMatch(css, /\.status:not\(:has/, 'status container never toggles display:none causing CLS or dropped announcements');
+  assert.match(css, /\.steps\s*\{[^}]*padding:\s*4px/, 'step rail pads overflow container so focus rings are not clipped');
+  assert.match(css, /--line-control:\s*#5c70ad/, 'WCAG 1.4.11 >= 3:1 non-text control boundary/track token');
+  assert.match(css, /input\[type=range\]:disabled\s*\{[^}]*cursor:\s*not-allowed/, 'disabled range sliders visually dim and show not-allowed cursor');
+  assert.match(html, /<nav aria-label="Experiment sequence"><ol class="steps"/, 'step rail wrapped in nav landmark');
+  assert.match(html, /<section class="panel" id="panel" aria-labelledby="stage-title">/, 'console panel registers as a labelled region landmark');
+});

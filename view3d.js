@@ -487,7 +487,7 @@ void main() { gl_FragColor = vec4(texture2D(map, vUv).rgb * strength, 1.0);
  * player's level or 'auto'; `phone` says auto should start at medium; `onQuality` hears what
  * auto settles on.
  * @param {HTMLCanvasElement} canvas
- * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string, reactorVessel: string, jarManifold: string, electromagnetCoil: string, pistonHead: string, pipeUnion: string }, onLost: () => void, quality?: 'auto' | 'low' | 'medium' | 'high', phone?: boolean, onQuality?: (q: { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }) => void }} options
+ * @param {{ props: { airliner: string, plateMount: string, vacuumChamber: string, pistonHousing: string, pumpHandle: string, reactorVessel: string, jarManifold: string, electromagnetCoil: string, pistonHead: string, pipeUnion: string, opticalBench: string }, onLost: () => void, quality?: 'auto' | 'low' | 'medium' | 'high', phone?: boolean, onQuality?: (q: { level: 'low' | 'medium' | 'high', auto: boolean, median: number | null }) => void }} options
  */
 async function start(canvas, { props, onLost, quality = 'auto', phone = false, onQuality = () => {} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -512,12 +512,12 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     if (median > QUALITY_BUDGET_MS && level !== 'low') { level = QUALITY[QUALITY.indexOf(level) - 1]; return; }
     choice = 'settled'; onQuality({ level, auto: true, median });
   }
-  const [airliner, mount, chamber, housing, handle, vessel, jarManifold, coilProp, pistonHead, pipeUnion] = await Promise.all([
+  const [airliner, mount, chamber, housing, handle, vessel, jarManifold, coilProp, pistonHead, pipeUnion, opticalBench] = await Promise.all([
     loadAirliner(props.airliner), loadPlateMount(props.plateMount), loadVacuumChamber(props.vacuumChamber),
     loadPumpPart(props.pistonHousing, 'housing', 'wallRadius'), loadPumpPart(props.pumpHandle, 'handle', 'span'),
     loadReactorVessel(props.reactorVessel), loadMeasuredProp(props.jarManifold, 'manifold', 'seatRadius'),
     loadCoil(props.electromagnetCoil), loadMeasuredProp(props.pistonHead, 'piston', 'radius'),
-    loadMeasuredProp(props.pipeUnion, 'union', 'length')
+    loadMeasuredProp(props.pipeUnion, 'union', 'length'), loadMeasuredProp(props.opticalBench, 'bench', 'length')
   ]);
   // The props' geometry is shared by every world, so it stays when a world goes.
   const shared = new Set([
@@ -525,7 +525,8 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     chamber.geometry, chamber.edges, housing.geometry, housing.edges, handle.geometry, handle.edges,
     vessel.geometry, vessel.edges, jarManifold.geometry, jarManifold.edges,
     ...Object.values(coilProp.parts),
-    pistonHead.geometry, pistonHead.edges, pipeUnion.geometry, pipeUnion.edges
+    pistonHead.geometry, pistonHead.edges, pipeUnion.geometry, pipeUnion.edges,
+    opticalBench.geometry, opticalBench.edges
   ]);
   const ramp = rampTexture();
   const pmrem = new THREE.PMREMGenerator(renderer), environment = pmrem.fromScene(studio(), 0.04).texture; pmrem.dispose();
@@ -785,6 +786,19 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       const k = e.height / mount.height, inner = g.children[0];
       inner.scale.set(k * (mount.side === Math.sign(e.at[0] || 1) ? 1 : -1), k, k);
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
+      // Ground both Casimir plate mounts onto a shared laboratory optical breadboard bench in lab look.
+      if (world.look === 'lab' && world.pools.get('plate mount')?.used === 1) {
+        const bench = take('optical bench', () => {
+          const outer = new THREE.Group(), bInner = new THREE.Group();
+          bInner.rotation.x = Math.PI; outer.add(bInner);
+          bInner.add(new THREE.Mesh(opticalBench.geometry, surface('#3a486b', 'brushed')), new THREE.LineSegments(opticalBench.edges, lineMaterial()));
+          return outer;
+        });
+        const span = Math.max(Math.abs(e.at[0]) * 2 + e.height * 1.9, e.height * 3.6);
+        const bh = e.height * 0.42;
+        bench.position.set(0, e.at[1] + e.height, e.at[2]);
+        bench.children[0].scale.set(span / opticalBench.size, bh / opticalBench.height, e.height * 1.15);
+      }
     },
     // A wormhole's throat, seen down its length: its mouth, void within and a glowing curvature rim,
     // and rings narrowing as they go deeper, all behind whatever is in front of it.

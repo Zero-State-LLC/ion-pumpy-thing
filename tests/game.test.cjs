@@ -2030,13 +2030,13 @@ async function openIn3D(view, settings = {}, options = {}) {
   return game;
 }
 
-test('the 3D view loads all ten laboratory and airliner props', async () => {
+test('the 3D view loads all eleven laboratory and airliner props', async () => {
   const game = await openIn3D('plates');
   assert.deepEqual({ ...game.view3d.given.props }, {
     airliner: 'assets/airliner.glb', plateMount: 'assets/plate-mount.glb', vacuumChamber: 'assets/vacuum-chamber.glb',
     pistonHousing: 'assets/piston-housing.glb', pumpHandle: 'assets/pump-handle.glb', reactorVessel: 'assets/reactor-vessel.glb',
     jarManifold: 'assets/jar-manifold.glb', electromagnetCoil: 'assets/electromagnet-coil.glb', pistonHead: 'assets/piston-head.glb',
-    pipeUnion: 'assets/pipe-union.glb'
+    pipeUnion: 'assets/pipe-union.glb', opticalBench: 'assets/optical-bench.glb'
   });
 });
 

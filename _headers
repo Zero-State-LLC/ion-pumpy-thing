@@ -1,0 +1,8 @@
+/view3d.js
+  Cache-Control: public, max-age=0, must-revalidate
+/view3d-shapes.js
+  Cache-Control: public, max-age=0, must-revalidate
+/audio.js
+  Cache-Control: public, max-age=0, must-revalidate
+/audio-cues.js
+  Cache-Control: public, max-age=0, must-revalidate

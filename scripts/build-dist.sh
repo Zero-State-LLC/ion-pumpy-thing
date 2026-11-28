@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy the production Pages files into dist/, preserving paths: the 18 listed
+# Copy the production Pages files into dist/, preserving paths: the 19 listed
 # below, then the globbed sound effects, three.js addons and props.
 # Fail if any required file is missing. Do not include tests, docs, or .github.
 set -euo pipefail
@@ -8,6 +8,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 dest="$root/dist"
 
 files=(
+  _headers
   404.html
   favicon.ico
   ga4.js

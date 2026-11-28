@@ -85,6 +85,13 @@ function swapGeometry(mesh, geometry) { mesh.geometry.dispose(); mesh.geometry =
 function stripMesh(k, closed, material) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6 * k), 3));
+  const uv = new Float32Array(4 * k);
+  for (let i = 0; i < k; i++) {
+    const u = k > 1 ? i / (k - 1) : 0;
+    uv[4 * i] = u; uv[4 * i + 1] = 0;
+    uv[4 * i + 2] = u; uv[4 * i + 3] = 1;
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   g.setIndex(new THREE.BufferAttribute(stripIndex(k, closed), 1));
   const m = new THREE.Mesh(g, material); m.frustumCulled = false; return m;
 }
@@ -116,7 +123,7 @@ async function loadPlateMount(url) {
   geometry.computeBoundingBox();
   const box = geometry.boundingBox, centre = box.getCenter(new THREE.Vector3());
   // `side`: which way, along X, the base stands out from the post.
-  return { geometry, edges: new THREE.EdgesGeometry(geometry, 30), height: box.max.y - box.min.y, side: Math.sign(centre.x) || 1 };
+  return { geometry, edges: new THREE.EdgesGeometry(geometry, 55), height: box.max.y - box.min.y, side: Math.sign(centre.x) || 1 };
 }
 
 /* ── The vacuum chamber prop: Y up at its real size in metres, its origin on its axis at half its
@@ -257,6 +264,91 @@ function breathMaterial() {
     transparent: true, depthTest: false, side: THREE.DoubleSide
   });
 }
+// Parse an rgba(...) or #rrggbb colour string into { rgb: [0..1, 0..1, 0..1], a: 0..1 }.
+function parseColour(str) {
+  const m = /^rgba?\(([^)]+)\)$/.exec(str);
+  if (m) {
+    const p = m[1].split(',').map(Number);
+    return { rgb: [p[0] / 255, p[1] / 255, p[2] / 255], a: p.length > 3 ? p[3] : 1 };
+  }
+  return { rgb: rgb(str).map(v => v / 255), a: 1 };
+}
+// Escaping plasma plume at a Hold cusp leak: luminous near the cusp throat, tapering smoothly
+// outward with noise-driven flow filaments so open leaks read as escaping energy without burying
+// the plasma ball or chamber behind a solid block.
+function plumeMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColour: { value: new THREE.Color() }, uOpacity: { value: 1 }, uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uColour; uniform float uOpacity; uniform float uTime; varying vec2 vUv;
+      ${SNOISE}
+      void main() {
+        float edge = smoothstep(0.0, 0.14, vUv.x) * smoothstep(1.0, 0.86, vUv.x);
+        float radial = pow(max(0.0, 1.0 - vUv.y), 1.35);
+        float streak = 0.72 + 0.28 * snoise(vec3(vUv.x * 5.0, vUv.y * 3.5 - uTime * 0.85, uTime * 0.15));
+        float throat = smoothstep(0.32, 0.0, vUv.y);
+        vec3 col = mix(uColour, vec3(1.0, 0.94, 0.9), throat * 0.45);
+        float alpha = uOpacity * edge * (0.14 + 0.62 * radial) * streak;
+        gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.85));
+      }`,
+    transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide
+  });
+}
+// Casimir cavity field glow between the Open step's plates: stronger at the plates than in the
+// middle, with subtle standing-mode interference bands that hold still when the clock is pinned.
+function gapGlowMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uEdge: { value: new THREE.Vector3() }, uEdgeAlpha: { value: 0.22 },
+      uMid: { value: new THREE.Vector3() }, uMidAlpha: { value: 0.04 },
+      uTime: { value: 0 }
+    },
+    vertexShader: `varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uEdge; uniform float uEdgeAlpha; uniform vec3 uMid; uniform float uMidAlpha; uniform float uTime; varying vec2 vUv;
+      void main() {
+        float d = abs(vUv.x - 0.5) * 2.0;
+        float wall = pow(d, 1.4);
+        float mode = 0.88 + 0.12 * cos(vUv.x * 3.14159265 * 6.0) * cos(vUv.y * 3.14159265 * 2.0 - uTime * 0.7);
+        float vFade = smoothstep(0.0, 0.06, vUv.y) * smoothstep(1.0, 0.94, vUv.y);
+        vec3 col = mix(uMid, uEdge, wall);
+        float a = mix(uMidAlpha, uEdgeAlpha * 1.45, wall) * mode * vFade;
+        gl_FragColor = vec4(col, clamp(a, 0.0, 0.65));
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide
+  });
+}
+// Wormhole throat mouth (Open's throat view): deep void core with a luminous gravitational-lensing
+// curvature horizon and delicate animated metric ripples; stays unaffected by depth fog.
+function throatMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uVoid: { value: new THREE.Vector3() }, uRim: { value: new THREE.Vector3() },
+      uRimAlpha: { value: 0.8 }, uTime: { value: 0 }
+    },
+    vertexShader: `varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uVoid; uniform vec3 uRim; uniform float uRimAlpha; uniform float uTime; varying vec2 vUv;
+      ${SNOISE}
+      void main() {
+        vec2 p = (vUv - 0.5) * 2.0;
+        float r = length(p);
+        if (r > 1.0) discard;
+        float angle = atan(p.y, p.x);
+        float swirl = 0.5 + 0.5 * snoise(vec3(cos(angle) * 2.2, sin(angle) * 2.2, r * 4.0 - uTime * 0.35));
+        float horizon = exp(-pow((r - 0.80) / 0.065, 2.0));
+        float outerHalo = smoothstep(1.0, 0.80, r) * smoothstep(0.74, 0.84, r);
+        float innerDepth = smoothstep(0.80, 0.15, r);
+        float metricRing = smoothstep(0.92, 1.0, sin(r * 28.0 - uTime * 0.6)) * innerDepth * 0.22;
+        vec3 col = mix(uVoid, uRim, clamp(horizon * (0.82 + 0.25 * swirl) + metricRing + outerHalo * 0.55, 0.0, 1.0));
+        float insideAlpha = smoothstep(0.84, 0.78, r);
+        float alpha = max(insideAlpha, (horizon * 0.95 + outerHalo * 0.65) * uRimAlpha);
+        gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false
+  });
+}
 
 // The lab look's materials, one per prop kind (docs/adr/0007), each in the colour the scene entry
 // gives; no textures, so a heat view still colours the same prop by its temperature (docs/adr/0004).
@@ -294,12 +386,12 @@ function fresnel(material) {
 
 const LAB = {
   glass: colour => fresnel(new THREE.MeshPhysicalMaterial({ color: colour, metalness: 0, roughness: 0.08, transparent: true, opacity: 0.22, clearcoat: 1, clearcoatRoughness: 0.06, side: THREE.DoubleSide, depthWrite: false })),
-  copper: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide }),
-  brushed: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.8, roughness: 0.55, side: THREE.DoubleSide }),
-  polished: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.95, roughness: 0.18, side: THREE.DoubleSide })
+  copper: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.85, roughness: 0.30, side: THREE.DoubleSide }),
+  brushed: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.8, roughness: 0.44, side: THREE.DoubleSide }),
+  polished: colour => new THREE.MeshStandardMaterial({ color: colour, metalness: 0.95, roughness: 0.16, side: THREE.DoubleSide })
 };
-// What the lab's metals reflect: a grey room with three soft boxes, one above, one to each side,
-// rendered once into a reflection map. No image asset; nothing to load or credit.
+// What the lab's metals reflect: a grey room with soft boxes above, to each side and in front of
+// the orthographic camera so front-facing polished plates and brushed housings catch clean sheen.
 function studio() {
   const room = new THREE.Scene();
   room.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshStandardMaterial({ color: 0x3a3f4c, roughness: 0.9, metalness: 0, side: THREE.BackSide })));
@@ -309,8 +401,10 @@ function studio() {
     m.position.set(...at); m.lookAt(0, 0, 0); room.add(m);
   };
   panel(4, 2, [0, 4.9, 0], 6, 0xfff4e6);
-  panel(2, 3, [-4.9, 0.5, -1], 3, 0xe8f0ff);
-  panel(2, 3, [4.9, -0.5, 1], 1.5, 0xffffff);
+  panel(2, 3, [-4.9, 0.5, -1], 3.2, 0xe8f0ff);
+  panel(2, 3, [4.9, -0.5, 1], 1.8, 0xffffff);
+  panel(4.5, 3, [0, -0.4, -4.9], 2.8, 0xeef4ff);
+  panel(5, 2, [0, -4.9, -1.5], 1.4, 0xc8d8f0);
   room.add(new THREE.PointLight(0xffffff, 40, 0, 2));
   return room;
 }
@@ -413,11 +507,17 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     cam.up.set(0, -Math.cos(th), Math.sin(th)); cam.lookAt(0, 0, 0); cam.updateMatrixWorld();
     const scene = new THREE.Scene();
     if (look === 'visible') {
-      scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-      // The sun turns with the camera, so every camera sees its side lit as camera 1 sees the top,
-      // as the flat view draws both cameras alike; a camera from below would otherwise see shadow.
-      const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-      sun.position.set(-60, -90, -140).applyAxisAngle(new THREE.Vector3(1, 0, 0), -th); scene.add(sun);
+      const axis = new THREE.Vector3(1, 0, 0);
+      scene.add(new THREE.AmbientLight(0xdce6ff, 0.85));
+      // The sun and sky fills turn with the camera, so every camera sees its side lit as camera 1
+      // sees the top while giving the fuselage and wings clean three-dimensional form.
+      const sun = new THREE.DirectionalLight(0xfff8ee, 2.2);
+      sun.position.set(-60, -90, -140).applyAxisAngle(axis, -th);
+      const skyFill = new THREE.DirectionalLight(0xc2d6ff, 0.65);
+      skyFill.position.set(85, 60, -90).applyAxisAngle(axis, -th);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.85);
+      rim.position.set(45, -70, 130).applyAxisAngle(axis, -th);
+      scene.add(sun, skyFill, rim);
     }
     if (look === 'lab') {
       // A key from the upper left in front, a cooler fill from the lower right, a rim from behind
@@ -517,8 +617,11 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
   const DRAW = {
     sky(e) { world.scene.background = new THREE.Color(e.colour); },
     cloud(e) {
-      const c = take('cloud', () => new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false })));
-      c.material.color.set(e.colour); c.material.opacity = e.opacity; c.renderOrder = -1;
+      const c = take('cloud', () => new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({
+        map: glowTexture([[0, 'rgba(255,255,255,.92)'], [.45, 'rgba(255,255,255,.52)'], [.8, 'rgba(255,255,255,.12)'], [1, 'rgba(255,255,255,0)']]),
+        transparent: true, depthWrite: false
+      })));
+      c.material.color.set(e.colour); c.material.opacity = Math.min(1, e.opacity * 1.45); c.renderOrder = -1;
       facing(c).position.set(...e.at); c.scale.set(e.size[0], e.size[1], 1);
     },
     airliner(e) {
@@ -561,7 +664,7 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       o.position.set(...e.at);
       ball.scale.setScalar(e.size); paint(/** @type {any} */ (ball).material, e, 'heat', 'colour');
       const hm = /** @type {THREE.SpriteMaterial} */ (/** @type {THREE.Sprite} */ (halo).material);
-      const map = glowTexture([[0, e.halo], [1, 'rgba(0,0,0,0)']]);
+      const map = glowTexture([[0, e.halo], [.3, e.halo], [1, 'rgba(0,0,0,0)']]);
       if (hm.map !== map) { hm.map = map; hm.needsUpdate = true; }
       halo.scale.setScalar(e.size * 6);
       if (ring) swapGeometry(ring, new THREE.RingGeometry(e.size + 0.5 / world.scale, e.size + 1.5 / world.scale, 32));
@@ -596,9 +699,17 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     },
     // The glow in the gap, brighter at the plates than in the middle, behind the plates' faces.
     'gap glow'(e) {
-      const g = take('gap glow', () => new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
-      const map = glowTexture([[0, e.colour], [.5, e.middle], [1, e.colour]], true);
-      if (g.material.map !== map) { g.material.map = map; g.material.needsUpdate = true; }
+      const g = take('gap glow', () => new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+        world.look === 'lab' ? gapGlowMaterial() : new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+      if (g.material instanceof THREE.ShaderMaterial) {
+        const edge = parseColour(e.colour), mid = parseColour(e.middle);
+        g.material.uniforms.uEdge.value.set(...edge.rgb); g.material.uniforms.uEdgeAlpha.value = edge.a;
+        g.material.uniforms.uMid.value.set(...mid.rgb); g.material.uniforms.uMidAlpha.value = mid.a;
+        g.material.uniforms.uTime.value = clock;
+      } else {
+        const map = glowTexture([[0, e.colour], [.5, e.middle], [1, e.colour]], true);
+        if (g.material.map !== map) { g.material.map = map; g.material.needsUpdate = true; }
+      }
       g.position.set(...e.at); g.scale.set(e.size[0], e.size[1], 1);
     },
     'plate mount'(e) {
@@ -616,12 +727,12 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       inner.scale.set(k * (mount.side === Math.sign(e.at[0] || 1) ? 1 : -1), k, k);
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
     },
-    // A wormhole's throat, seen down its length: its mouth, void within and a glowing rim, and
-    // rings narrowing as they go deeper, all behind whatever is in front of it.
+    // A wormhole's throat, seen down its length: its mouth, void within and a glowing curvature rim,
+    // and rings narrowing as they go deeper, all behind whatever is in front of it.
     throat(e) {
       const t = take('throat', () => {
         const g = new THREE.Group();
-        const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 96), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+        const mouth = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), throatMaterial());
         mouth.renderOrder = 1; g.add(mouth);
         const circle = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 96 }, (_, i) => new THREE.Vector3(Math.cos(i / 96 * TAU), Math.sin(i / 96 * TAU), 0)));
         for (let i = 1; i <= 5; i++) { const ring = new THREE.LineLoop(i === 1 ? circle : circle.clone(), new THREE.LineBasicMaterial({ transparent: true, fog: false })); ring.renderOrder = 2; g.add(ring); }
@@ -629,14 +740,15 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       });
       t.position.set(...e.at);
       const [mouth, ...rings] = /** @type {any[]} */ (t.children);
-      // The flat view's gradient runs from a fifth of the radius to 1.25 times it; on the mouth's
-      // disc, 1.25 times the radius, its stops fall at these fractions.
-      const map = glowTexture([[.16, e.colour], [.815, e.colour], [.882, e.rim], [1, e.fade]]);
-      if (mouth.material.map !== map) { mouth.material.map = map; mouth.material.needsUpdate = true; }
+      const rim = parseColour(e.rim);
+      mouth.material.uniforms.uVoid.value.copy(shaderColour(e.colour));
+      mouth.material.uniforms.uRim.value.set(...rim.rgb);
+      mouth.material.uniforms.uRimAlpha.value = rim.a;
+      mouth.material.uniforms.uTime.value = clock;
       mouth.scale.setScalar(e.radius * 1.25);
       rings.forEach((ring, j) => {
         const i = j + 1, r = e.radius * Math.pow(1 - i / 6, 1.4);
-        ring.material.color.set(e.rings); ring.material.opacity = e.ringOpacity;
+        ring.material.color.set(e.rings); ring.material.opacity = e.ringOpacity * (1.15 - j * 0.14);
         ring.scale.set(r, r, 1); ring.position.z = e.radius * i / 6;
       });
     },
@@ -661,7 +773,7 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     specks(e) {
       const p = take(e.round ? 'round specks' : 'specks', () => {
         const m = new THREE.PointsMaterial({ sizeAttenuation: false });
-        if (e.round) { m.map = glowTexture([[0, 'rgba(255,255,255,1)'], [.8, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]); m.transparent = true; m.depthWrite = false; }
+        if (e.round) { m.map = glowTexture([[0, 'rgba(255,255,255,1)'], [.45, 'rgba(255,255,255,.95)'], [.75, 'rgba(255,255,255,.4)'], [1, 'rgba(255,255,255,0)']]); m.transparent = true; m.depthWrite = false; }
         m.fog = false; // the specks are a signal, not scenery
         const points = new THREE.Points(new THREE.BufferGeometry(), m); points.renderOrder = 5; return points;
       });
@@ -671,12 +783,39 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       if (p.material.vertexColors !== !!e.opacities) { p.material.vertexColors = !!e.opacities; p.material.transparent = true; p.material.needsUpdate = true; }
       swapGeometry(p, geometry);
     },
-    // Fuel's reactor wall, end on: a ring of tube as wide as the flat view's stroke. It writes no
-    // depth, so the neutrons' impacts, listed on its middle line, show over it as in the flat view.
+    // Fuel's reactor wall, end on: the active first-wall torus coloured by neutron exposure,
+    // seated inside a recessed cylindrical laboratory chamber liner with flange ribs in the lab look.
     'reactor wall'(e) {
-      const w = take('reactor wall', () => { const m = new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed')); m.material.depthWrite = false; return m; });
-      w.position.set(...e.at); paint(w.material, e, 'heat', 'colour');
-      swapGeometry(w, new THREE.TorusGeometry(e.radius, e.width / 2, 12, 128));
+      const w = take('reactor wall', () => {
+        const g = new THREE.Group();
+        const ring = new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed'));
+        ring.material.depthWrite = false;
+        g.add(ring);
+        if (world.look === 'lab') {
+          const liner = new THREE.Mesh(new THREE.CylinderGeometry(1.02, 0.92, 1, 64, 1, true).rotateX(Math.PI / 2), surface('#1a2342', 'brushed'));
+          const collar = new THREE.Mesh(new THREE.TorusGeometry(1.07, 0.032, 12, 96), surface('#2b365a', 'brushed'));
+          const ribs = new THREE.Group();
+          for (let i = 0; i < 12; i++) {
+            const a = i / 12 * TAU;
+            const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.04, 12).rotateX(Math.PI / 2), surface('#7a87aa', 'polished'));
+            bolt.position.set(Math.cos(a) * 1.07, Math.sin(a) * 1.07, 0.01);
+            ribs.add(bolt);
+          }
+          g.add(liner, collar, ribs);
+        }
+        return g;
+      });
+      w.position.set(...e.at);
+      const [ring, liner, collar, ribs] = /** @type {any[]} */ (w.children);
+      paint(ring.material, e, 'heat', 'colour');
+      swapGeometry(ring, new THREE.TorusGeometry(e.radius, e.width / 2, 12, 128));
+      if (liner) {
+        const depth = e.radius * 0.9;
+        liner.scale.set(e.radius, e.radius, depth);
+        liner.position.z = depth / 2 + e.width * 0.4;
+        collar.scale.setScalar(e.radius); collar.position.z = e.width * 0.35;
+        ribs.scale.setScalar(e.radius); ribs.position.z = e.width * 0.35;
+      }
     },
     // Fuel's burning core: a disc fading from its middle's colour (`core`), as opaque as `opacity`,
     // to nothing in its edge colour (`colour`), as the flat view's gradient. Its brightness changes
@@ -734,13 +873,15 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
     // in the plane facing a side-on camera, in front of everything, as the flat view draws them.
     'cusp leaks'(e) {
       // Each leak: the field's edge from it to the next leak, a ring sector as wide as the flat
-      // view's stroke; the plume, a sector from the edge out to its reach; and the plume's
-      // outline, a strip round it. All rewritten in place each frame as the ball eases.
+      // view's stroke; the plume, a radial-fade plasma jet from the edge out to its reach; and the
+      // plume's flared open boundary (no straight chord cutting across the plasma ball). All
+      // rewritten in place each frame as the ball eases.
       const n = e.angles.length, ARC = 32, PLUME = 12, l = take('cusp leaks', () => {
         const g = new THREE.Group();
-        const material = () => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
-        const sizes = [[ARC + 1, false], [PLUME + 1, false], [PLUME + 3, true]];
-        for (const [k, closed] of sizes) for (let i = 0; i < n; i++) { const m = stripMesh(k, closed, material()); m.renderOrder = 6; g.add(m); }
+        const basic = () => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+        for (let i = 0; i < n; i++) { const m = stripMesh(ARC + 1, false, basic()); m.renderOrder = 6; g.add(m); }
+        for (let i = 0; i < n; i++) { const m = stripMesh(PLUME + 1, false, plumeMaterial()); m.renderOrder = 6; g.add(m); }
+        for (let i = 0; i < n; i++) { const m = stripMesh(PLUME + 3, false, basic()); m.renderOrder = 6; g.add(m); }
         return g;
       });
       l.position.set(...e.at);
@@ -751,16 +892,33 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
         reshape(arc, out => sector(out, e.edge - e.edgeWidth / 2, e.edge + e.edgeWidth / 2, a + half, next - half, ARC));
         arc.material.color.set(e.colour); arc.material.opacity = e.edgeOpacity;
         reshape(fill, out => sector(out, e.edge, e.plume, a - half, a + half, PLUME));
-        // Round the plume: up its left side, across its reach, down its right side and straight back.
+        fill.material.uniforms.uColour.value.set(e.colour);
+        fill.material.uniforms.uOpacity.value = e.plumeOpacity;
+        fill.material.uniforms.uTime.value = clock;
+        // Open flared boundary: up its left side, across its reach, down its right side.
         const rim = Array.from({ length: PLUME + 1 }, (_, k) => at(e.plume, a - half + 2 * half * k / PLUME));
-        reshape(outline, out => strip(out, [at(e.edge, a - half), ...rim, at(e.edge, a + half)], e.plumeWidth, true));
-        for (const m of [fill, outline]) { m.material.color.set(e.colour); m.material.opacity = e.plumeOpacity; }
+        reshape(outline, out => strip(out, [at(e.edge, a - half), ...rim, at(e.edge, a + half)], e.plumeWidth * 0.7, false));
+        outline.material.color.set(e.colour); outline.material.opacity = e.plumeOpacity * 0.55;
       });
     },
-    // Ignite's pipe from the jar to the pump: a tube as wide as the flat view's stroke.
+    // Ignite's pipe from the jar to the pump: a tube as wide as the flat view's stroke, with
+    // machined coupling collars at the jar port and pump intake in the lab look.
     pipe(e) {
-      const p = take('pipe', () => new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed')));
-      paint(p.material, e, 'heat', 'colour'); swapGeometry(p, tube([e.from, e.to], e.width / 2));
+      const p = take('pipe', () => {
+        const g = new THREE.Group();
+        g.add(new THREE.Mesh(new THREE.BufferGeometry(), surface('#ffffff', 'brushed')));
+        if (world.look === 'lab') {
+          for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20).rotateZ(Math.PI / 2), surface('#8f9bbb', 'polished')));
+        }
+        return g;
+      });
+      const [line, leftCollar, rightCollar] = /** @type {any[]} */ (p.children);
+      paint(line.material, e, 'heat', 'colour'); swapGeometry(line, tube([e.from, e.to], e.width / 2));
+      if (leftCollar && rightCollar) {
+        const r = e.width * 1.9, len = e.width * 2.8;
+        leftCollar.position.set(...e.from); leftCollar.scale.set(len, r, r);
+        rightCollar.position.set(...e.to); rightCollar.scale.set(len, r, r);
+      }
     },
     // The pump's barrel, cut away as the vacuum chamber is: only its far half, so the piston inside shows.
     'piston housing'(e) {
@@ -780,7 +938,8 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       for (const o of inner.children) /** @type {any} */ (o).material.clippingPlanes[0].constant = -e.at[2];
       paint(/** @type {any} */ (inner.children[0]).material, e, 'heat', 'colour');
     },
-    // The pump's handle, evenly scaled so its grip bar is the list's span.
+    // The pump's handle, keeping its exact listed grip span while reinforcing vertical bar thickness
+    // so the T-handle stays clearly readable even on 320 px phone viewports.
     'pump handle'(e) {
       const g = take('pump handle', () => {
         const outer = new THREE.Group(), inner = new THREE.Group();
@@ -788,22 +947,31 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
         inner.add(new THREE.Mesh(handle.geometry, surface('#ffffff', 'brushed')), new THREE.LineSegments(handle.edges, lineMaterial()));
         return outer;
       });
-      g.position.set(...e.at); g.children[0].scale.setScalar(e.span / handle.span);
+      const s = e.span / handle.span;
+      g.position.set(...e.at); g.children[0].scale.set(s, s * 1.65, s * 1.5);
       paint(/** @type {any} */ (g.children[0].children[0]).material, e, 'heat', 'colour');
     },
-    // The piston, built each frame where the stroke has it: a disc of a head and a rod up from it.
+    // The piston, built each frame where the stroke has it: a disc of a head with O-ring seal
+    // grooves in the lab look, and a rod up from it.
     piston(e) {
       const p = take('piston', () => {
         const g = new THREE.Group();
         for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), surface('#ffffff', 'brushed')));
+        if (world.look === 'lab') {
+          for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.TorusGeometry(1.01, 0.08, 8, 32).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x161b2a, metalness: 0.1, roughness: 0.85 })));
+        }
         return g;
       });
-      const [head, rod] = /** @type {any[]} */ (p.children);
+      const [head, rod, sealA, sealB] = /** @type {any[]} */ (p.children);
       head.position.set(...e.at); head.scale.set(e.radius, e.thickness, e.radius);
       // From the rod's top down to the head's top face.
       const length = e.at[1] - e.thickness / 2 - e.rodTop[1];
       rod.visible = length > 0; rod.position.set(e.rodTop[0], e.rodTop[1] + length / 2, e.rodTop[2]); rod.scale.set(e.rodWidth / 2, Math.max(length, 1e-6), e.rodWidth / 2);
       for (const part of [head, rod]) paint(part.material, e, 'heat', 'colour');
+      if (sealA && sealB) {
+        sealA.position.set(e.at[0], e.at[1] - e.thickness * 0.22, e.at[2]); sealA.scale.set(e.radius, e.thickness * 1.1, e.radius);
+        sealB.position.set(e.at[0], e.at[1] + e.thickness * 0.22, e.at[2]); sealB.scale.set(e.radius, e.thickness * 1.1, e.radius);
+      }
     },
     // Ignite's plasma glow: a disc fading through the list's stops, [at, colour, opacity], out to
     // its radius, as the flat view's gradient. The stops change with the pressure, so the disc
@@ -827,8 +995,8 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
       }
       facing(g).position.set(...e.at); g.scale.setScalar(e.radius);
     },
-    // The glass jar: the gas left in it, a ball of haze `inside` across, and its outline, a ring
-    // facing the camera as wide as the flat view's stroke.
+    // The glass jar: the gas left in it, a ball of haze `inside` across, its outline, and in the
+    // lab look a physical glass shell seated on a low machined laboratory ring cradle.
     'glass jar'(e) {
       const j = take('glass jar', () => {
         const haze = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
@@ -836,13 +1004,16 @@ async function start(canvas, { props, onLost, quality = 'auto', phone = false, o
         const rim = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide }));
         // The jar itself, in the lab look: a glass sphere at the jar's radius, over the haze.
         const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), surface('#ffffff', 'glass'));
-        haze.renderOrder = 2; rim.renderOrder = 3; shell.renderOrder = 4;
-        const g = new THREE.Group(); g.add(haze, rim, shell); return g;
+        const cradle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.08, 32), surface('#556182', 'brushed'));
+        haze.renderOrder = 2; rim.renderOrder = 3; shell.renderOrder = 4; cradle.renderOrder = 1;
+        const g = new THREE.Group(); g.add(haze, rim, shell, cradle); return g;
       });
-      const [haze, rim, shell] = /** @type {any[]} */ (j.children);
+      const [haze, rim, shell, cradle] = /** @type {any[]} */ (j.children);
       j.position.set(...e.at);
       haze.scale.setScalar(e.inside); haze.material.color.set(e.hazeColour); haze.material.opacity = e.haze;
       shell.visible = world.look === 'lab'; shell.scale.setScalar(e.radius); if (shell.visible) shell.material.color.set(e.colour);
+      cradle.visible = world.look === 'lab';
+      if (cradle.visible) { cradle.scale.setScalar(e.radius); cradle.position.set(0, e.radius * 0.98, 0); }
       rim.material.color.set(e.colour); facing(rim);
       swapGeometry(rim, new THREE.RingGeometry(e.radius - e.width / 2, e.radius + e.width / 2, 128));
     },

@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>
 /* Hallmark · source-audit polish · preserve the thermal instrument design and all game behavior */
 /* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: execution; fix document overflow and label tracking without changing the experiment */
-:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: var(--sp-2) 0; border: 1px solid var(--line); border-radius: 10px; padding: var(--sp-3) var(--sp-4); }
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}.sound-settings { margin: var(--sp-1) 0; border: 1px solid var(--line); border-radius: 10px; padding: var(--sp-2) var(--sp-4); }
 .sound-settings summary { cursor: pointer; min-height: 32px; }
 .sound-controls { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-6); align-items: center; padding: var(--sp-2) 0; }
 .sound-controls label { display: flex; gap: var(--sp-3); align-items: center; font-size: 13px; }
@@ -92,10 +92,10 @@ html, body { background: var(--deep); overflow-x: clip; }
 body { color: var(--ink); font-family: var(--body); font-size: var(--fs-md); line-height: 1.55; }
 * { box-sizing: border-box; }
 .wrap {
-  max-width: 1180px; margin: 0 auto; padding-block: var(--sp-5) var(--sp-7);
+  max-width: 1180px; margin: 0 auto; padding-block: var(--sp-4) var(--sp-7);
   padding-left: max(var(--sp-4), env(safe-area-inset-left, 0px));
   padding-right: max(var(--sp-4), env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-3);
 }
 a { color: var(--cold); }
 :focus-visible { outline: 2px solid var(--warm); outline-offset: 2px; }
@@ -149,12 +149,12 @@ a { color: var(--cold); }
 .confirm p { margin: 0; flex: 1 1 28ch; }
 
 .deck { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); align-items: start; scroll-margin-top: var(--sp-3); }
-.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
+.view { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--sp-3)); background: var(--sky); border: 1px solid var(--line); aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; user-select: none; -webkit-user-select: none; }
 .view canvas { display: block; width: 100%; height: 100%; }
 /* The 3D view draws behind the 2D canvas, which keeps all text on top. */
 .view #gl { position: absolute; inset: 0; }
 .view #cv { position: relative; }
-.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: 0 0 var(--sp-3); }
+.view-settings { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: 0; }
 .view-settings label { display: flex; gap: var(--sp-3); align-items: center; font-size: 13px; }
 .view-settings input[type=checkbox] { width: 20px; height: 20px; }
 .view::before, .view::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1px solid var(--muted); pointer-events: none; opacity: .7; }
@@ -165,7 +165,7 @@ a { color: var(--cold); }
 .scale b { position: absolute; right: var(--sp-4); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
 .scale b:first-child { top: -2px; } .scale b:last-child { bottom: -2px; }
 
-.panel { background: var(--panel); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.panel { background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .eyebrow { font: 400 var(--fs-xs) var(--mono); color: var(--muted); margin: 0; }
 .panel h2 { font-family: var(--display); font-weight: 700; font-size: var(--fs-2xl); line-height: 1; text-transform: uppercase; letter-spacing: var(--track-display); margin: 0; text-wrap: balance; }
 .panel h3 { font: 400 var(--fs-xs) var(--mono); color: var(--muted); margin: 0; }
@@ -207,7 +207,7 @@ a { color: var(--cold); }
   linear-gradient(to right, transparent calc(50% - .5px), var(--line) calc(50% - .5px), var(--line) calc(50% + .5px), transparent calc(50% + .5px)), var(--deep);
   touch-action: none; cursor: crosshair; }
 .pad i { position: absolute; width: 20px; height: 20px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--warm); border: 2px solid var(--deep); pointer-events: none; }
-.padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
+.padlabels { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); font: 400 var(--fs-xs) var(--mono); color: var(--muted); }
 .assist { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 
 .reads { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: var(--sp-3) var(--sp-4); margin: 0; }
@@ -465,8 +465,10 @@ const fmt = (x, d = 0) => x.toLocaleString('en-US', { maximumFractionDigits: d, 
 const kelvin = k => fmt(Math.round(k / 100) * 100) + ' K';   // plain kelvin, to the nearest hundred
 const clock = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 function set(id, html) { const el = document.getElementById(id); if (el && el.innerHTML !== html) el.innerHTML = html; }
-function label(txt, x, y, color = COL.muted, align = 'left', size = 11) {
-  ctx.font = `${size}px ${MONO}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillText(txt, x, y);
+function label(txt, x, y, color = COL.muted, align = 'left', size = 11, halo = false) {
+  ctx.font = `${size}px ${MONO}`; ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+  if (halo) { ctx.save(); ctx.strokeStyle = COL.deep; ctx.lineWidth = 3.5; ctx.lineJoin = 'round'; ctx.strokeText(txt, x, y); ctx.restore(); }
+  ctx.fillStyle = color; ctx.fillText(txt, x, y);
 }
 function viewTitle(txt) { label(txt, 34, 24, COL.muted); }
 
@@ -632,7 +634,8 @@ const FRONT_RADIUS = 0.45;
 function igniteLayout(st) {
   const cx = W * 0.42, cy = H / 2 + 6, R = Math.min(W * 0.36, H * 0.37);
   const px = Math.min(W - 44, cx + R + (W - cx - R) * 0.55), ph = H * 0.34, pw = 24, top = cy - ph / 2;
-  return { cx, cy, R, px, ph, pw, top, py: top + 8 + (1 - st.anim) * (ph - 26) };
+  const pipeY = cy + ph / 2 - 8, pipeFromX = cx + Math.sqrt(Math.max(0, R * R - (pipeY - cy) ** 2));
+  return { cx, cy, R, px, ph, pw, top, pipeY, pipeFromX, py: top + 8 + (1 - st.anim) * (ph - 26) };
 }
 // The plasma's glow, as the stops of a radial gradient out to 1.25 times the jar's radius:
 // [at, [r, g, b], opacity], in the gas's colour, whiter as the ions heat; or null when it is too
@@ -752,13 +755,13 @@ const ignite = stage({
   // from the step's pressure each frame (docs/adr/0003). Side on, at the lab's scale, lit as a
   // lab: glass jar, brushed pump (docs/adr/0007).
   scene() {
-    const sc = labScale(), m = px => px / sc, { cx, cy, R, px, ph, pw, top, py } = igniteLayout(this);
+    const sc = labScale(), m = px => px / sc, { cx, cy, R, px, ph, pw, top, pipeY, pipeFromX, py } = igniteLayout(this);
     // A point on the canvas, `x`, `y` px from its top left, in metres from the scene's origin.
     const pt = (x, y) => [m(x - W / 2), m(y - H / 2), 0], glow = igniteGlow(this);
     const specks = (of, qs, size, colour) => ({ kind: 'specks', of, points: qs.map(q => pt(cx + q.x * R, cy + q.y * R)), size: m(size), colour, round: true });
     const list = [
       { kind: 'sky', colour: COL.deep },
-      { kind: 'pipe', from: pt(cx + R, cy + ph / 2 - 8), to: pt(px - pw / 2, cy + ph / 2 - 8), width: m(1.5), colour: COL.muted },
+      { kind: 'pipe', from: pt(pipeFromX, pipeY), to: pt(px - pw / 2, pipeY), width: m(1.5), colour: COL.muted },
       // Kind, place, size and colour only (docs/adr/0003): the barrel and handle where the flat view's are.
       { kind: 'piston housing', at: pt(px, cy), radius: m(pw / 2), height: m(ph), colour: COL.line },
       { kind: 'pump handle', at: pt(px, top - 15.5), span: m(18), colour: COL.cold },
@@ -774,12 +777,12 @@ const ignite = stage({
   },
   // The whole flat view, or over the 3D view (`flat` false) only its words and marks.
   draw(flat = true) {
-    const m = this.m, { cx, cy, R, px, ph, pw, top, py } = igniteLayout(this);
+    const m = this.m, { cx, cy, R, px, ph, pw, top, pipeY, pipeFromX, py } = igniteLayout(this);
     if (flat) {
       ctx.fillStyle = COL.deep; ctx.fillRect(0, 0, W, H);
       // pump: pipe, cylinder, piston
       ctx.strokeStyle = COL.muted; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(cx + R, cy + ph / 2 - 8); ctx.lineTo(px - pw / 2, cy + ph / 2 - 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pipeFromX, pipeY); ctx.lineTo(px - pw / 2, pipeY); ctx.stroke();
       ctx.strokeRect(px - pw / 2, top, pw, ph);
       ctx.fillStyle = COL.cold; ctx.fillRect(px - pw / 2 + 2, py, pw - 4, 8);
       ctx.fillRect(px - 2, top - 14, 4, py - top + 14); ctx.fillRect(px - 9, top - 18, 18, 5);
@@ -1522,7 +1525,7 @@ function drawPlates(st, flat = true) {
   const y = cy + height / 2 + 18;
   ctx.strokeStyle = COL.warm; ctx.lineWidth = 1; ctx.beginPath();
   ctx.moveTo(cx - gap / 2, y - 4); ctx.lineTo(cx - gap / 2, y + 4); ctx.moveTo(cx - gap / 2, y); ctx.lineTo(cx + gap / 2, y); ctx.lineTo(cx + gap / 2, y - 4); ctx.moveTo(cx + gap / 2, y); ctx.lineTo(cx + gap / 2, y + 4); ctx.stroke();
-  label('gap ' + fmt(10 ** st.ld) + ' nm', cx, y + 20, COL.warm, 'center');
+  label('gap ' + fmt(10 ** st.ld) + ' nm', cx, y + 20, COL.warm, 'center', 11, true);
   label('area ' + sci(10 ** st.la) + ' m²', cx, cy - height / 2 - 16, COL.ink, 'center');
   label('Attraction between the plates', cx, 48, COL.cold, 'center', W < 400 ? 10 : 12);
   label('Smaller gap → larger energy magnitude', cx, H - 42, COL.ink, 'center', W < 400 ? 10 : 11);
@@ -1661,7 +1664,7 @@ function flashEdge(R, q) {
 // How far through the crossing the transit diagram is: none before the flash, all of it after.
 const transitProgress = st => st.phase === 'gone' ? 1 : st.phase === 'flash' ? st.q : 0;
 // The transit diagram's pixels per metre, which fit the entrance across and the crossing down.
-function transitScale() { return Math.min((W - 56) / Math.max(open.w, 85), (H - 130) / (2 * AIRCRAFT.length)); }
+function transitScale() { return Math.min((W - 56) / Math.max(open.w, 85), (H - 140) / (2 * AIRCRAFT.length)); }
 // `flat` draws the whole diagram. Over the 3D view, which draws the airliner, it draws the marks and text.
 function drawTransit(st, flat = true) {
   const m = transitModel(transitProgress(st), open.w), cx = W / 2, cy = H / 2;
@@ -1673,7 +1676,7 @@ function drawTransit(st, flat = true) {
   ctx.fillStyle = 'rgba(185,162,255,.07)'; ctx.fillRect(24, 48, W - 48, cy - 48);
   label('BEYOND ENTRANCE: UNSPECIFIED', cx, 56, COL.read, 'center', W < 400 ? 9 : 10);
   ctx.setLineDash([3, 5]); ctx.strokeStyle = COL.line; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cx, 70); ctx.lineTo(cx, H - 65); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(cx, 70); ctx.lineTo(cx, H - 64); ctx.stroke(); ctx.setLineDash([]);
   if (flat) { ctx.save(); ctx.beginPath(); ctx.rect(0, cy, W, H - cy); ctx.clip(); ctx.translate(cx, cy + m.centreY * sc); plane(sc, COL.ink, COL.warm); ctx.restore(); }
   ctx.strokeStyle = m.fits ? COL.cold : COL.hot; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(cx - half, cy); ctx.lineTo(cx + half, cy); ctx.stroke();
@@ -1681,10 +1684,10 @@ function drawTransit(st, flat = true) {
     ctx.beginPath(); ctx.moveTo(x, cy - 8); ctx.lineTo(x, cy + 8); ctx.stroke();
   }
   label(`${open.w} m entrance`, cx, cy - 15, m.fits ? COL.cold : COL.hot, 'center');
-  label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 48, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
-  label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at 250 m/s cruise`, cx, H - 28, COL.muted, 'center', W < 400 ? 9 : 11);
+  label(m.fits ? `${fmt(m.clearance, 2)} m clearance per wing` : 'Wings do not clear', cx, H - 34, m.fits ? COL.cold : COL.hot, 'center', W < 400 ? 10 : 11);
+  label(`${fmt(m.elapsed, 3)} / ${fmt(m.duration, 3)} s at 250 m/s cruise`, cx, H - 16, COL.muted, 'center', W < 400 ? 9 : 11);
   // The crossing's 4orbs account claim, in that label's colour. At 9 px it fits a 320 px phone's canvas.
-  label('4orbs account: constant speed relative to the field', cx, H - 66, COL.read, 'center', W < 440 ? 9 : 11);
+  label('4orbs account: constant speed relative to the field', cx, H - 52, COL.read, 'center', W < 440 ? 9 : 11);
   viewTitle('TRANSIT DIAGRAM');
 }
 // The cloud deck far below the visible camera: where each cloud sits as fractions of the view, and its size.
@@ -1856,7 +1859,11 @@ const conv = stage({
           ctx.stroke(); ctx.lineCap = 'butt';
           orb(x, y, 4.5, '#b9703f', 'rgba(185,112,63,.3)');
         } else if (flat) orb(x, y, 4.5, '#fff', 'rgba(255,255,255,.4)');
-        if (th && i === 0 && this.phase !== 'flash') label('cold mark leads', x + 10, y - 8, COL.muted);
+        if (th && i === 0 && this.phase !== 'flash') {
+          const lx = clamp(x + (x >= cx ? 12 : -12), 10, W - 12);
+          const align = x >= cx ? (lx > W - 118 ? 'right' : 'left') : (lx < 118 ? 'left' : 'right');
+          label('cold mark leads', lx, clamp(y - 10, 38, H - 36), COL.ink, align, 11, true);
+        }
       }
     }
     const forming = throatFormingAmount(this);

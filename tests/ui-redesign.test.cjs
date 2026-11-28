@@ -46,6 +46,8 @@ test('mobile layout keeps simulation sticky above controls and defers secondary 
   const mobile = css.slice(css.indexOf('@media (max-width: 860px)'));
   assert.match(mobile, /\.bench-bar\s*\{[^}]*order:/, 'secondary bench bar defers below active controls on mobile');
   assert.match(mobile, /\.panel\s*\{[^}]*border-top:/, 'docked bottom-sheet console lip on mobile');
+  assert.match(mobile, /height:\s*min\(75vw,\s*38vh\)/, 'tall phone sticky viewport preserves >= 240px height at 320x640');
+  assert.match(mobile, /@media \(min-width:\s*680px\) and \(max-width:\s*900px\) and \(max-height:\s*500px\) and \(orientation:\s*landscape\)/, 'side-by-side landscape bench gated to >= 680px width');
 });
 
 test('accessibility review safeguards: live regions stay mounted, focus rings unclipped, non-text contrast >= 3:1, disabled sliders dimmed', () => {

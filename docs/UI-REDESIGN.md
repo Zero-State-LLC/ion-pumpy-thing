@@ -13,7 +13,7 @@ Inspected live production (`https://ion-pumpy-thing.app`), Slice 7 (`http://127.
 | Monospace prose & UI labels | Generic sci-fi trope (Hallmark REFLEX 64) | `.tag`, `.eyebrow`, `.btn.small`, `.padlabels`, `.mlabels`, `.hud` set in monospace | Set all prose, buttons, tags, and axis labels in `IBM Plex Sans`; reserve `IBM Plex Mono` (`tabular-nums`) strictly for numerical measurements, timer, scores, and scale ticks |
 | Decorative callout side stripe (`.brief`) | Generic AI card trope (Hallmark WARN 3) | `border-left: 3px solid var(--cold)` | Remove side stripe; let typography hierarchy and 1px machined hairlines carry structure |
 | Flat unframed `.reads` grid & default browser sliders | Weak instrumentation | Default OS range inputs and floating definition-list cells | Custom machined range tracks/thumbs, crosshair-gridded coil balance pad, graduated meters, and recessed 1px-hairline instrument readout bay |
-| Mobile scroll barrier | Mobile friction | 8 blocks of chrome above the glass jar on `390×844`, burying `PUMP (HOLD)` below the fold | Single-row mobile header + swipeable sequence rail + sticky pinned simulation (`36vh`) + docked bottom-sheet console directly below; defer secondary bench settings underneath |
+| Mobile scroll barrier | Mobile friction | 8 blocks of chrome above the glass jar on `390×844`, burying `PUMP (HOLD)` below the fold | Single-row mobile header + swipeable sequence rail + sticky pinned simulation (`min(75vw, 38vh)`) + docked bottom-sheet console directly below; defer secondary bench settings underneath; gate side-by-side landscape split to `>= 680px` |
 
 ## 2. Layout Directions Evaluated
 
